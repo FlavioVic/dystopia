@@ -9,6 +9,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { orderItems, orders } from "@/db/schema";
 import { PermanentError } from "@/saga/errors";
+import { createAddress } from "@/services/addresses";
 import {
   createOrder,
   markOrderCancelled,
@@ -21,6 +22,7 @@ beforeEach(resetDatabase);
 after(closeDatabase);
 
 const address = {
+  label: "Entrega",
   recipientName: "Cliente Teste",
   street: "Rua das Flores",
   number: "123",
@@ -32,10 +34,11 @@ const address = {
 };
 
 async function novoPedido(fixture: CheckoutFixture, quantity = 2) {
+  const saved = await createAddress(db, fixture.userId, address);
   return createOrder(db, {
     orderNumber: `DYS-2026-${Math.floor(Math.random() * 1_000_000)}`,
     userId: fixture.userId,
-    address,
+    shippingAddressId: saved.id,
     couponId: null,
     subtotalCents: fixture.product.priceCents * quantity,
     shippingCents: 0,
@@ -73,12 +76,13 @@ describe("criação de pedido", () => {
 
   it("recusa pedido sem itens", async () => {
     const fixture = await seedCheckoutFixture();
+    const saved = await createAddress(db, fixture.userId, address);
     await assert.rejects(
       () =>
         createOrder(db, {
           orderNumber: "DYS-2026-000001",
           userId: fixture.userId,
-          address,
+          shippingAddressId: saved.id,
           couponId: null,
           subtotalCents: 0,
           shippingCents: 0,
@@ -87,6 +91,36 @@ describe("criação de pedido", () => {
           lines: [],
         }),
       (error: unknown) => error instanceof PermanentError && error.code === "empty_order",
+    );
+  });
+
+  it("recusa pedido com endereço de outra pessoa", async () => {
+    const dono = await seedCheckoutFixture();
+    const intruso = await seedCheckoutFixture();
+    const doDono = await createAddress(db, dono.userId, address);
+
+    await assert.rejects(
+      () =>
+        createOrder(db, {
+          orderNumber: "DYS-2026-000002",
+          userId: intruso.userId,
+          shippingAddressId: doDono.id,
+          couponId: null,
+          subtotalCents: 1_000,
+          shippingCents: 0,
+          discountCents: 0,
+          totalCents: 1_000,
+          lines: [
+            {
+              productId: intruso.product.id,
+              variantId: null,
+              productNameSnapshot: "Produto",
+              unitPriceCents: 1_000,
+              quantity: 1,
+            },
+          ],
+        }),
+      (error: unknown) => error instanceof PermanentError && error.code === "address_not_found",
     );
   });
 });

@@ -3,7 +3,9 @@ import { notFound } from "next/navigation";
 import { requireAdmin } from "@/lib/data/auth";
 import { getCategoriesSimple, getProductForEdit } from "@/lib/data/admin";
 import { ProductForm } from "@/components/admin/ProductForm";
-import { updateProduct } from "@/lib/actions/admin";
+import { VariantCreateForm } from "@/components/admin/VariantCreateForm";
+import { VariantRow } from "@/components/admin/VariantRow";
+import { createVariant, updateProduct, updateVariant } from "@/lib/actions/admin";
 
 export const metadata: Metadata = { title: "Editar produto · Admin" };
 
@@ -39,6 +41,43 @@ export default async function EditProductPage(props: PageProps<"/admin/produtos/
           }}
         />
       </div>
+
+      <section className="mt-10 border-t border-border pt-6">
+        <h3 className="text-sm font-semibold uppercase tracking-wider text-foreground-muted">
+          Variantes ({product.variants.length})
+        </h3>
+        <p className="mt-1 text-xs text-foreground-muted">
+          Variante com preço vazio herda o preço do produto. O estoque da variante é o que a saga
+          reserva na compra.
+        </p>
+
+        {product.variants.length > 0 ? (
+          <ul className="mt-4 flex flex-col gap-2.5">
+            {product.variants.map((variant) => (
+              <VariantRow
+                key={variant.id}
+                variantId={variant.id}
+                variant={{
+                  name: variant.name,
+                  sku: variant.sku,
+                  priceCents: variant.priceCents,
+                  stockQuantity: variant.stockQuantity,
+                  attributes: variant.attributes,
+                }}
+                action={updateVariant.bind(null, variant.id)}
+              />
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-4 text-sm text-foreground-muted">
+            Sem variantes — o produto é vendido como item único.
+          </p>
+        )}
+
+        <div className="mt-4">
+          <VariantCreateForm action={createVariant.bind(null, id)} />
+        </div>
+      </section>
     </div>
   );
 }

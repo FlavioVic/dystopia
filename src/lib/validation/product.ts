@@ -29,16 +29,10 @@ export function field(formData: FormData, key: string): string {
   return String(formData.get(key) ?? "").trim();
 }
 
-/**
- * Converte "19,90" / "19.90" em centavos. Campo vazio é `null` (inválido),
- * NÃO zero — `Number("")` é 0, e isso já salvou produto a R$ 0,00 por acidente.
- */
-export function toCents(value: string): number | null {
-  if (!value.trim()) return null;
-  const parsed = Number(value.replace(",", "."));
-  if (!Number.isFinite(parsed) || parsed < 0) return null;
-  return Math.round(parsed * 100);
-}
+// Dinheiro é regra compartilhada (produto, cupom…) — mora em @/lib/money.
+export { toCents } from "@/lib/money";
+
+import { toCents as parseCents } from "@/lib/money";
 
 export const SLUG_PATTERN = /^[a-z0-9-]+$/;
 
@@ -49,9 +43,9 @@ export function parseProductForm(formData: FormData): ProductFormParse {
   const brand = field(formData, "brand") || null;
   const sku = field(formData, "sku");
   const categoryId = field(formData, "categoryId");
-  const priceCents = toCents(field(formData, "price"));
+  const priceCents = parseCents(field(formData, "price"));
   const compareRaw = field(formData, "compareAt");
-  const compareAtPriceCents = compareRaw ? toCents(compareRaw) : null;
+  const compareAtPriceCents = compareRaw ? parseCents(compareRaw) : null;
   const stockRaw = field(formData, "stock");
   const stockQuantity = Number.parseInt(stockRaw, 10);
   const isActive = formData.get("isActive") != null;

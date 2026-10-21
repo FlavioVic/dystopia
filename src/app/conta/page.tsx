@@ -5,6 +5,7 @@ import { getCurrentUser } from "@/lib/data/auth";
 import { getUserOrders } from "@/lib/data/orders";
 import { logout } from "@/lib/actions/auth";
 import { formatPriceCents } from "@/lib/format";
+import { ORDER_STATUS_LABELS, orderStatusClass, type OrderStatus } from "@/lib/order-status";
 
 export const metadata: Metadata = { title: "Minha conta" };
 
@@ -49,6 +50,21 @@ export default async function AccountPage() {
         </dl>
       </div>
 
+      <nav className="mt-6 flex flex-wrap gap-3">
+        <Link
+          href="/favoritos"
+          className="rounded-lg border border-border bg-background-elevated px-4 py-2.5 text-sm font-medium transition-colors hover:border-border-hover"
+        >
+          ♥ Favoritos
+        </Link>
+        <Link
+          href="/conta/enderecos"
+          className="rounded-lg border border-border bg-background-elevated px-4 py-2.5 text-sm font-medium transition-colors hover:border-border-hover"
+        >
+          Endereços
+        </Link>
+      </nav>
+
       <section className="mt-8">
         <h2 className="text-sm font-semibold uppercase tracking-wider text-foreground-muted">Meus pedidos</h2>
         {orders.length === 0 ? (
@@ -74,8 +90,10 @@ export default async function AccountPage() {
                     </span>
                   </span>
                   <span className="flex items-center gap-3">
-                    <span className="rounded-full bg-deal-soft px-2.5 py-0.5 text-[11px] font-semibold text-success">
-                      Pago
+                    <span
+                      className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${orderStatusClass(o.status)}`}
+                    >
+                      {ORDER_STATUS_LABELS[o.status as OrderStatus] ?? o.status}
                     </span>
                     <span className="font-mono text-sm font-semibold tabular-nums">
                       {formatPriceCents(o.totalCents)}

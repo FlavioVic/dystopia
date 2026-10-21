@@ -1,0 +1,67 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import { AddressForm } from "@/components/AddressForm";
+import { AddressRowActions } from "@/components/AddressRowActions";
+import { db } from "@/db";
+import { getCurrentUser } from "@/lib/data/auth";
+import { formatAddress } from "@/lib/validation/address";
+import { listAddresses } from "@/services/addresses";
+
+export const metadata: Metadata = { title: "Endereços" };
+
+export default async function AddressesPage() {
+  const user = await getCurrentUser();
+  if (!user) redirect("/entrar");
+
+  const addresses = await listAddresses(db, user.id);
+
+  return (
+    <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="font-brand text-2xl font-bold uppercase tracking-tight">Endereços</h1>
+          <p className="mt-1 text-sm text-foreground-muted">
+            Os endereços salvos aparecem como opção no checkout.
+          </p>
+        </div>
+        <Link href="/conta" className="text-sm text-foreground-muted hover:text-foreground">
+          ← Minha conta
+        </Link>
+      </div>
+
+      {addresses.length > 0 ? (
+        <ul className="mt-6 flex flex-col gap-3">
+          {addresses.map((address) => (
+            <li
+              key={address.id}
+              className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-border bg-background-elevated p-4"
+            >
+              <div className="min-w-0 text-sm">
+                <p className="flex flex-wrap items-center gap-2 font-medium">
+                  {address.label}
+                  {address.isDefault ? (
+                    <span className="rounded-full bg-accent/10 px-2 py-0.5 text-[11px] font-semibold text-accent">
+                      padrão
+                    </span>
+                  ) : null}
+                </p>
+                <p className="text-foreground-muted">{address.recipientName}</p>
+                <p className="text-xs text-foreground-muted">{formatAddress(address)}</p>
+              </div>
+              <AddressRowActions addressId={address.id} isDefault={address.isDefault} />
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-6 rounded-xl border border-border p-5 text-sm text-foreground-muted">
+          Nenhum endereço salvo ainda. O endereço do seu próximo pedido entra aqui automaticamente.
+        </p>
+      )}
+
+      <div className="mt-6">
+        <AddressForm hasAddresses={addresses.length > 0} />
+      </div>
+    </div>
+  );
+}

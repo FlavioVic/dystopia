@@ -1,7 +1,7 @@
 import { cache } from "react";
 import { eq, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { categories, orders, products } from "@/db/schema";
+import { categories, coupons, orders, products } from "@/db/schema";
 
 export const getAdminStats = cache(async () => {
   const [p] = await db
@@ -57,8 +57,21 @@ export const getAllProductsAdmin = cache(async () => {
 export const getProductForEdit = cache(async (id: string) => {
   return db.query.products.findFirst({
     where: eq(products.id, id),
-    with: { images: { orderBy: (i, { asc }) => [asc(i.position)] } },
+    with: {
+      images: { orderBy: (i, { asc }) => [asc(i.position)] },
+      variants: { orderBy: (v, { asc }) => [asc(v.name)] },
+    },
   });
+});
+
+export const getCouponsAdmin = cache(async () => {
+  return db.query.coupons.findMany({
+    orderBy: (coupon, { desc }) => [desc(coupon.isActive), desc(coupon.validFrom)],
+  });
+});
+
+export const getCouponForEdit = cache(async (id: string) => {
+  return db.query.coupons.findFirst({ where: eq(coupons.id, id) });
 });
 
 export const getCategoriesSimple = cache(async () => {

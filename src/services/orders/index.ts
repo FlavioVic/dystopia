@@ -12,17 +12,6 @@ import { addresses, orderItems, orders } from "@/db/schema";
 import { canTransition, type OrderStatus } from "@/lib/order-status";
 import { PermanentError } from "@/saga/errors";
 
-export type OrderAddressInput = {
-  recipientName: string;
-  street: string;
-  number: string;
-  complement: string | null;
-  neighborhood: string;
-  city: string;
-  state: string;
-  zipCode: string;
-};
-
 export type OrderLineInput = {
   productId: string;
   variantId: string | null;
@@ -34,7 +23,10 @@ export type OrderLineInput = {
 export type CreateOrderInput = {
   orderNumber: string;
   userId: string;
-  address: OrderAddressInput;
+  /** Endereço de entrega — tem que pertencer ao usuário do pedido. */
+  shippingAddressId: string;
+  /** Cobrança; quando omitido, usa o de entrega. */
+  billingAddressId?: string;
   lines: OrderLineInput[];
   couponId: string | null;
   subtotalCents: number;
@@ -56,10 +48,17 @@ export async function createOrder(executor: Executor, input: CreateOrderInput): 
     throw new PermanentError("empty_order", "Pedido sem itens.");
   }
 
-  const [address] = await executor
-    .insert(addresses)
-    .values({ userId: input.userId, ...input.address })
-    .returning({ id: addresses.id });
+  // Confere a posse do endereço aqui também (não só na borda): pedido com
+  // endereço de outra pessoa seria vazamento de dado.
+  const address = await executor.query.addresses.findFirst({
+    where: and(eq(addresses.id, input.shippingAddressId), eq(addresses.userId, input.userId)),
+    columns: { id: true },
+  });
+  if (!address) {
+    throw new PermanentError("address_not_found", "Endereço de entrega inválido.", {
+      addressId: input.shippingAddressId,
+    });
+  }
 
   const [order] = await executor
     .insert(orders)
@@ -68,7 +67,7 @@ export async function createOrder(executor: Executor, input: CreateOrderInput): 
       userId: input.userId,
       status: "pending",
       shippingAddressId: address.id,
-      billingAddressId: address.id,
+      billingAddressId: input.billingAddressId ?? address.id,
       couponId: input.couponId,
       subtotalCents: input.subtotalCents,
       shippingCents: input.shippingCents,

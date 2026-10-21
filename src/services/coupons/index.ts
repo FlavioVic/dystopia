@@ -6,7 +6,7 @@
  * perder recebe um erro PERMANENTE e a saga compensa.
  */
 
-import { and, eq, isNull, or, sql } from "drizzle-orm";
+import { and, eq, isNull, ne, or, sql } from "drizzle-orm";
 import type { Executor } from "@/db";
 import { coupons } from "@/db/schema";
 import { PermanentError } from "@/saga/errors";
@@ -58,4 +58,84 @@ export async function releaseCoupon(executor: Executor, couponId: string): Promi
     .update(coupons)
     .set({ usageCount: sql`greatest(0, ${coupons.usageCount} - 1)` })
     .where(eq(coupons.id, couponId));
+}
+
+// ---------------------------------------------------------------------------
+// Administração de cupons
+// ---------------------------------------------------------------------------
+
+export type CouponWriteInput = {
+  code: string;
+  description: string | null;
+  discountType: "percentage" | "fixed";
+  discountValue: number;
+  minOrderCents: number;
+  maxUsage: number | null;
+  validFrom: Date;
+  validUntil: Date | null;
+  isActive: boolean;
+};
+
+export async function createCoupon(
+  executor: Executor,
+  input: CouponWriteInput,
+): Promise<{ couponId: string }> {
+  await assertCodeFree(executor, input.code);
+  const [created] = await executor.insert(coupons).values(input).returning({ id: coupons.id });
+  return { couponId: created.id };
+}
+
+export async function updateCoupon(
+  executor: Executor,
+  couponId: string,
+  input: CouponWriteInput,
+): Promise<void> {
+  const existing = await executor.query.coupons.findFirst({
+    where: eq(coupons.id, couponId),
+    columns: { id: true, usageCount: true },
+  });
+  if (!existing) {
+    throw new PermanentError("coupon_not_found", "Cupom não encontrado.", { couponId });
+  }
+  if (input.maxUsage != null && input.maxUsage < existing.usageCount) {
+    throw new PermanentError(
+      "max_usage_below_usage",
+      `O cupom já foi usado ${existing.usageCount} vez(es) — o limite não pode ser menor.`,
+      { couponId, usageCount: existing.usageCount },
+    );
+  }
+
+  await assertCodeFree(executor, input.code, couponId);
+  await executor.update(coupons).set(input).where(eq(coupons.id, couponId));
+}
+
+export async function setCouponActive(
+  executor: Executor,
+  couponId: string,
+): Promise<{ isActive: boolean }> {
+  const coupon = await executor.query.coupons.findFirst({
+    where: eq(coupons.id, couponId),
+    columns: { isActive: true },
+  });
+  if (!coupon) throw new PermanentError("coupon_not_found", "Cupom não encontrado.", { couponId });
+
+  const isActive = !coupon.isActive;
+  await executor.update(coupons).set({ isActive }).where(eq(coupons.id, couponId));
+  return { isActive };
+}
+
+async function assertCodeFree(
+  executor: Executor,
+  code: string,
+  ignoreCouponId?: string,
+): Promise<void> {
+  const existing = await executor.query.coupons.findFirst({
+    where: ignoreCouponId
+      ? and(eq(coupons.code, code), ne(coupons.id, ignoreCouponId))
+      : eq(coupons.code, code),
+    columns: { id: true },
+  });
+  if (existing) {
+    throw new PermanentError("duplicate_coupon_code", "Já existe cupom com esse código.", { code });
+  }
 }

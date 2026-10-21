@@ -18,9 +18,11 @@ import { db } from "@/db";
 import { getCurrentUser } from "@/lib/data/auth";
 import { getCart } from "@/lib/data/cart";
 import { shippingFor, type CouponResult } from "@/lib/shipping";
+import { parseAddressForm } from "@/lib/validation/address";
 import { CHECKOUT_SAGA_TYPE, type CheckoutSagaPayload } from "@/saga/definitions/checkout";
 import { startSaga, tryRunSagaInline } from "@/saga/runner";
 import { resolveCoupon } from "@/services/coupons";
+import { createAddress, getUserAddress } from "@/services/addresses";
 import { createOrder, generateOrderNumber } from "@/services/orders";
 import { isPaymentMethod, type PaymentMethod } from "@/services/payments";
 import { isSimulationMode } from "@/services/payments/gateway";
@@ -60,26 +62,20 @@ export async function placeOrder(_prev: CheckoutState, formData: FormData): Prom
     return { message: "Seu carrinho está vazio." };
   }
 
-  // --- validação do endereço ---
-  const addr = {
-    recipientName: req(formData, "recipientName"),
-    zipCode: req(formData, "zipCode"),
-    street: req(formData, "street"),
-    number: req(formData, "number"),
-    complement: req(formData, "complement") || null,
-    neighborhood: req(formData, "neighborhood"),
-    city: req(formData, "city"),
-    state: req(formData, "state").toUpperCase(),
-  };
-  const errors: Record<string, string> = {};
-  if (addr.recipientName.length < 2) errors.recipientName = "Informe o destinatário.";
-  if (!/^\d{5}-?\d{3}$/.test(addr.zipCode)) errors.zipCode = "CEP inválido (00000-000).";
-  if (!addr.street) errors.street = "Informe a rua.";
-  if (!addr.number) errors.number = "Nº";
-  if (!addr.neighborhood) errors.neighborhood = "Informe o bairro.";
-  if (!addr.city) errors.city = "Informe a cidade.";
-  if (!/^[A-Z]{2}$/.test(addr.state)) errors.state = "UF";
-  if (Object.keys(errors).length > 0) return { errors };
+  // --- endereço: um salvo na agenda ou um novo (que também é salvo) ---
+  const savedAddressId = req(formData, "addressId");
+  let address: { id: string } | null = null;
+
+  if (savedAddressId) {
+    const saved = await getUserAddress(db, user.id, savedAddressId);
+    if (!saved) return { message: "Endereço não encontrado na sua conta." };
+    address = { id: saved.id };
+  }
+
+  const parsedAddress = parseAddressForm(formData);
+  if (!address && Object.keys(parsedAddress.errors).length > 0) {
+    return { errors: parsedAddress.errors };
+  }
 
   const method = req(formData, "paymentMethod");
   if (!isPaymentMethod(method) || !(PAYMENT_METHODS as readonly string[]).includes(method)) {
@@ -104,10 +100,15 @@ export async function placeOrder(_prev: CheckoutState, formData: FormData): Prom
 
   // --- commit inicial: pedido + saga + job, tudo ou nada (outbox) ---
   const { sagaId } = await db.transaction(async (tx) => {
+    // Endereço novo entra na agenda do cliente — é o que alimenta
+    // /conta/enderecos e o seletor do próximo checkout.
+    const shippingAddressId =
+      address?.id ?? (await createAddress(tx, user.id, parsedAddress.values)).id;
+
     const { orderId } = await createOrder(tx, {
       orderNumber,
       userId: user.id,
-      address: addr,
+      shippingAddressId,
       couponId: coupon.ok ? coupon.couponId : null,
       subtotalCents,
       shippingCents,

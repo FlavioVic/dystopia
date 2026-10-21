@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { StarRating } from "@/components/StarRating";
 import { AddToCartButton } from "@/components/AddToCartButton";
+import { WishlistHeart } from "@/components/WishlistHeart";
 import {
   discountPercent,
   formatPriceCents,
@@ -38,7 +39,7 @@ export function ProductCard({
   const installment = installmentText(product.priceCents);
 
   return (
-    <article className="group flex flex-col overflow-hidden rounded-xl border border-border bg-background-elevated transition-all duration-200 hover:-translate-y-0.5 hover:border-border-hover hover:shadow-[0_16px_36px_-20px_rgba(124,58,237,0.45)]">
+    <article className="group relative flex flex-col overflow-hidden rounded-xl border border-border bg-background-elevated transition-all duration-200 hover:-translate-y-0.5 hover:border-border-hover hover:shadow-[0_16px_36px_-20px_rgba(124,58,237,0.45)]">
       <Link
         href={`/produto/${product.slug}`}
         className="relative block aspect-square overflow-hidden bg-background"
@@ -71,6 +72,11 @@ export function ProductCard({
           ) : null}
         </div>
       </Link>
+
+      {/* Fora do <Link>: botão dentro de âncora não é HTML válido (e o clique navegaria). */}
+      <div className="absolute right-2 top-2 z-10">
+        <WishlistHeart productId={product.id} size="sm" />
+      </div>
 
       <div className="flex flex-1 flex-col gap-1.5 p-3.5">
         {product.category ? (

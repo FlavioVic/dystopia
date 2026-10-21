@@ -7,6 +7,7 @@ const links = [
   { href: "/admin", label: "Painel" },
   { href: "/admin/pedidos", label: "Pedidos" },
   { href: "/admin/produtos", label: "Produtos" },
+  { href: "/admin/cupons", label: "Cupons" },
   { href: "/admin/orquestracao", label: "Orquestração" },
 ];
 

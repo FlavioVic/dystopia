@@ -12,6 +12,7 @@ import { cartItems, coupons } from "@/db/schema";
 import { shippingFor } from "@/lib/shipping";
 import { CHECKOUT_SAGA_TYPE, type CheckoutSagaPayload } from "@/saga/definitions/checkout";
 import { startSaga } from "@/saga/runner";
+import { createAddress } from "@/services/addresses";
 import { createOrder, generateOrderNumber } from "@/services/orders";
 import { evaluateCoupon } from "@/services/coupons/rules";
 import type { SimulationMode } from "@/services/payments/gateway";
@@ -59,19 +60,22 @@ export async function startCheckout(
   const orderNumber = generateOrderNumber();
 
   const result = await db.transaction(async (tx) => {
+    const address = await createAddress(tx, fixture.userId, {
+      label: "Entrega",
+      recipientName: "Cliente Teste",
+      street: "Rua das Flores",
+      number: "123",
+      complement: null,
+      neighborhood: "Centro",
+      city: "São Paulo",
+      state: "SP",
+      zipCode: "01000-000",
+    });
+
     const { orderId } = await createOrder(tx, {
       orderNumber,
       userId: fixture.userId,
-      address: {
-        recipientName: "Cliente Teste",
-        street: "Rua das Flores",
-        number: "123",
-        complement: null,
-        neighborhood: "Centro",
-        city: "São Paulo",
-        state: "SP",
-        zipCode: "01000-000",
-      },
+      shippingAddressId: address.id,
       lines: lines.map((line) => ({
         productId: line.productId,
         variantId: line.variantId,

@@ -13,11 +13,15 @@ import { redirect } from "next/navigation";
 import { refresh } from "next/cache";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { orders, productImages, products } from "@/db/schema";
+import { orders } from "@/db/schema";
 import { getCurrentUser } from "@/lib/data/auth";
 import { canTransition, isOrderStatus, ORDER_STATUS_LABELS, type OrderStatus } from "@/lib/order-status";
+import { parseCouponForm } from "@/lib/validation/coupon";
 import { parseProductForm, field } from "@/lib/validation/product";
+import { parseVariantForm } from "@/lib/validation/variant";
 import * as queue from "@/queue";
+import * as catalog from "@/services/catalog";
+import * as couponsService from "@/services/coupons";
 import { transitionOrder } from "@/services/orders";
 import { PermanentError } from "@/saga/errors";
 
@@ -63,21 +67,12 @@ export async function toggleProductFlag(
   flag: "isActive" | "isFeatured",
 ): Promise<SimpleResult> {
   await ensureAdmin();
-  const product = await db.query.products.findFirst({
-    where: eq(products.id, id),
-    columns: { isActive: true, isFeatured: true },
-  });
-  if (!product) return { ok: false, error: "Produto não encontrado." };
-
-  const value = !product[flag];
-  await db
-    .update(products)
-    .set(
-      flag === "isActive"
-        ? { isActive: value, updatedAt: new Date() }
-        : { isFeatured: value, updatedAt: new Date() },
-    )
-    .where(eq(products.id, id));
+  try {
+    await catalog.setProductFlag(db, id, flag);
+  } catch (error) {
+    if (error instanceof PermanentError) return { ok: false, error: error.message };
+    throw error;
+  }
   refresh();
   return { ok: true };
 }
@@ -92,25 +87,10 @@ export async function updateProduct(
   if (Object.keys(errors).length > 0) return { errors };
 
   try {
-    await db
-      .update(products)
-      .set({
-        name: values.name,
-        slug: values.slug,
-        description: values.description,
-        brand: values.brand,
-        sku: values.sku,
-        categoryId: values.categoryId,
-        priceCents: values.priceCents,
-        compareAtPriceCents: values.compareAtPriceCents,
-        stockQuantity: values.stockQuantity,
-        isActive: values.isActive,
-        isFeatured: values.isFeatured,
-        updatedAt: new Date(),
-      })
-      .where(eq(products.id, id));
-  } catch {
-    return { message: "Não foi possível salvar — slug ou SKU já em uso?" };
+    await catalog.updateProduct(db, id, values);
+  } catch (error) {
+    if (error instanceof PermanentError) return { message: error.message };
+    throw error;
   }
   redirect("/admin/produtos");
 }
@@ -125,34 +105,113 @@ export async function createProduct(
   if (Object.keys(errors).length > 0) return { errors };
 
   try {
-    const [created] = await db
-      .insert(products)
-      .values({
-        name: values.name,
-        slug: values.slug,
-        description: values.description,
-        brand: values.brand,
-        sku: values.sku,
-        categoryId: values.categoryId,
-        priceCents: values.priceCents,
-        compareAtPriceCents: values.compareAtPriceCents,
-        stockQuantity: values.stockQuantity,
-        isActive: values.isActive,
-        isFeatured: values.isFeatured,
-      })
-      .returning({ id: products.id });
-    if (imageUrl && created) {
-      await db.insert(productImages).values({
-        productId: created.id,
-        url: imageUrl,
-        altText: values.name,
-        position: 0,
-      });
-    }
-  } catch {
-    return { message: "Não foi possível criar — slug ou SKU já em uso?" };
+    await catalog.createProduct(db, values, { imageUrl });
+  } catch (error) {
+    if (error instanceof PermanentError) return { message: error.message };
+    throw error;
   }
   redirect("/admin/produtos");
+}
+
+// ---------------------------------------------------------------------------
+// Variantes
+// ---------------------------------------------------------------------------
+
+export async function createVariant(
+  productId: string,
+  _prev: AdminFormState,
+  formData: FormData,
+): Promise<AdminFormState> {
+  await ensureAdmin();
+  const { errors, values } = parseVariantForm(formData);
+  if (Object.keys(errors).length > 0) return { errors };
+
+  try {
+    await catalog.createVariant(db, productId, values);
+  } catch (error) {
+    if (error instanceof PermanentError) return { message: error.message };
+    throw error;
+  }
+  refresh();
+  return { message: undefined };
+}
+
+export async function updateVariant(
+  variantId: string,
+  _prev: AdminFormState,
+  formData: FormData,
+): Promise<AdminFormState> {
+  await ensureAdmin();
+  const { errors, values } = parseVariantForm(formData);
+  if (Object.keys(errors).length > 0) return { errors };
+
+  try {
+    await catalog.updateVariant(db, variantId, values);
+  } catch (error) {
+    if (error instanceof PermanentError) return { message: error.message };
+    throw error;
+  }
+  refresh();
+  return { message: undefined };
+}
+
+export async function removeVariant(variantId: string): Promise<SimpleResult> {
+  await ensureAdmin();
+  const { deleted } = await catalog.deleteVariant(db, variantId);
+  if (!deleted) return { ok: false, error: "Variante não encontrada." };
+  refresh();
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// Cupons
+// ---------------------------------------------------------------------------
+
+export async function createCoupon(
+  _prev: AdminFormState,
+  formData: FormData,
+): Promise<AdminFormState> {
+  await ensureAdmin();
+  const { errors, values } = parseCouponForm(formData);
+  if (Object.keys(errors).length > 0) return { errors };
+
+  try {
+    await couponsService.createCoupon(db, values);
+  } catch (error) {
+    if (error instanceof PermanentError) return { message: error.message };
+    throw error;
+  }
+  redirect("/admin/cupons");
+}
+
+export async function updateCoupon(
+  couponId: string,
+  _prev: AdminFormState,
+  formData: FormData,
+): Promise<AdminFormState> {
+  await ensureAdmin();
+  const { errors, values } = parseCouponForm(formData);
+  if (Object.keys(errors).length > 0) return { errors };
+
+  try {
+    await couponsService.updateCoupon(db, couponId, values);
+  } catch (error) {
+    if (error instanceof PermanentError) return { message: error.message };
+    throw error;
+  }
+  redirect("/admin/cupons");
+}
+
+export async function toggleCouponActive(couponId: string): Promise<SimpleResult> {
+  await ensureAdmin();
+  try {
+    await couponsService.setCouponActive(db, couponId);
+  } catch (error) {
+    if (error instanceof PermanentError) return { ok: false, error: error.message };
+    throw error;
+  }
+  refresh();
+  return { ok: true };
 }
 
 /** Reprocessa um job da dead-letter (painel de orquestração). */

@@ -6,6 +6,14 @@ import { placeOrder, validateCoupon } from "@/lib/actions/checkout";
 import { FLAT_SHIPPING_CENTS, FREE_SHIPPING_MIN_CENTS, type CouponResult } from "@/lib/shipping";
 import { formatPriceCents } from "@/lib/format";
 
+export type SavedAddress = {
+  id: string;
+  label: string;
+  recipientName: string;
+  line: string;
+  isDefault: boolean;
+};
+
 type Line = {
   itemId: string;
   name: string;
@@ -29,12 +37,18 @@ export function CheckoutForm({
   defaultName,
   lines,
   subtotalCents,
+  savedAddresses = [],
 }: {
   defaultName: string;
   lines: Line[];
   subtotalCents: number;
+  savedAddresses?: SavedAddress[];
 }) {
   const [state, formAction, pending] = useActionState(placeOrder, undefined);
+  // Começa no endereço padrão (ou no primeiro salvo); sem nada salvo, no formulário.
+  const [addressChoice, setAddressChoice] = useState<string>(
+    savedAddresses.find((address) => address.isDefault)?.id ?? savedAddresses[0]?.id ?? "new",
+  );
   const [couponCode, setCouponCode] = useState("");
   const [coupon, setCoupon] = useState<CouponResult | null>(null);
   const [couponPending, startCoupon] = useTransition();
@@ -65,7 +79,59 @@ export function CheckoutForm({
           {/* Endereço */}
           <section className="rounded-2xl border border-border bg-background-elevated p-5">
             <h2 className="text-sm font-semibold uppercase tracking-wider text-foreground-muted">Entrega</h2>
-            <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-6">
+
+            {savedAddresses.length > 0 ? (
+              <div className="mt-4 flex flex-col gap-2">
+                {savedAddresses.map((address) => (
+                  <label
+                    key={address.id}
+                    className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-border p-3 transition-colors has-[:checked]:border-accent has-[:checked]:bg-accent/5"
+                  >
+                    <input
+                      type="radio"
+                      name="addressChoice"
+                      value={address.id}
+                      checked={addressChoice === address.id}
+                      onChange={() => setAddressChoice(address.id)}
+                      className="mt-0.5 accent-[var(--accent)]"
+                    />
+                    <span className="min-w-0">
+                      <span className="flex flex-wrap items-center gap-2 text-sm font-medium">
+                        {address.label}
+                        {address.isDefault ? (
+                          <span className="rounded-full bg-accent/10 px-2 py-0.5 text-[10px] font-semibold text-accent">
+                            padrão
+                          </span>
+                        ) : null}
+                      </span>
+                      <span className="block text-[11px] text-foreground-muted">{address.recipientName}</span>
+                      <span className="block text-[11px] text-foreground-muted">{address.line}</span>
+                    </span>
+                  </label>
+                ))}
+
+                <label className="flex cursor-pointer items-center gap-2.5 rounded-xl border border-border p-3 transition-colors has-[:checked]:border-accent has-[:checked]:bg-accent/5">
+                  <input
+                    type="radio"
+                    name="addressChoice"
+                    value="new"
+                    checked={addressChoice === "new"}
+                    onChange={() => setAddressChoice("new")}
+                    className="accent-[var(--accent)]"
+                  />
+                  <span className="text-sm font-medium">Enviar pra outro endereço</span>
+                </label>
+              </div>
+            ) : null}
+
+            {/* O servidor recebe só o id; endereço novo vai nos campos abaixo. */}
+            {addressChoice !== "new" ? (
+              <input type="hidden" name="addressId" value={addressChoice} />
+            ) : null}
+
+            <div
+              className={`mt-4 grid grid-cols-2 gap-3 sm:grid-cols-6 ${addressChoice === "new" ? "" : "hidden"}`}
+            >
               <Field className="sm:col-span-6" label="Destinatário" name="recipientName" defaultValue={defaultName} error={err.recipientName} />
               <Field className="sm:col-span-2" label="CEP" name="zipCode" placeholder="00000-000" error={err.zipCode} />
               <Field className="sm:col-span-4" label="Rua" name="street" error={err.street} />

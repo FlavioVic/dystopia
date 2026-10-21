@@ -30,10 +30,12 @@ function SearchForm({ className = "" }: { className?: string }) {
 export function Header({
   categories,
   cartCount = 0,
+  favoriteCount = 0,
   user = null,
 }: {
   categories: Category[];
   cartCount?: number;
+  favoriteCount?: number;
   user?: { name: string } | null;
 }) {
   return (
@@ -67,6 +69,31 @@ export function Header({
               <span className="hidden sm:inline">Entrar</span>
             </Link>
           )}
+
+          {user ? (
+            <Link
+              href="/favoritos"
+              className="relative flex h-9 w-9 items-center justify-center rounded-md border border-border text-foreground-muted transition-colors hover:border-border-hover hover:text-accent"
+              aria-label={
+                favoriteCount > 0
+                  ? `Favoritos (${favoriteCount} ${favoriteCount === 1 ? "produto" : "produtos"})`
+                  : "Favoritos"
+              }
+            >
+              <svg viewBox="0 0 24 24" className="h-4.5 w-4.5" fill="none" stroke="currentColor" strokeWidth="1.75">
+                <path
+                  d="M12 20s-7-4.3-7-9.3A4 4 0 0 1 12 7.8a4 4 0 0 1 7 2.9c0 5-7 9.3-7 9.3z"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+              {favoriteCount > 0 ? (
+                <span className="absolute -right-1.5 -top-1.5 flex h-4.5 min-w-4.5 items-center justify-center rounded-full bg-accent-secondary px-1 font-mono text-[10px] font-semibold leading-none text-white">
+                  {favoriteCount > 99 ? "99+" : favoriteCount}
+                </span>
+              ) : null}
+            </Link>
+          ) : null}
 
           <Link
             href="/carrinho"
