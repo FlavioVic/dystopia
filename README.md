@@ -21,6 +21,10 @@ O pedido deixou de ser uma transação gigante: virou uma saga de passos atômic
 em serviços separados, com fila no Postgres, retry com backoff, compensação em
 ordem reversa e painel de operação em `/admin/orquestracao`.
 
+✅ **Etapa 5 — Conta do cliente e catálogo**
+Avaliações com compra verificada, lista de desejos, agenda de endereços
+reaproveitada no checkout e gestão de cupons e variantes no admin.
+
 ## Stack
 
 - **Framework**: Next.js 16 (App Router, Server Actions, TypeScript)
@@ -28,7 +32,7 @@ ordem reversa e painel de operação em `/admin/orquestracao`.
 - **Banco de dados**: PostgreSQL
 - **ORM**: [Drizzle ORM](https://orm.drizzle.team/) + `drizzle-kit` (migrations)
 - **Orquestração**: SAGA + fila, implementadas no projeto (sem broker externo)
-- **Testes**: `node:test` + `tsx` (105 testes, unitários e de integração)
+- **Testes**: `node:test` + `tsx` (181 testes, unitários e de integração)
 
 Dependências de runtime: `next`, `react`, `drizzle-orm`, `pg`, `jose`,
 `bcryptjs`, `dotenv`. Nada além disso — fila, orquestrador, logger e runner de
@@ -118,6 +122,27 @@ O worker roda a reconciliação a cada 30s (ou `npm run reconcile` na mão):
 O item 3 é a garantia de progresso: por pior que seja o momento do crash,
 sempre volta a existir um job pra terminar a saga.
 
+## Conta do cliente
+
+| Rota | O que faz |
+|---|---|
+| `/conta` | Dados da conta e histórico de pedidos (com o status real de cada um) |
+| `/conta/enderecos` | Agenda de endereços: cadastrar, definir padrão, remover |
+| `/favoritos` | Lista de desejos (coração na vitrine e na página do produto) |
+
+- **Avaliações**: quem está logado avalia direto na página do produto (1 a 5
+  estrelas, título e comentário opcionais). Uma avaliação por pessoa por
+  produto — reenviar edita a sua. Quem já comprou o item ganha o selo *compra
+  verificada* (checado contra pedidos pagos), e a média/contagem do produto são
+  recalculadas na mesma transação da escrita.
+- **Endereços**: o endereço digitado no checkout entra na agenda, e os salvos
+  aparecem como opção no próximo pedido. Endereço usado em pedido não pode ser
+  removido (a FK é `RESTRICT` de propósito) — a interface explica em vez de
+  estourar erro.
+- **Favoritos**: o coração aparece em toda a vitrine com **uma** query por
+  request (React `cache()` + um componente de servidor que resolve o estado),
+  não uma por card.
+
 ## Modelagem do banco
 
 18 tabelas: 14 do domínio de e-commerce + 4 da orquestração.
@@ -192,7 +217,7 @@ os mesmos `db:migrate` / `db:seed`.
 ## Testes
 
 ```bash
-npm test          # 105 testes
+npm test          # 181 testes
 npm run test:unit # subconjunto sem banco
 ```
 
@@ -206,7 +231,8 @@ antes de rodar, e executa os arquivos em série.
   compensação (sem estoque, pagamento recusado, cupom esgotado), retry
   transitório terminado **pelo worker**, idempotência (reexecução e retomada
   pós-crash não duplicam efeito), concorrência da fila (`SKIP LOCKED`),
-  dead-letter e reconciliação.
+  dead-letter, reconciliação, avaliações, favoritos, agenda de endereços,
+  catálogo (slug/SKU único, variantes) e administração de cupons.
 
 Os testes verificam **efeito**, não chamada: depois de um caminho triste, a
 asserção é "o estoque voltou, a cobrança foi estornada, o pedido está
@@ -226,6 +252,10 @@ testes → build de produção. É a mesma sequência que vale localmente:
 npx tsc --noEmit && npm run lint && npm test && npm run build
 ```
 
+> O run só sai do lugar se o repositório tiver GitHub Actions habilitado e com
+> cota — em repositório privado sem minutos disponíveis o run falha no
+> *startup*, sem nem criar o job (repositório público tem Actions ilimitado).
+
 ## Painel admin
 
 Entre com o usuário admin do seed e acesse [`/admin`](http://localhost:3000/admin)
@@ -239,7 +269,8 @@ de escrever.
 | `/admin/pedidos` | Todos os pedidos (cliente, data, itens, status, total) |
 | `/admin/pedidos/[orderNumber]` | Itens, totais, endereço, pagamento, troca de status e a saga do pedido |
 | `/admin/produtos` | Lista com preço/estoque e toggles de "ativo" e "destaque" |
-| `/admin/produtos/novo` · `/admin/produtos/[id]` | Criar e editar produto |
+| `/admin/produtos/novo` · `/admin/produtos/[id]` | Criar e editar produto, com variantes (tamanho/cor, SKU, preço e estoque próprios) |
+| `/admin/cupons` · `/admin/cupons/novo` · `/admin/cupons/[id]` | Cupons: percentual ou valor fixo, pedido mínimo, limite de usos e validade |
 | `/admin/orquestracao` | Sagas, fila, dead-letter, notificações e reconciliação |
 
 ## Decisões técnicas
@@ -298,6 +329,8 @@ chamá-lo por rede, trocando só o `invoke`/`compensate` do passo.
 - [x] SAGA + fila + compensação + reconciliação
 - [ ] Gateway de pagamento real no lugar do provedor simulado
 - [ ] Notificação de verdade (e-mail/webhook) no passo `notify-customer`
-- [ ] Avaliações (`reviews`) e lista de desejos (`wishlist_items`) na interface
+- [x] Avaliações e lista de desejos na interface
+- [x] Agenda de endereços reaproveitada no checkout
+- [x] Admin de cupons e de variantes
 - [ ] Observabilidade: métricas de fila/saga e alerta de dead-letter
 - [ ] Extrair `payments` pra um serviço próprio consumindo a fila

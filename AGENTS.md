@@ -35,6 +35,8 @@ app/ + components/        borda: UI, rotas, formulários
 lib/actions/*             borda HTTP (Server Actions): valida entrada, nada de regra
 saga/                     orquestração: ordem dos passos, retry, compensação
 services/*                regra de negócio, uma responsabilidade cada
+                          (inventory, payments, orders, coupons, carts,
+                           notifications, catalog, reviews, wishlist, addresses)
 queue/                    fila genérica (jobs, claim, backoff, DLQ)
 db/                       schema Drizzle + pool
 ```
@@ -100,8 +102,10 @@ idempotência), `jobs` (fila). Visível em `/admin/orquestracao`.
 10. **Status de pedido passa pela máquina de estados** (`src/lib/order-status.ts`
     + `transitionOrder`). Não faça `update orders set status` na mão.
 11. Arquivo `"use server"` só pode exportar função async — constante, tipo e
-    função sync vão pra outro módulo (foi o que motivou `lib/shipping.ts`,
-    `lib/validation/product.ts` e `services/coupons/rules.ts`).
+    função sync vão pra outro módulo. É por isso que validação de formulário
+    mora em `lib/validation/*` (product, review, address, coupon, variant),
+    regra pura de cupom em `services/coupons/rules.ts` e conversão de dinheiro
+    em `lib/money.ts` (nunca duplique `toCents`).
 12. Toda Server Action de admin chama `ensureAdmin()`. Layout protegido não
     basta: Server Action é endpoint público.
 
@@ -112,6 +116,10 @@ com `invoke` + `compensate`, implemente a regra num serviço, e dê um rótulo e
 `src/lib/saga-ui.ts`. Passo novo entra **no fim** se já houver saga em voo em
 produção (saga antiga guarda `current_step`; inserir no meio desalinha a
 retomada).
+
+**Novo formulário**: validação pura em `src/lib/validation/<nome>.ts`
+(entra `FormData`, sai `{ errors, values }`), teste unitário cobrindo os cantos,
+e a Server Action só chama o parser + o serviço.
 
 **Novo serviço**: pasta em `src/services/<nome>/` recebendo `Executor`
 (`Database | Transaction`) como primeiro parâmetro — é o que permite compor
