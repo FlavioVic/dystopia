@@ -1,0 +1,118 @@
+@import "tailwindcss";
+
+/*
+ * Dystopia — tema: claro, minimalista, com toque industrial/tech.
+ * Base clara, tipografia limpa, acento em laranja da marca (ação/preço/links) e
+ * âmbar como destaque secundário (avaliações, badges). Sem tons pastel/rosa.
+ * A logo usa o laranja vibrante #EA580C (orange-600); a UI usa um tom um nível
+ * mais fundo (#C2410C, orange-700) pra manter contraste de TEXTO em AA.
+ * Contraste checado (WCAG AA): fg/bg 17.3:1, accent/bg 4.8:1, accent2/bg 4.6:1.
+ */
+
+:root {
+  --background: #f5f6f8;
+  --background-elevated: #ffffff;
+  --background-elevated-hover: #eef0f3;
+  --foreground: #111217;
+  --foreground-muted: #5c6270;
+  --border: #e3e5ea;
+  --border-hover: #c9ccd4;
+
+  --accent: #c2410c; /* laranja da marca (orange-700) — ações, preço, links; AA em texto */
+  --accent-foreground: #ffffff;
+  --accent-secondary: #b45309; /* âmbar — avaliações, destaques secundários */
+
+  --danger: #dc2626;
+  --success: #15803d;
+
+  /* Paleta vibrante (hero, badges de oferta, gradientes) */
+  --magenta: #db2777; /* rosa-magenta — parceiro do gradiente */
+  --violet: #7c3aed; /* violeta — categorias, gradiente */
+  --deal: #16a34a; /* verde vivo — % OFF, frete grátis */
+  --deal-foreground: #ffffff;
+  --deal-soft: #dcfce7; /* fundo do badge de frete grátis */
+  --amber-bright: #fbbf24; /* âmbar vivo — destaques sobre o hero */
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-background-elevated: var(--background-elevated);
+  --color-background-elevated-hover: var(--background-elevated-hover);
+  --color-foreground: var(--foreground);
+  --color-foreground-muted: var(--foreground-muted);
+  --color-border: var(--border);
+  --color-border-hover: var(--border-hover);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent-secondary: var(--accent-secondary);
+  --color-danger: var(--danger);
+  --color-success: var(--success);
+  --color-magenta: var(--magenta);
+  --color-violet: var(--violet);
+  --color-deal: var(--deal);
+  --color-deal-foreground: var(--deal-foreground);
+  --color-deal-soft: var(--deal-soft);
+  --color-amber-bright: var(--amber-bright);
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono:
+    ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Consolas, "Liberation Mono", monospace;
+  /* Chakra Petch — fonte da marca (wordmark). --font-chakra vem do next/font. */
+  --font-brand:
+    var(--font-chakra), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+* {
+  border-color: var(--border);
+}
+
+html {
+  color-scheme: light;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+}
+
+/* Grid sutil de fundo — usado só em áreas de destaque (hero), não a app inteira */
+.bg-grid {
+  background-image:
+    linear-gradient(to right, color-mix(in srgb, var(--foreground) 6%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in srgb, var(--foreground) 6%, transparent) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+/* Background do hero — gradiente laranja→magenta→violeta + hexágonos (SVG gerado) */
+.hero-bg {
+  background-image: url("/backgrounds/hero.svg");
+  background-size: cover;
+  background-position: center;
+}
+
+/* Textura hexagonal sutil pra seções/bandas */
+.hex-texture {
+  background-image: url("/backgrounds/hex-pattern.svg");
+  background-size: 56px 96px;
+}
+
+/* Faixa/gradiente da marca pra CTAs e promo strip */
+.gradient-brand {
+  background-image: linear-gradient(100deg, var(--accent) 0%, var(--magenta) 55%, var(--violet) 100%);
+}
+
+/* Sombra discreta pra elementos de destaque (usar com moderação) */
+.glow-accent {
+  box-shadow: 0 8px 20px -6px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+/* Glow colorido pra cards/hero em destaque */
+.glow-brand {
+  box-shadow: 0 20px 45px -18px color-mix(in srgb, var(--violet) 55%, transparent);
+}
+
+::selection {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}

@@ -1,0 +1,39 @@
+# Postgres de desenvolvimento do Dystopia.
+#
+#   docker compose up -d        # sobe o banco
+#   npm run db:migrate          # aplica as migrations
+#   npm run db:seed             # popula com dados de exemplo
+#   docker compose down         # para (os dados ficam no volume)
+#   docker compose down -v      # para E apaga os dados
+#
+# A porta 5544 (e não 5432) é o padrão de propósito: é comum já ter outro
+# Postgres ocupando a 5432 na máquina. O `.env.example` aponta pra cá.
+#
+# Só o banco mora aqui. App (`npm run dev`) e worker (`npm run worker`) rodam
+# na máquina durante o desenvolvimento — em produção o worker é um processo
+# separado do servidor web (ver README › Arquitetura).
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: dystopia_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-dystopia}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dystopia_dev_pw}
+      POSTGRES_DB: ${POSTGRES_DB:-dystopia}
+    ports:
+      - "${POSTGRES_PORT:-5544}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      # `npm run db:migrate` logo depois do `up -d` só funciona se o banco já
+      # aceitar conexão — daí o healthcheck.
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-dystopia} -d ${POSTGRES_DB:-dystopia}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  pgdata:
+    name: dystopia_pgdata

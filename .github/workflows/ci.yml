@@ -1,0 +1,66 @@
+# Verificação automática: tipos, lint, migrations, testes e build de produção.
+#
+# Os testes de integração precisam de Postgres de verdade (a suíte exercita
+# `FOR UPDATE SKIP LOCKED`, índice parcial e transações), então o job sobe um
+# service container em vez de mockar banco.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  verificar:
+    name: tipos, lint, testes e build
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: dystopia
+          POSTGRES_PASSWORD: dystopia_dev_pw
+          POSTGRES_DB: dystopia
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U dystopia -d dystopia"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://dystopia:dystopia_dev_pw@localhost:5432/dystopia
+      # Segredo de CI: serve só pra app subir (sessão é JWT assinado).
+      SESSION_SECRET: ci-somente-para-verificacao-nao-use-em-producao
+      LOG_LEVEL: error
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Tipos
+        run: npx tsc --noEmit
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Migrations aplicam em banco limpo
+        run: npm run db:migrate
+
+      - name: Testes (unitários + integração)
+        # O runner cria e migra `dystopia_test` sozinho.
+        run: npm test
+
+      - name: Build de produção
+        run: npm run build
