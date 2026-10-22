@@ -4,12 +4,18 @@
  * Fica escutando a fila (`jobs`) e avançando sagas. Dá pra subir vários em
  * paralelo — a fila é segura pra concorrência. Encerra limpo em Ctrl+C /
  * SIGTERM: termina o tick atual, fecha o pool e sai.
+ *
+ * Pagamentos roda em processo próprio (`npm run worker:payments`). Pra um
+ * deploy com um container só, `WORKER_QUEUES=default,payments` faz este
+ * processo consumir as duas filas — por isso ele também conhece os handlers
+ * de pagamento (só são usados se a fila `payments` estiver na lista).
  */
 
 import "dotenv/config";
 import { db as pgDb, pgPool } from "@/db";
 import { createLogger } from "@/lib/logger";
 import { startWorker } from "@/queue/worker";
+import { cardProvider, paymentHandlers } from "@/services/payments/consumer";
 import { pruneRateLimits } from "@/services/rate-limit";
 
 const logger = createLogger("worker");
@@ -27,14 +33,18 @@ async function pruneOldRateLimits(): Promise<void> {
 }
 
 async function main(): Promise<void> {
+  const queues = (process.env.WORKER_QUEUES ?? "default")
+    .split(",")
+    .map((queue) => queue.trim())
+    .filter(Boolean);
+  if (queues.includes("payments")) logger.info("gateway de cartão", { provider: cardProvider() });
+
   const worker = startWorker({
-    queues: (process.env.WORKER_QUEUES ?? "default")
-      .split(",")
-      .map((queue) => queue.trim())
-      .filter(Boolean),
+    queues,
     batchSize: Number(process.env.WORKER_BATCH_SIZE ?? 5),
     pollMs: Number(process.env.WORKER_POLL_MS ?? 1_000),
     reconcileEveryMs: Number(process.env.WORKER_RECONCILE_MS ?? 30_000),
+    handlers: paymentHandlers,
   });
 
   void pruneOldRateLimits();

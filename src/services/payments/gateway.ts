@@ -1,24 +1,28 @@
 /**
- * Provedor de pagamento SIMULADO.
+ * Gateway de pagamento: o único ponto do sistema que fala com infraestrutura
+ * externa. Roteia por provedor — o resto do serviço (e a saga) não sabe qual:
  *
- * É o único ponto do sistema que finge ser infraestrutura externa. A troca
- * por um gateway real (Stripe, Mercado Pago) acontece aqui dentro, sem mexer
- * na saga: o contrato (`charge`/`reverse` + chave de idempotência) já é o que
- * um provedor real expõe.
+ * - cartão com `pm_…` (Stripe Elements no navegador) + Stripe configurado
+ *   → Stripe, modo de teste (`stripe.ts`);
+ * - o resto (Pix, boleto, cartão sem Stripe) → provedor SIMULADO.
  *
- * `mode` existe pra demonstrar/testar os caminhos tristes de forma
- * determinística — o padrão é aprovar.
+ * `mode` é o modo demonstração: injeta a falha ANTES de qualquer provedor,
+ * pra mostrar os caminhos tristes de forma determinística (o Stripe não tem
+ * como simular "fora do ar"). Recusa de verdade no Stripe vem do cartão
+ * 4000 0000 0000 0002.
  */
 
 import { createHash } from "node:crypto";
 import { PermanentError, RetryableError } from "@/saga/errors";
-
-export const SIMULATION_MODES = ["approve", "decline", "flaky_once", "unavailable"] as const;
-export type SimulationMode = (typeof SIMULATION_MODES)[number];
-
-export function isSimulationMode(value: unknown): value is SimulationMode {
-  return typeof value === "string" && (SIMULATION_MODES as readonly string[]).includes(value);
-}
+import type { SimulationMode } from "./contract";
+import {
+  STRIPE_PROVIDER,
+  stripeCharge,
+  stripeConfigFromEnv,
+  stripeRefund,
+  type FetchLike,
+  type StripeConfig,
+} from "./stripe";
 
 export type ChargeInput = {
   amountCents: number;
@@ -28,6 +32,9 @@ export type ChargeInput = {
   mode?: SimulationMode;
   /** Tentativa atual do passo (usada pelo modo `flaky_once`). */
   attempt?: number;
+  /** PaymentMethod do Stripe criado no navegador (`pm_…`). */
+  cardPaymentMethodId?: string;
+  orderId?: string;
 };
 
 export type ChargeResult = {
@@ -38,7 +45,20 @@ export type ChargeResult = {
 
 export const PROVIDER = "simulado";
 
-export async function charge(input: ChargeInput): Promise<ChargeResult> {
+/** Dependências externas — os testes injetam um `fetch` falso e a config. */
+export type GatewayDeps = { stripe: StripeConfig | null; fetch: FetchLike };
+
+const defaultDeps = (): GatewayDeps => ({ stripe: stripeConfigFromEnv(), fetch });
+
+/**
+ * Quem processa cartão neste processo. Chamado na subida do worker: chave de
+ * produção derruba o processo na hora, em vez de falhar na primeira compra.
+ */
+export function cardProvider(): typeof STRIPE_PROVIDER | typeof PROVIDER {
+  return stripeConfigFromEnv() ? STRIPE_PROVIDER : PROVIDER;
+}
+
+export async function charge(input: ChargeInput, deps: GatewayDeps = defaultDeps()): Promise<ChargeResult> {
   const mode = input.mode ?? "approve";
   const attempt = input.attempt ?? 1;
 
@@ -61,6 +81,25 @@ export async function charge(input: ChargeInput): Promise<ChargeResult> {
     });
   }
 
+  if (input.cardPaymentMethodId) {
+    // O comprador digitou o cartão no Elements: sem Stripe aqui, não há como
+    // cobrar — e cair no simulado aprovaria um cartão que ninguém validou.
+    if (!deps.stripe) {
+      throw new PermanentError("gateway_misconfigured", "Pagamento com cartão indisponível no momento.");
+    }
+    const result = await stripeCharge(
+      deps.stripe,
+      {
+        amountCents: input.amountCents,
+        paymentMethodId: input.cardPaymentMethodId,
+        idempotencyKey: input.idempotencyKey,
+        orderId: input.orderId,
+      },
+      deps.fetch,
+    );
+    return { ...result, provider: STRIPE_PROVIDER };
+  }
+
   return {
     transactionId: transactionIdFor(input.idempotencyKey),
     provider: PROVIDER,
@@ -68,10 +107,27 @@ export async function charge(input: ChargeInput): Promise<ChargeResult> {
   };
 }
 
-export async function reverse(input: { transactionId: string | null }): Promise<{ reversed: boolean }> {
-  // Num provedor real seria um POST /refunds. Aqui o estorno sempre funciona:
-  // o que importa pro exemplo é a saga marcar o pagamento como estornado.
-  return { reversed: input.transactionId != null };
+export async function reverse(
+  input: { transactionId: string | null; provider: string; idempotencyKey: string },
+  deps: GatewayDeps = defaultDeps(),
+): Promise<{ reversed: boolean }> {
+  if (input.transactionId == null) return { reversed: false };
+
+  if (input.provider === STRIPE_PROVIDER) {
+    if (!deps.stripe) {
+      // Cobrado no Stripe e sem chave pra estornar: não dá pra fingir.
+      throw new RetryableError("gateway_misconfigured", "Stripe não configurado para estornar.");
+    }
+    return stripeRefund(
+      deps.stripe,
+      { paymentIntentId: input.transactionId, idempotencyKey: `${input.idempotencyKey}:refund` },
+      deps.fetch,
+    );
+  }
+
+  // Simulado: o estorno sempre funciona — o que importa pro exemplo é a saga
+  // marcar o pagamento como estornado.
+  return { reversed: true };
 }
 
 /** Id determinístico: a mesma chave de idempotência gera a mesma transação. */

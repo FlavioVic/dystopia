@@ -7,7 +7,6 @@ import { after, beforeEach, describe, it } from "node:test";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { orders, products, reviews } from "@/db/schema";
-import { runSagaInline } from "@/saga/runner";
 import {
   deleteReview,
   getUserReview,
@@ -18,6 +17,7 @@ import {
 } from "@/services/reviews";
 import { closeDatabase, resetDatabase, seedCheckoutFixture } from "../helpers/db";
 import { startCheckout } from "../helpers/checkout";
+import { settleSaga } from "../helpers/saga";
 
 beforeEach(resetDatabase);
 after(closeDatabase);
@@ -100,7 +100,7 @@ describe("avaliação", () => {
     assert.equal(antes.isVerifiedPurchase, false);
 
     const checkout = await startCheckout(fixture);
-    assert.equal((await runSagaInline(checkout.sagaId)).status, "completed");
+    assert.equal((await settleSaga(checkout.sagaId)).status, "completed");
 
     assert.equal(await hasPurchasedProduct(db, fixture.userId, fixture.product.id), true);
     const depois = await upsertReview(db, {
@@ -116,7 +116,7 @@ describe("avaliação", () => {
   it("pedido cancelado não conta como compra", async () => {
     const fixture = await seedCheckoutFixture({ stock: 5, quantity: 1 });
     const checkout = await startCheckout(fixture, { simulate: "decline" });
-    assert.equal((await runSagaInline(checkout.sagaId)).status, "compensated");
+    assert.equal((await settleSaga(checkout.sagaId)).status, "compensated");
 
     const order = await db.query.orders.findFirst({ where: eq(orders.id, checkout.orderId) });
     assert.equal(order?.status, "cancelled");

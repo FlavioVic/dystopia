@@ -22,6 +22,13 @@
       "when": 1792685842600,
       "tag": "0002_condemned_argent",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1792689694149,
+      "tag": "0003_serious_kabuki",
+      "breakpoints": true
     }
   ]
 }

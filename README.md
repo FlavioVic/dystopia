@@ -47,7 +47,7 @@ pelo próprio fluxo da loja — o recusado usa o gateway simulado
 - **Banco de dados**: PostgreSQL
 - **ORM**: [Drizzle ORM](https://orm.drizzle.team/) + `drizzle-kit` (migrations)
 - **Orquestração**: SAGA + fila, implementadas no projeto (sem broker externo)
-- **Testes**: `node:test` + `tsx` (201 testes, unitários e de integração)
+- **Testes**: `node:test` + `tsx` (224 testes, unitários e de integração)
 
 Dependências de runtime: `next`, `react`, `drizzle-orm`, `pg`, `jose`,
 `bcryptjs`, `dotenv`. Nada além disso — fila, orquestrador, logger e runner de
@@ -83,8 +83,9 @@ Hoje o fluxo é:
 placeOrder (Server Action)
   └─ 1 transação: endereço + pedido(pending) + itens + saga + job   ← outbox
          │
-         ├─ caminho rápido: o próprio request avança a saga
-         │                  (cliente já cai na página do pedido pronto)
+         ├─ caminho rápido: o próprio request avança a saga até o
+         │                  pagamento (remoto) — a página do pedido mostra
+         │                  "processando" e se atualiza sozinha
          └─ caminho durável: o worker pega o job da fila
                             (se o processo do Next morrer, ele termina)
 
@@ -94,7 +95,7 @@ placeOrder (Server Action)
 | # | Passo | Serviço | Compensação |
 |---|---|---|---|
 | 1 | `reserve-stock` | `services/inventory` | devolve as unidades |
-| 2 | `authorize-payment` | `services/payments` | estorna a cobrança |
+| 2 | `authorize-payment` | `services/payments` — **processo próprio**, por mensagem | estorna a cobrança (também por mensagem) |
 | 3 | `consume-coupon` | `services/coupons` | devolve o uso do cupom |
 | 4 | `confirm-order` | `services/orders` | cancela o pedido |
 | 5 | `clear-cart` | `services/carts` | restaura os itens do carrinho |
@@ -123,6 +124,69 @@ mais recente pro mais antigo. Qualquer passo segue o mesmo padrão.*
   linha do tempo dos passos (a página se atualiza sozinha), confirmado, ou
   cancelado com o motivo.
 
+### Pagamentos em processo próprio
+
+O pagamento é o único passo que fala com o "mundo de fora" (o gateway), então
+é o que foi extraído: roda em outro processo (`npm run worker:payments`),
+consumindo a fila `payments`, e a saga fala com ele **só por mensagem**.
+
+```
+saga ── payments.authorize ──▶ fila payments ──▶ processo de pagamentos
+saga ◀──── saga.reply ──────── fila default  ◀── cobrança + resposta (1 transação)
+```
+
+- **Contrato** (`services/payments/contract.ts`): nomes dos comandos e formato
+  das mensagens. É tudo que o resto do sistema pode importar de pagamentos — o
+  teste de arquitetura falha se alguém importar a implementação.
+- **Endereço de resposta** (`queue/reply.ts`): o comando leva um `replyTo` e
+  pagamentos responde nele sem saber que existe uma saga.
+- **Outbox dos dois lados**: a saga grava o passo como `waiting` junto com o
+  comando; pagamentos grava a cobrança junto com a resposta.
+- **Resposta aplicada uma vez**: entrega é "pelo menos uma vez", então
+  `applyStepReply` só mexe em passo `waiting`; resposta repetida é no-op. Se a
+  resposta chega com a saga ocupada por outro executor, ela volta pra fila em
+  vez de se perder.
+- **Retry é de quem executa**: falha transitória volta pra fila `payments` com
+  backoff; esgotadas as tentativas, pagamentos **responde com falha** — a saga
+  compensa em vez de esperar pra sempre.
+- **Estorno também é comando**: a compensação espera a resposta do estorno
+  antes de desfazer o passo anterior.
+- **Serviço fora do ar**: a saga só espera (a reconciliação não a trata como
+  parada); passando de 5 min, o alerta de "saga parada" aparece no admin.
+
+O preço: o pedido deixou de fechar dentro do request — a página mostra
+"processando" por ~1–2 s. E o banco ainda é compartilhado (cada serviço com as
+próprias tabelas); separar o banco seria o próximo passo, e o contrato por
+mensagem é o que torna isso possível sem mexer na saga.
+
+### Cartão pelo Stripe (modo de teste)
+
+Cartão é cobrado de verdade no **Stripe, em modo de teste** — nenhum valor real
+sai de lugar nenhum. Pix e boleto seguem no provedor simulado.
+
+```
+navegador ── Stripe Elements ──▶ Stripe          (número do cartão fica lá)
+navegador ── pm_… ─────────────▶ placeOrder      (só o token chega aqui)
+saga ── payments.authorize { pm_… } ──▶ processo de pagamentos ──▶ Stripe API
+```
+
+- **O cartão nunca passa pelo nosso servidor**: o campo é um iframe do Stripe
+  (Elements), que devolve um token `pm_…`. É o que tira o site do escopo de PCI.
+- **A chave secreta mora só no processo de pagamentos.** O app web conhece
+  apenas a chave pública — mais um ganho de ter extraído o serviço.
+- **Sem SDK**: duas chamadas REST (`payment_intents` com `confirm`, `refunds`)
+  via `fetch` (`services/payments/stripe.ts`).
+- **Idempotência ponta a ponta**: a chave do pedido vai no header
+  `Idempotency-Key`; retry nunca cobra duas vezes.
+- **Erro do Stripe → taxonomia da saga**: cartão recusado compensa na hora;
+  429, 5xx, erro de rede e `processing_error` voltam pra fila com backoff;
+  chave inválida é erro de configuração.
+- **Só chave de teste**: com `sk_live_`, o processo de pagamentos se recusa a
+  subir. Cobrar de verdade pediria webhooks, 3D Secure e conciliação.
+
+Pra testar: `4242 4242 4242 4242` aprova; `4000 0000 0000 0002` é recusado pelo
+Stripe e a saga desfaz a reserva de estoque. Qualquer validade futura e CVC.
+
 ### Garantias (e como cada uma é obtida)
 
 | Garantia | Mecanismo |
@@ -136,6 +200,7 @@ mais recente pro mais antigo. Qualquer passo segue o mesmo padrão.*
 | Nada fica parado pra sempre | Reconciliação reenfileira saga em andamento sem job |
 | Sem venda sem estoque | `UPDATE ... WHERE stock_quantity >= quantidade` (0 linhas = erro permanente) |
 | Erro repetido não gira pra sempre | Tentativa contada antes de executar + dead-letter |
+| Resposta de serviço remoto não aplica duas vezes | Só passo `waiting` aceita resposta, com lock na linha do passo |
 
 Estado durável: `sagas` (instância), `saga_steps` (log por passo), `jobs`
 (fila). Tudo visível em **`/admin/orquestracao`**, com botão de reconciliação
@@ -236,6 +301,7 @@ npm run db:migrate            # cria o schema
 npm run db:seed               # 20 produtos, categorias, usuários e cupom
 npm run dev                   # loja em http://localhost:3000
 npm run worker                # em outro terminal: processa a fila/sagas
+npm run worker:payments       # em outro terminal: processo de pagamentos
 ```
 
 O `docker-compose.yml` sobe só o banco (porta **5544** por padrão, pra não
@@ -269,6 +335,7 @@ a produção.
 |---|---|
 | `npm run dev` | Servidor de desenvolvimento |
 | `npm run worker` | Worker da fila (sagas, retry, reconciliação) |
+| `npm run worker:payments` | Processo do serviço de pagamentos (fila `payments`) |
 | `npm run reconcile` | Roda a reconciliação uma vez e imprime o relatório |
 | `npm test` | Suíte completa (cria e migra o banco de teste sozinho) |
 | `npm run test:unit` | Só os testes que não precisam de banco |
@@ -296,8 +363,16 @@ todo deploy do worker aplica as pendentes antes de subir o código novo.
 1. Novo projeto → **Deploy from GitHub repo** → este repositório. O
    `railway.json` já aponta pro `Dockerfile.worker`.
 2. No mesmo projeto, **+ New → Database → PostgreSQL**. Região: **US East**.
-3. Variável do serviço do worker: `DATABASE_URL` = `${{Postgres.DATABASE_URL}}`
-   (URL interna). Ele não precisa de `SESSION_SECRET` — não lida com sessão.
+3. Variáveis do serviço do worker:
+   - `DATABASE_URL` = `${{Postgres.DATABASE_URL}}` (URL interna). Ele não
+     precisa de `SESSION_SECRET` — não lida com sessão.
+   - `STRIPE_SECRET_KEY` = a chave **secreta de teste** (`sk_test_…`). Só o
+     worker recebe essa chave — é ele quem fala com o Stripe.
+   - A imagem já vem com `WORKER_QUEUES=default,payments`: um container só,
+     consumindo a fila da saga **e** a de pagamentos. Pra pagamentos em
+     serviço próprio, defina `WORKER_QUEUES=default` neste e crie um segundo
+     serviço do mesmo repo com o comando de start
+     `npx tsx src/scripts/payments-worker.ts`.
 4. Em **Settings → Networking** do Postgres, habilite o **TCP Proxy** e copie
    a `DATABASE_PUBLIC_URL` — é por ela que a Vercel e o seed chegam no banco.
 5. Popule uma vez, da sua máquina (a senha de admin fica só com você):
@@ -318,6 +393,8 @@ todo deploy do worker aplica as pendentes antes de subir o código novo.
    - `PG_POOL_MAX` = `3` (cada instância da função tem o próprio pool)
    - `ALLOW_CHECKOUT_SIMULATION` = `1` — liga o **modo demonstração** no
      checkout (ver abaixo)
+   - `STRIPE_PUBLISHABLE_KEY` = a chave **pública de teste** (`pk_test_…`). A
+     secreta NÃO vai pra Vercel.
 3. Deploy. O `vercel.json` fixa as funções em `iad1`, perto do US East da
    Railway — cada página faz várias queries, e a distância até o banco pesa
    mais que a distância até o visitante.
@@ -327,15 +404,16 @@ Nunca reaproveite o `.env` local nem a senha `dystopia_dev_pw` do compose.
 **Modo demonstração.** Com `ALLOW_CHECKOUT_SIMULATION=1`, o checkout mostra um
 seletor pro visitante escolher o que o gateway responde — aprovar, recusar,
 instável ou fora do ar — e ver a saga compensar ou tentar de novo. É seguro
-porque o gateway é simulado: nenhum caminho cobra nada. No dia em que entrar um
-gateway real, a flag sai: cliente não pode escolher o resultado da própria
-cobrança. Os modos "instável" e "fora do ar" dependem do worker rodando (o
+porque nada é cobrado de verdade: o simulado não cobra, e o Stripe só aceita
+chave de teste. A falha é injetada antes do provedor. No dia em que houver
+cobrança real (chave de produção), a flag sai: cliente não pode escolher o
+resultado da própria cobrança. Os modos "instável" e "fora do ar" dependem do worker rodando (o
 retry sai da fila).
 
 ## Testes
 
 ```bash
-npm test          # 201 testes
+npm test          # 224 testes
 npm run test:unit # subconjunto sem banco
 ```
 
@@ -461,10 +539,11 @@ chamá-lo por rede, trocando só o `invoke`/`compensate` do passo.
 - [x] Checkout + criação de pedido
 - [x] Painel admin (produtos/pedidos)
 - [x] SAGA + fila + compensação + reconciliação
-- [ ] Gateway de pagamento real no lugar do provedor simulado
+- [x] Gateway de pagamento real: cartão pelo Stripe (modo de teste)
 - [ ] Notificação de verdade (e-mail/webhook) no passo `notify-customer`
 - [x] Avaliações e lista de desejos na interface
 - [x] Agenda de endereços reaproveitada no checkout
 - [x] Admin de cupons e de variantes
 - [x] Observabilidade: métricas de fila/saga e alertas no admin
-- [ ] Extrair `payments` pra um serviço próprio consumindo a fila
+- [x] Extrair `payments` pra um serviço próprio consumindo a fila
+- [ ] Banco próprio pro serviço de pagamentos (hoje: tabelas próprias, banco compartilhado)

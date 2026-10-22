@@ -21,6 +21,11 @@ COPY drizzle ./drizzle
 COPY src ./src
 
 ENV NODE_ENV=production
+# Um container só consome a fila da saga E a de pagamentos — sem isso, um
+# deploy que esquecesse a variável deixaria todo pedido "processando". Pra
+# pagamentos em serviço próprio: WORKER_QUEUES=default aqui e um segundo
+# serviço com `npx tsx src/scripts/payments-worker.ts`.
+ENV WORKER_QUEUES=default,payments
 USER node
 
 # SIGTERM chega direto no node (sem npm no meio), e o worker termina o tick

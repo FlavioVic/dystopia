@@ -19,10 +19,16 @@ const methodLabel: Record<string, string> = {
 
 const paymentStatusLabel: Record<string, string> = {
   pending: "Aguardando",
-  authorized: "Autorizado (simulado)",
-  paid: "Aprovado (simulado)",
+  authorized: "Autorizado",
+  paid: "Aprovado",
   failed: "Não aprovado",
   refunded: "Estornado",
+};
+
+// Quem processou: deixa claro que nada foi cobrado de verdade.
+const providerLabel: Record<string, string> = {
+  stripe: "Stripe, modo de teste",
+  simulado: "simulado",
 };
 
 /**
@@ -89,7 +95,10 @@ export default async function OrderPage(props: PageProps<"/pedido/[orderNumber]"
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-12 sm:px-6">
-      {state === "processing" ? <AutoRefresh /> : null}
+      {/* Todo pedido passa por aqui: o pagamento é remoto e responde em ~1–2 s.
+          Intervalo curto pra não somar 3 s de espera a cada compra; 60 ticks
+          mantém a mesma janela de 1 min antes de parar. */}
+      {state === "processing" ? <AutoRefresh intervalMs={1_000} maxTicks={60} /> : null}
 
       <div className="flex flex-col items-center text-center">
         <div className={`flex h-16 w-16 items-center justify-center rounded-full ${header.iconClass}`}>
@@ -197,7 +206,7 @@ export default async function OrderPage(props: PageProps<"/pedido/[orderNumber]"
           </p>
           <p className="text-foreground-muted">
             {payment
-              ? paymentStatusLabel[payment.status] ?? payment.status
+              ? `${paymentStatusLabel[payment.status] ?? payment.status} (${providerLabel[payment.provider] ?? payment.provider})`
               : state === "failed"
                 ? "Nada foi debitado"
                 : "Aguardando confirmação"}

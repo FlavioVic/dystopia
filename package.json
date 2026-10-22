@@ -10,6 +10,7 @@
     "test": "tsx tests/run.ts",
     "test:unit": "tsx tests/run.ts --unit",
     "worker": "tsx src/scripts/worker.ts",
+    "worker:payments": "tsx src/scripts/payments-worker.ts",
     "reconcile": "tsx src/scripts/reconcile.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",

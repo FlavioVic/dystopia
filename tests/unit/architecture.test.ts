@@ -99,6 +99,32 @@ describe("fronteiras da arquitetura", () => {
     }
   });
 
+  it("pagamentos é conhecido só pelo contrato (roda em processo próprio)", () => {
+    // Quem monta processo (src/scripts) pluga os handlers; o resto do sistema
+    // fala com pagamentos por mensagem, então só pode ver o contrato.
+    const owner = path.join("src", "services", "payments");
+    const composition = path.join("src", "scripts");
+    for (const file of sourceFiles("src")) {
+      if (file.startsWith(owner) || file.startsWith(composition)) continue;
+      for (const specifier of importsOf(file)) {
+        if (!specifier.startsWith("@/services/payments")) continue;
+        assert.equal(
+          specifier,
+          "@/services/payments/contract",
+          `${file} importa ${specifier} — fora do serviço, só o contrato`,
+        );
+      }
+    }
+  });
+
+  it("a fila não importa serviço nenhum (handlers de serviço chegam por injeção)", () => {
+    for (const file of sourceFiles("src/queue")) {
+      for (const specifier of importsOf(file)) {
+        assert.ok(!specifier.startsWith("@/services"), `${file} importa ${specifier} — a fila é genérica`);
+      }
+    }
+  });
+
   it("o orquestrador não conhece a definição concreta (só o registry)", () => {
     for (const specifier of importsOf("src/saga/orchestrator.ts")) {
       assert.ok(

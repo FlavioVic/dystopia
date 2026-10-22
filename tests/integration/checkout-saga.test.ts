@@ -3,19 +3,25 @@
  *
  * Cada caso cobre um caminho da orquestração: feliz, compensação por regra de
  * negócio, retry de falha transitória (incluindo o worker) e idempotência.
+ *
+ * O pagamento é um passo remoto (processo próprio, fila `payments`): o
+ * request avança até ele e a saga estaciona em `waiting`; `settleSaga` roda os
+ * workers das duas filas até o fim, como em produção.
  */
 
 import assert from "node:assert/strict";
 import { after, beforeEach, describe, it } from "node:test";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
+import { and, inArray } from "drizzle-orm";
 import { cartItems, coupons, jobs, notifications, orders, payments, products, sagas } from "@/db/schema";
 import * as queue from "@/queue";
-import { processOnce } from "@/queue/worker";
 import { advanceSaga, getSagaWithSteps } from "@/saga/orchestrator";
 import { advanceDedupeKey, runSagaInline } from "@/saga/runner";
+import { PAYMENT_AUTHORIZE, PAYMENTS_QUEUE } from "@/services/payments/contract";
 import { closeDatabase, resetDatabase, seedCheckoutFixture } from "../helpers/db";
 import { startCheckout } from "../helpers/checkout";
+import { fastForwardJobs, lastErrorCode, settleSaga, work } from "../helpers/saga";
 
 beforeEach(resetDatabase);
 after(closeDatabase);
@@ -26,6 +32,11 @@ async function stockOf(productId: string): Promise<number> {
     columns: { stockQuantity: true },
   });
   return product?.stockQuantity ?? -1;
+}
+
+/** Jobs ainda ativos (na fila, rodando ou aguardando retry), de qualquer fila. */
+async function activeJobs() {
+  return db.query.jobs.findMany({ where: inArray(jobs.status, ["queued", "running", "failed"]) });
 }
 
 async function stepStatuses(sagaId: string): Promise<Record<string, string>> {
@@ -50,8 +61,17 @@ describe("saga de checkout — caminho feliz", () => {
     assert.ok(queued, "o job de avanço precisa existir junto do pedido");
     assert.equal(queued.status, "queued");
 
-    const outcome = await runSagaInline(checkout.sagaId);
-    assert.equal(outcome.status, "completed");
+    // O request avança até o pagamento, que é remoto: a saga estaciona.
+    const inline = await runSagaInline(checkout.sagaId);
+    assert.deepEqual(inline, { status: "waiting", step: "authorize-payment" });
+    assert.equal((await stepStatuses(checkout.sagaId))["authorize-payment"], "waiting");
+    const command = await db.query.jobs.findFirst({
+      where: and(eq(jobs.queue, PAYMENTS_QUEUE), eq(jobs.type, PAYMENT_AUTHORIZE)),
+    });
+    assert.ok(command, "o comando de cobrança entrou na fila de pagamentos");
+
+    const saga0 = await settleSaga(checkout.sagaId, { inline: false });
+    assert.equal(saga0.status, "completed");
 
     const order = await db.query.orders.findFirst({ where: eq(orders.id, checkout.orderId) });
     assert.equal(order?.status, "paid");
@@ -92,19 +112,16 @@ describe("saga de checkout — caminho feliz", () => {
       "notify-customer": "completed",
     });
 
-    // O job da fila é fechado pelo caminho inline (nada sobra pro worker).
-    const leftover = await queue.findActiveByDedupeKey(advanceDedupeKey(checkout.sagaId));
-    assert.equal(leftover, undefined);
-    const report = await processOnce({ workerId: "teste" });
-    assert.equal(report.claimed, 0);
+    // Nada sobra pra worker nenhum: avanço, comando e resposta foram fechados.
+    assert.deepEqual(await activeJobs(), []);
+    assert.equal((await work("all")).claimed, 0);
   });
 
   it("pula o passo do cupom quando o pedido não usa cupom", async () => {
     const fixture = await seedCheckoutFixture({ stock: 5, quantity: 1, priceCents: 5_000 });
     const checkout = await startCheckout(fixture);
 
-    const outcome = await runSagaInline(checkout.sagaId);
-    assert.equal(outcome.status, "completed");
+    assert.equal((await settleSaga(checkout.sagaId)).status, "completed");
 
     const saga = await getSagaWithSteps(checkout.sagaId);
     const couponStep = saga?.steps.find((step) => step.name === "consume-coupon");
@@ -120,7 +137,7 @@ describe("saga de checkout — caminho feliz", () => {
     const fixture = await seedCheckoutFixture({ stock: 9, variantStock: 4, quantity: 3, withVariant: true });
     const checkout = await startCheckout(fixture);
 
-    assert.equal((await runSagaInline(checkout.sagaId)).status, "completed");
+    assert.equal((await settleSaga(checkout.sagaId)).status, "completed");
 
     const variant = await db.query.productVariants.findFirst({
       where: (table, { eq: equals }) => equals(table.id, fixture.variantId!),
@@ -167,9 +184,9 @@ describe("saga de checkout — compensação", () => {
     const fixture = await seedCheckoutFixture({ stock: 6, quantity: 2, priceCents: 7_500 });
     const checkout = await startCheckout(fixture, { simulate: "decline" });
 
-    const outcome = await runSagaInline(checkout.sagaId);
-    assert.equal(outcome.status, "compensated");
-    if (outcome.status === "compensated") assert.equal(outcome.code, "payment_declined");
+    const saga = await settleSaga(checkout.sagaId);
+    assert.equal(saga.status, "compensated");
+    assert.equal(lastErrorCode(saga), "payment_declined");
 
     assert.equal(await stockOf(fixture.product.id), 6, "estoque devolvido pela compensação");
     const order = await db.query.orders.findFirst({ where: eq(orders.id, checkout.orderId) });
@@ -190,9 +207,9 @@ describe("saga de checkout — compensação", () => {
     });
     const checkout = await startCheckout(fixture, { useCoupon: true });
 
-    const outcome = await runSagaInline(checkout.sagaId);
-    assert.equal(outcome.status, "compensated");
-    if (outcome.status === "compensated") assert.equal(outcome.code, "coupon_exhausted");
+    const saga = await settleSaga(checkout.sagaId);
+    assert.equal(saga.status, "compensated");
+    assert.equal(lastErrorCode(saga), "coupon_exhausted");
 
     const paymentRows = await db.query.payments.findMany({ where: eq(payments.orderId, checkout.orderId) });
     assert.equal(paymentRows.length, 1);
@@ -213,53 +230,48 @@ describe("saga de checkout — compensação", () => {
 });
 
 describe("saga de checkout — retry e worker", () => {
-  it("falha transitória volta pra fila com backoff e o worker termina o pedido", async () => {
+  it("falha transitória: o processo de pagamentos tenta de novo com backoff e a saga conclui", async () => {
     const fixture = await seedCheckoutFixture({ stock: 5, quantity: 1, priceCents: 30_000 });
     const checkout = await startCheckout(fixture, { simulate: "flaky_once" });
 
-    const first = await runSagaInline(checkout.sagaId);
-    assert.equal(first.status, "retry");
-    if (first.status === "retry") {
-      assert.equal(first.step, "authorize-payment");
-      assert.ok(first.runAt.getTime() > Date.now(), "retry é agendado pro futuro");
-    }
+    assert.equal((await runSagaInline(checkout.sagaId)).status, "waiting");
+
+    // 1ª tentativa no processo de pagamentos: gateway fora → o COMANDO volta
+    // pra fila dele com backoff (o retry agora é de quem executa).
+    const first = await work("payments");
+    assert.equal(first.claimed, 1);
+    const command = await db.query.jobs.findFirst({ where: eq(jobs.type, PAYMENT_AUTHORIZE) });
+    assert.equal(command?.status, "failed", "comando aguardando nova tentativa");
+    assert.ok(command && command.runAt.getTime() > Date.now(), "retry agendado pro futuro");
+    assert.match(command?.lastError ?? "", /indispon/i);
 
     const order = await db.query.orders.findFirst({ where: eq(orders.id, checkout.orderId) });
     assert.equal(order?.status, "pending", "pedido segue pendente entre as tentativas");
+    const waiting = await db.query.sagas.findFirst({ where: eq(sagas.id, checkout.sagaId) });
+    assert.equal(waiting?.lockedBy, null, "a saga não segura lease enquanto espera");
+    assert.equal((await stepStatuses(checkout.sagaId))["authorize-payment"], "waiting");
 
-    const job = await queue.findActiveByDedupeKey(advanceDedupeKey(checkout.sagaId));
-    assert.ok(job);
-    assert.equal(job.status, "failed", "job marcado pra nova tentativa");
-    assert.match(job.lastError ?? "", /indispon/i);
-
-    const saga = await db.query.sagas.findFirst({ where: eq(sagas.id, checkout.sagaId) });
-    assert.equal(saga?.lockedBy, null, "lease devolvido pra outro executor poder assumir");
-
-    // Adianta o relógio da fila e deixa o WORKER terminar (caminho durável).
-    await db.update(jobs).set({ runAt: new Date() }).where(eq(jobs.id, job.id));
-    const report = await processOnce({ workerId: "worker-de-teste" });
-    assert.equal(report.claimed, 1);
+    // Adianta o relógio: 2ª tentativa aprova, a resposta acorda a saga.
+    await fastForwardJobs();
+    const saga = await settleSaga(checkout.sagaId, { inline: false });
+    assert.equal(saga.status, "completed");
 
     const finished = await db.query.orders.findFirst({ where: eq(orders.id, checkout.orderId) });
     assert.equal(finished?.status, "paid");
-    assert.equal((await getSagaWithSteps(checkout.sagaId))?.status, "completed");
-
     const paymentRows = await db.query.payments.findMany({ where: eq(payments.orderId, checkout.orderId) });
     assert.equal(paymentRows.length, 1, "a tentativa que falhou não deixou cobrança");
 
-    const settled = await db.query.jobs.findFirst({ where: eq(jobs.id, job.id) });
-    assert.equal(settled?.status, "done");
+    const step = (await getSagaWithSteps(checkout.sagaId))?.steps.find((row) => row.name === "authorize-payment");
+    assert.equal(step?.attempts, 2, "o passo registra as tentativas que o outro processo gastou");
   });
 
-  it("desiste e compensa depois de esgotar as tentativas do passo", async () => {
+  it("esgotadas as tentativas, pagamentos responde com falha e a saga compensa", async () => {
     const fixture = await seedCheckoutFixture({ stock: 3, quantity: 1, priceCents: 15_000 });
     const checkout = await startCheckout(fixture, { simulate: "unavailable" });
 
-    // maxAttemptsPerStep = 3 na definição da saga de checkout.
-    assert.equal((await runSagaInline(checkout.sagaId)).status, "retry");
-    assert.equal((await runSagaInline(checkout.sagaId)).status, "retry");
-    const third = await runSagaInline(checkout.sagaId);
-    assert.equal(third.status, "compensated");
+    const saga = await settleSaga(checkout.sagaId);
+    assert.equal(saga.status, "compensated");
+    assert.equal(lastErrorCode(saga), "gateway_unavailable");
 
     assert.equal(await stockOf(fixture.product.id), 3, "estoque devolvido");
     const order = await db.query.orders.findFirst({ where: eq(orders.id, checkout.orderId) });
@@ -269,7 +281,10 @@ describe("saga de checkout — retry e worker", () => {
       (candidate) => candidate.name === "authorize-payment",
     );
     assert.equal(step?.status, "failed");
-    assert.equal(step?.attempts, 3);
+    assert.equal(step?.attempts, 3, "maxAttemptsPerStep = 3 vale pro comando remoto");
+
+    const dead = await db.query.jobs.findMany({ where: eq(jobs.status, "dead") });
+    assert.deepEqual(dead, [], "ninguém foi pra dead-letter: a falha virou resposta");
   });
 });
 
@@ -282,7 +297,7 @@ describe("saga de checkout — idempotência e concorrência", () => {
       coupon: { discountType: "percentage", discountValue: 10 },
     });
     const checkout = await startCheckout(fixture, { useCoupon: true });
-    assert.equal((await runSagaInline(checkout.sagaId)).status, "completed");
+    assert.equal((await settleSaga(checkout.sagaId)).status, "completed");
 
     const again = await runSagaInline(checkout.sagaId);
     assert.equal(again.status, "settled");
@@ -295,7 +310,7 @@ describe("saga de checkout — idempotência e concorrência", () => {
   it("retomada de uma saga marcada como em andamento não duplica passos já aplicados", async () => {
     const fixture = await seedCheckoutFixture({ stock: 10, quantity: 2, priceCents: 9_990 });
     const checkout = await startCheckout(fixture);
-    assert.equal((await runSagaInline(checkout.sagaId)).status, "completed");
+    assert.equal((await settleSaga(checkout.sagaId)).status, "completed");
 
     // Simula um processo que morreu ANTES de marcar a saga como concluída:
     // o estado volta pra "running" no passo 0, mas os passos já têm log.

@@ -10,15 +10,9 @@
 import { and, eq, inArray } from "drizzle-orm";
 import type { Executor } from "@/db";
 import { payments } from "@/db/schema";
-import { paymentMethodEnum } from "@/db/schema";
 import { PermanentError } from "@/saga/errors";
-import { charge, PROVIDER, reverse, type SimulationMode } from "./gateway";
-
-export type PaymentMethod = (typeof paymentMethodEnum.enumValues)[number];
-
-export function isPaymentMethod(value: unknown): value is PaymentMethod {
-  return typeof value === "string" && (paymentMethodEnum.enumValues as readonly string[]).includes(value);
-}
+import type { PaymentMethod, SimulationMode } from "./contract";
+import { charge, PROVIDER, reverse } from "./gateway";
 
 export type AuthorizeInput = {
   orderId: string;
@@ -27,6 +21,8 @@ export type AuthorizeInput = {
   idempotencyKey: string;
   mode?: SimulationMode;
   attempt?: number;
+  /** Cartão digitado no Stripe Elements (`pm_…`). Ausente = provedor simulado. */
+  cardPaymentMethodId?: string;
 };
 
 export type AuthorizeResult = {
@@ -49,6 +45,8 @@ export async function authorizePayment(executor: Executor, input: AuthorizeInput
     idempotencyKey: input.idempotencyKey,
     mode: input.mode,
     attempt: input.attempt,
+    cardPaymentMethodId: input.cardPaymentMethodId,
+    orderId: input.orderId,
   });
 
   const inserted = await executor
@@ -94,7 +92,11 @@ export async function refundPayment(
   if (!payment) return { refunded: false };
   if (payment.status === "refunded") return { refunded: true };
 
-  await reverse({ transactionId: payment.transactionId });
+  await reverse({
+    transactionId: payment.transactionId,
+    provider: payment.provider,
+    idempotencyKey: payment.idempotencyKey ?? `payment:${payment.id}`,
+  });
 
   const updated = await executor
     .update(payments)

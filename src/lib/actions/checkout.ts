@@ -24,8 +24,13 @@ import { startSaga, tryRunSagaInline } from "@/saga/runner";
 import { resolveCoupon } from "@/services/coupons";
 import { createAddress, getUserAddress } from "@/services/addresses";
 import { createOrder, generateOrderNumber } from "@/services/orders";
-import { isPaymentMethod, type PaymentMethod } from "@/services/payments";
-import { isSimulationMode } from "@/services/payments/gateway";
+import {
+  isCardPaymentMethodId,
+  isPaymentMethod,
+  isSimulationMode,
+  type PaymentMethod,
+} from "@/services/payments/contract";
+import { getStripePublishableKey } from "@/lib/stripe-public";
 import { isCheckoutSimulationEnabled } from "@/lib/checkout-simulation";
 
 const PAYMENT_METHODS = ["pix", "credit_card", "boleto"] as const satisfies readonly PaymentMethod[];
@@ -83,6 +88,15 @@ export async function placeOrder(_prev: CheckoutState, formData: FormData): Prom
     return { message: "Escolha a forma de pagamento." };
   }
 
+  // Cartão com Stripe ligado: o navegador manda só o token (`pm_…`) criado
+  // pelo Elements — número do cartão nunca chega aqui.
+  let cardPaymentMethodId: string | undefined;
+  if (method === "credit_card" && getStripePublishableKey()) {
+    const token = req(formData, "cardPaymentMethodId");
+    if (!isCardPaymentMethodId(token)) return { message: "Preencha os dados do cartão." };
+    cardPaymentMethodId = token;
+  }
+
   // --- totais (recalculados no servidor, nunca vindos do cliente) ---
   const subtotalCents = cart.subtotalCents;
   const coupon = await resolveCoupon(db, req(formData, "couponCode"), subtotalCents);
@@ -136,6 +150,7 @@ export async function placeOrder(_prev: CheckoutState, formData: FormData): Prom
       couponId: coupon.ok ? coupon.couponId : null,
       lines,
       ...(simulationFromForm(formData) ? { simulate: simulationFromForm(formData)! } : {}),
+      ...(cardPaymentMethodId ? { cardPaymentMethodId } : {}),
     };
 
     return startSaga(tx, {

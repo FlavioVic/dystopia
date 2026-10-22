@@ -1,7 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import { useActionState, useState, useTransition } from "react";
+import { useActionState, useRef, useState, useTransition, type FormEvent } from "react";
+import { StripeCardField, type StripeCardHandle } from "@/components/StripeCardField";
 import { placeOrder, validateCoupon } from "@/lib/actions/checkout";
 import { FLAT_SHIPPING_CENTS, FREE_SHIPPING_MIN_CENTS, type CouponResult } from "@/lib/shipping";
 import { formatPriceCents } from "@/lib/format";
@@ -33,7 +34,7 @@ const methods = [
   { id: "boleto", label: "Boleto", hint: "vence em 3 dias" },
 ];
 
-// Valores de SIMULATION_MODES (services/payments/gateway); o texto diz o que a
+// Valores de SIMULATION_MODES (services/payments/contract); o texto diz o que a
 // saga vai fazer, que é o ponto da demonstração.
 const simulations = [
   { id: "approve", label: "Aprovar", hint: "caminho feliz: os 6 passos concluem" },
@@ -48,14 +49,40 @@ export function CheckoutForm({
   subtotalCents,
   savedAddresses = [],
   simulationEnabled = false,
+  stripePublishableKey = null,
 }: {
   defaultName: string;
   lines: Line[];
   subtotalCents: number;
   savedAddresses?: SavedAddress[];
   simulationEnabled?: boolean;
+  /** Com chave, cartão vai pelo Stripe Elements; sem, segue no simulado. */
+  stripePublishableKey?: string | null;
 }) {
   const [state, formAction, pending] = useActionState(placeOrder, undefined);
+  const [method, setMethod] = useState(methods[0].id);
+  const cardRef = useRef<StripeCardHandle>(null);
+  const [cardError, setCardError] = useState<string | null>(null);
+  const [tokenizing, startTokenizing] = useTransition();
+  const stripeCard = method === "credit_card" && stripePublishableKey != null;
+
+  // Cartão no Stripe: antes da Server Action, troca o cartão por um token
+  // (`pm_…`) no navegador. O resto dos métodos segue o `action` normal.
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    if (!stripeCard) return;
+    event.preventDefault();
+    const data = new FormData(event.currentTarget);
+    setCardError(null);
+    startTokenizing(async () => {
+      const result = await cardRef.current?.createPaymentMethod();
+      if (!result || "error" in result) {
+        setCardError(result?.error ?? "Não foi possível validar o cartão.");
+        return;
+      }
+      data.set("cardPaymentMethodId", result.id);
+      startTokenizing(() => formAction(data));
+    });
+  }
   // Começa no endereço padrão (ou no primeiro salvo); sem nada salvo, no formulário.
   const [addressChoice, setAddressChoice] = useState<string>(
     savedAddresses.find((address) => address.isDefault)?.id ?? savedAddresses[0]?.id ?? "new",
@@ -76,7 +103,7 @@ export function CheckoutForm({
   const err = state?.errors ?? {};
 
   return (
-    <form action={formAction} className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
+    <form action={formAction} onSubmit={handleSubmit} className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
       <h1 className="font-brand text-2xl font-bold uppercase tracking-tight">Finalizar compra</h1>
 
       {state?.message ? (
@@ -157,9 +184,13 @@ export function CheckoutForm({
           {/* Pagamento */}
           <section className="rounded-2xl border border-border bg-background-elevated p-5">
             <h2 className="text-sm font-semibold uppercase tracking-wider text-foreground-muted">Pagamento</h2>
-            <p className="mt-1 text-xs text-foreground-muted">Simulado — nenhum pagamento real é processado.</p>
+            <p className="mt-1 text-xs text-foreground-muted">
+              {stripePublishableKey
+                ? "Cartão pelo Stripe em modo de teste; Pix e boleto simulados. Nenhum valor real é cobrado."
+                : "Simulado — nenhum pagamento real é processado."}
+            </p>
             <div className="mt-4 grid gap-3 sm:grid-cols-3">
-              {methods.map((m, i) => (
+              {methods.map((m) => (
                 <label
                   key={m.id}
                   className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-border p-3 transition-colors has-[:checked]:border-accent has-[:checked]:bg-accent/5"
@@ -168,16 +199,21 @@ export function CheckoutForm({
                     type="radio"
                     name="paymentMethod"
                     value={m.id}
-                    defaultChecked={i === 0}
+                    checked={method === m.id}
+                    onChange={() => setMethod(m.id)}
                     className="mt-0.5 accent-[var(--accent)]"
                   />
                   <span>
                     <span className="block text-sm font-medium">{m.label}</span>
-                    <span className="block text-[11px] text-foreground-muted">{m.hint}</span>
+                    <span className="block text-[11px] text-foreground-muted">
+                      {m.id === "credit_card" && stripePublishableKey ? "via Stripe · modo de teste" : m.hint}
+                    </span>
                   </span>
                 </label>
               ))}
             </div>
+            {stripeCard ? <StripeCardField ref={cardRef} publishableKey={stripePublishableKey} /> : null}
+            {cardError ? <p className="mt-2 text-xs text-danger">{cardError}</p> : null}
           </section>
 
           {simulationEnabled ? (
@@ -279,10 +315,10 @@ export function CheckoutForm({
 
             <button
               type="submit"
-              disabled={pending}
+              disabled={pending || tokenizing}
               className="mt-5 w-full rounded-xl bg-accent px-5 py-3.5 text-sm font-bold text-accent-foreground transition-transform enabled:hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {pending ? "Processando…" : "Finalizar pedido"}
+              {pending || tokenizing ? "Processando…" : "Finalizar pedido"}
             </button>
             <p className="mt-2 text-center text-[11px] text-foreground-muted">
               Ao finalizar, você concorda com os termos (fictícios) da loja.

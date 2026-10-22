@@ -15,7 +15,7 @@ import { createLogger } from "@/lib/logger";
 import { errorMessage } from "@/saga/errors";
 import { reconcile } from "@/saga/reconcile";
 import * as queue from "./index";
-import { getHandler } from "./handlers";
+import { getHandler, type JobHandler } from "./handlers";
 
 const logger = createLogger("queue:worker");
 
@@ -28,6 +28,14 @@ export type WorkerOptions = {
   pollMs?: number;
   /** Intervalo da reconciliação. */
   reconcileEveryMs?: number;
+  /** Desliga a reconciliação de sagas (processo que não roda saga, ex.: pagamentos). */
+  reconcile?: boolean;
+  /**
+   * Handlers além do registro padrão — é como o processo de pagamentos (ou o
+   * worker que também consome a fila `payments`) pluga os dele sem que a fila
+   * precise importar a implementação de um serviço.
+   */
+  handlers?: Record<string, JobHandler>;
 };
 
 export type TickReport = {
@@ -54,7 +62,7 @@ export async function processOnce(options: WorkerOptions = {}): Promise<TickRepo
   const report: TickReport = { claimed: jobs.length, completed: 0, failed: 0, unknown: 0 };
 
   for (const job of jobs) {
-    const handler = getHandler(job.type);
+    const handler = options.handlers?.[job.type] ?? getHandler(job.type);
 
     if (!handler) {
       report.unknown += 1;
@@ -146,7 +154,7 @@ export function startWorker(options: WorkerOptions = {}): WorkerHandle {
 
     while (running) {
       try {
-        if (Date.now() - lastReconcile >= reconcileEveryMs) {
+        if (options.reconcile !== false && Date.now() - lastReconcile >= reconcileEveryMs) {
           lastReconcile = Date.now();
           await reconcile();
         }

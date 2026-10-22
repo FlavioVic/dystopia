@@ -6,8 +6,9 @@
  * saga). Nesse caso ele retorna `{ settled: true }` e o worker não mexe mais.
  */
 
+import { SAGA_REPLY_JOB } from "@/saga/messaging";
 import { reconcile } from "@/saga/reconcile";
-import { handleSagaAdvanceJob, SAGA_ADVANCE_JOB, SAGA_RECONCILE_JOB } from "@/saga/runner";
+import { handleSagaAdvanceJob, handleSagaReplyJob, SAGA_ADVANCE_JOB, SAGA_RECONCILE_JOB } from "@/saga/runner";
 import type { ClaimedJob } from "./index";
 
 export type JobResult = { settled: boolean };
@@ -16,6 +17,10 @@ export type JobHandler = (job: ClaimedJob) => Promise<JobResult>;
 export const handlers: Record<string, JobHandler> = {
   [SAGA_ADVANCE_JOB]: async (job) => {
     await handleSagaAdvanceJob(job);
+    return { settled: true };
+  },
+  [SAGA_REPLY_JOB]: async (job) => {
+    await handleSagaReplyJob(job);
     return { settled: true };
   },
   [SAGA_RECONCILE_JOB]: async () => {

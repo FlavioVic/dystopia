@@ -21,6 +21,7 @@ mexer em qualquer coisa de pedido, estoque, pagamento ou fila.
 | `docker compose up -d` | Postgres de dev na porta 5544 (só o banco) |
 | `npm run dev` | App em http://localhost:3000 |
 | `npm run worker` | Worker da fila (processa as sagas) — suba junto do dev |
+| `npm run worker:payments` | Processo do serviço de pagamentos (fila `payments`) — sem ele, todo pedido fica "processando" |
 | `npm run reconcile` | Reconciliação manual (libera leases, reenfileira sagas órfãs) |
 | `npm test` | Suíte completa (cria/migra `dystopia_test` sozinho) |
 | `npm run test:unit` | Só os testes que não precisam de banco |
@@ -49,7 +50,11 @@ A dependência só aponta pra baixo: **borda → saga → serviços → db**.
   só pode importar `@/saga/errors`;
 - a **fila** não conhece saga nenhuma em específico (só o registry de handlers);
 - o **orquestrador** não conhece a definição concreta — chega nela via
-  `src/saga/registry.ts`.
+  `src/saga/registry.ts`;
+- **pagamentos roda em processo próprio**: fora de `services/payments` (e dos
+  scripts que montam processos), só `@/services/payments/contract` pode ser
+  importado. A saga fala com ele por mensagem; a fila recebe os handlers dele
+  por injeção (`startWorker({ handlers })`), nunca importando o serviço.
 
 Isso não é só estilo: `tests/unit/architecture.test.ts` falha se alguém furar.
 É o que mantém cada serviço extraível pra um processo/deploy separado sem
@@ -62,19 +67,26 @@ placeOrder (Server Action)
   └─ 1 transação: endereço + pedido(pending) + itens + saga + job   ← outbox
          │
          ├─ caminho rápido: o próprio request avança a saga (tryRunSagaInline)
+         │                  até o pagamento, que é remoto → saga em `waiting`
          └─ caminho durável: `npm run worker` pega o job da fila
                  (lease na saga garante que só um dos dois avança por vez)
 
+passo remoto (pagamento):
+  saga ── payments.authorize ──▶ fila `payments` ──▶ npm run worker:payments
+  saga ◀──── saga.reply ─────── fila `default` ◀── (cobrança + resposta: 1 tx)
+
 SAGA checkout (src/saga/definitions/checkout.ts)
   1 reserve-stock       inventory      ⇄ devolve as unidades
-  2 authorize-payment   payments       ⇄ estorna
+  2 authorize-payment   payments (remoto, por mensagem)  ⇄ estorna (também por mensagem)
   3 consume-coupon      coupons        ⇄ devolve o uso
   4 confirm-order       orders         ⇄ cancela o pedido
   5 clear-cart          carts          ⇄ restaura os itens
   6 notify-customer     notifications  (sem compensação)
 
 falha permanente em qualquer passo → compensa de 1..n-1 em ordem REVERSA
-falha transitória → volta pra fila com backoff (3 tentativas por passo)
+falha transitória → volta pra fila com backoff (3 tentativas por passo);
+                    no passo remoto quem tenta de novo é o processo de pagamentos,
+                    e esgotado ele RESPONDE com falha (a saga não espera pra sempre)
 ```
 
 Estado durável: `sagas` (instância), `saga_steps` (log por passo = registro de
@@ -85,7 +97,10 @@ idempotência), `jobs` (fila). Visível em `/admin/orquestracao`.
 1. **Outbox**: job de saga é inserido na MESMA transação do fato de negócio.
    Nunca enfileire depois do commit.
 2. **Passo = transação**: o efeito do passo e o log dele (`saga_steps`)
-   commitam juntos. Nunca faça um passo em duas transações.
+   commitam juntos. Nunca faça um passo em duas transações. Passo remoto é a
+   exceção controlada: o log vira `waiting` junto com o comando (outbox), o
+   efeito commita do outro lado junto com a resposta (outbox), e a resposta é
+   aplicada uma vez só (`applyStepReply` só mexe em passo `waiting`).
 3. **Passo `completed` não roda de novo.** Toda retomada (retry, crash,
    reconciliação) reaproveita o log. Efeito externo precisa de chave de
    idempotência (ex.: `payments.idempotency_key`).
@@ -117,6 +132,12 @@ com `invoke` + `compensate`, implemente a regra num serviço, e dê um rótulo e
 `src/lib/saga-ui.ts`. Passo novo entra **no fim** se já houver saga em voo em
 produção (saga antiga guarda `current_step`; inserir no meio desalinha a
 retomada).
+
+**Novo passo remoto** (efeito em outro processo): no lugar de `invoke`, use
+`request` (e `compensateRequest`) devolvendo `{ type, queue, payload }`; o
+serviço publica isso num `contract.ts` e consome a fila com um handler que
+grava o efeito + `sendReply` na mesma transação (ver
+`services/payments/consumer.ts`). Esgotou as tentativas: responda com falha.
 
 **Novo formulário**: validação pura em `src/lib/validation/<nome>.ts`
 (entra `FormData`, sai `{ errors, values }`), teste unitário cobrindo os cantos,
@@ -153,7 +174,10 @@ revise o SQL → `npm run db:migrate`. Nunca edite migration já aplicada.
 - Código e comentário em **pt-BR**; comentário explica *por quê*, não *o quê*.
 - Sem dependência nova sem motivo forte (hoje: next, react, drizzle, pg, jose,
   bcryptjs, dotenv). Fila, saga, logger e runner de teste são caseiros de
-  propósito.
+  propósito; o Stripe é chamado via `fetch` (sem SDK) e o Stripe.js vem de
+  js.stripe.com, como o Stripe exige.
+- Chave secreta do Stripe só no processo de pagamentos; o app web usa só a
+  pública (`lib/stripe-public.ts`). Só chave de teste é aceita.
 - Tailwind com os tokens de `globals.css` (`--accent`, `--deal`, `border`,
   `foreground-muted`…). Não chute hex novo.
 - Data layer em `src/lib/data/*` com `cache()` do React; mutação em

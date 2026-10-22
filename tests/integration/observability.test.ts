@@ -5,16 +5,17 @@
 
 import assert from "node:assert/strict";
 import { after, beforeEach, describe, it } from "node:test";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { jobs, sagaSteps, sagas } from "@/db/schema";
 import * as queue from "@/queue";
 import { getQueueMetrics } from "@/queue/metrics";
-import { processOnce } from "@/queue/worker";
 import { getSagaMetrics } from "@/saga/metrics";
-import { advanceDedupeKey, runSagaInline } from "@/saga/runner";
+import { runSagaInline } from "@/saga/runner";
+import { PAYMENT_AUTHORIZE } from "@/services/payments/contract";
 import { startCheckout } from "../helpers/checkout";
 import { closeDatabase, resetDatabase, seedCheckoutFixture } from "../helpers/db";
+import { settleSaga, work } from "../helpers/saga";
 
 const NOW = new Date("2026-06-01T12:00:00Z");
 const ago = (ms: number) => new Date(NOW.getTime() - ms);
@@ -143,21 +144,23 @@ describe("métricas refletem checkouts de verdade", () => {
 
   it("aprovado, recusado e instável aparecem como conclusão, compensação e retry", async () => {
     const approved = await startCheckout(await seedCheckoutFixture());
-    await runSagaInline(approved.sagaId);
+    await settleSaga(approved.sagaId);
 
     const declined = await startCheckout(await seedCheckoutFixture(), { simulate: "decline" });
-    await runSagaInline(declined.sagaId);
+    await settleSaga(declined.sagaId);
 
     const flaky = await startCheckout(await seedCheckoutFixture(), { simulate: "flaky_once" });
-    assert.equal((await runSagaInline(flaky.sagaId)).status, "retry");
+    assert.equal((await runSagaInline(flaky.sagaId)).status, "waiting");
+    await work("payments"); // 1ª tentativa falha: o comando volta pra fila com backoff
 
-    const pending = await queue.findActiveByDedupeKey(advanceDedupeKey(flaky.sagaId));
-    assert.ok(pending);
-    const during = await getQueueMetrics(db, { now: new Date(pending.runAt.getTime() + 1) });
-    assert.equal(during.ready, 1, "o retry vencido conta como pronto");
+    const command = await db.query.jobs.findFirst({
+      where: and(eq(jobs.type, PAYMENT_AUTHORIZE), eq(jobs.status, "failed")),
+    });
+    assert.ok(command, "o comando do pedido instável aguarda nova tentativa");
+    const during = await getQueueMetrics(db, { now: new Date(command!.runAt.getTime() + 1) });
+    assert.equal(during.ready, 1, "o retry vencido do comando conta como pronto");
 
-    await db.update(jobs).set({ runAt: new Date() }).where(eq(jobs.id, pending.id));
-    await processOnce({ workerId: "worker-de-teste" });
+    await settleSaga(flaky.sagaId, { inline: false });
 
     const metrics = await getSagaMetrics(db, { since: new Date(Date.now() - DAY) });
     assert.deepEqual(metrics.byStatus, { completed: 2, compensated: 1 });

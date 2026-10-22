@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { getCurrentUser } from "@/lib/data/auth";
 import { getCart } from "@/lib/data/cart";
 import { isCheckoutSimulationEnabled } from "@/lib/checkout-simulation";
+import { getStripePublishableKey } from "@/lib/stripe-public";
 import { formatAddress } from "@/lib/validation/address";
 import { listAddresses } from "@/services/addresses";
 
@@ -31,6 +32,7 @@ export default async function CheckoutPage() {
       }))}
       subtotalCents={cart.subtotalCents}
       simulationEnabled={isCheckoutSimulationEnabled()}
+      stripePublishableKey={getStripePublishableKey()}
       lines={cart.lines.map((l) => ({
         itemId: l.itemId,
         name: l.name,

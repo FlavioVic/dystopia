@@ -398,6 +398,7 @@ export const sagaStatusEnum = pgEnum("saga_status", [
 
 export const sagaStepStatusEnum = pgEnum("saga_step_status", [
   "pending", // tentado, ainda não confirmado (vai ter retry)
+  "waiting", // passo remoto: comando enviado, aguardando a resposta pela fila
   "completed",
   "compensated",
   "failed",

@@ -13,14 +13,29 @@
  *
  * Ordem pensada pro caminho triste: pagamento vem ANTES do cupom, então
  * pagamento recusado (o caso mais comum) compensa só o estoque.
+ *
+ * O pagamento é um passo REMOTO: o serviço de pagamentos roda em outro
+ * processo (`npm run worker:payments`) e a saga fala com ele só por mensagem,
+ * pelo contrato em services/payments/contract — cobrar e estornar são
+ * comandos na fila `payments`, com a resposta voltando pra saga.
  */
 
 import { PermanentError } from "@/saga/errors";
 import type { SagaDefinition, SagaStep } from "@/saga/types";
 import { clearCart, restoreCart } from "@/services/carts";
 import { consumeCoupon, releaseCoupon } from "@/services/coupons";
-import { authorizePayment, isPaymentMethod, refundPayment, type PaymentMethod } from "@/services/payments";
-import { isSimulationMode, type SimulationMode } from "@/services/payments/gateway";
+import {
+  isCardPaymentMethodId,
+  isPaymentMethod,
+  isSimulationMode,
+  PAYMENT_AUTHORIZE,
+  PAYMENT_REFUND,
+  PAYMENTS_QUEUE,
+  type AuthorizeCommand,
+  type PaymentMethod,
+  type RefundCommand,
+  type SimulationMode,
+} from "@/services/payments/contract";
 import { markOrderCancelled, markOrderPaid } from "@/services/orders";
 import { releaseStock, reserveStock } from "@/services/inventory";
 import { sendOrderConfirmation } from "@/services/notifications";
@@ -48,6 +63,8 @@ export type CheckoutSagaPayload = {
   lines: CheckoutSagaLine[];
   /** Só pra demonstrar/testar os caminhos tristes do gateway simulado. */
   simulate?: SimulationMode;
+  /** Cartão via Stripe Elements (`pm_…`). Não é dado de cartão: é um token do Stripe. */
+  cardPaymentMethodId?: string;
 };
 
 /** Chave de idempotência do pagamento: estável entre tentativas do passo. */
@@ -68,23 +85,26 @@ const steps: SagaStep<CheckoutSagaPayload>[] = [
   },
   {
     name: "authorize-payment",
-    invoke: async (ctx, tx) => {
-      const result = await authorizePayment(tx, {
+    request: (ctx) => ({
+      type: PAYMENT_AUTHORIZE,
+      queue: PAYMENTS_QUEUE,
+      payload: {
         orderId: ctx.payload.orderId,
         method: ctx.payload.paymentMethod,
         amountCents: ctx.payload.totalCents,
         idempotencyKey: paymentIdempotencyKey(ctx.payload.orderNumber),
-        mode: ctx.payload.simulate,
-        attempt: ctx.attempt,
-      });
-      return { paymentId: result.paymentId, transactionId: result.transactionId };
-    },
-    compensate: async (ctx, tx) => {
-      await refundPayment(tx, {
+        ...(ctx.payload.simulate ? { mode: ctx.payload.simulate } : {}),
+        ...(ctx.payload.cardPaymentMethodId ? { cardPaymentMethodId: ctx.payload.cardPaymentMethodId } : {}),
+      } satisfies AuthorizeCommand,
+    }),
+    compensateRequest: (ctx) => ({
+      type: PAYMENT_REFUND,
+      queue: PAYMENTS_QUEUE,
+      payload: {
         orderId: ctx.payload.orderId,
         idempotencyKey: paymentIdempotencyKey(ctx.payload.orderNumber),
-      });
-    },
+      } satisfies RefundCommand,
+    }),
   },
   {
     name: "consume-coupon",
@@ -177,6 +197,7 @@ export function parseCheckoutPayload(raw: unknown): CheckoutSagaPayload {
     couponId: optionalStr(data.couponId),
     lines: lines(data.lines),
     ...(isSimulationMode(data.simulate) ? { simulate: data.simulate } : {}),
+    ...(isCardPaymentMethodId(data.cardPaymentMethodId) ? { cardPaymentMethodId: data.cardPaymentMethodId } : {}),
   };
 
   if (payload.lines.length === 0) throw invalid("pedido sem itens");

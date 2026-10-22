@@ -11,6 +11,7 @@ convenções. Aqui fica só o que é específico de trabalhar **neste ambiente**
 docker start dystopia_db           # Postgres do projeto na porta 5544
 npm run dev                        # :3000 (use PORT=3020 se a 3000 estiver ocupada)
 npm run worker                     # em outro terminal: processa a fila/sagas
+npm run worker:payments            # em outro terminal: processo de pagamentos
 ```
 
 `.env` já aponta pro container (`localhost:5544`); a 5432 está ocupada por
@@ -79,5 +80,7 @@ Não há navegador/Playwright aqui. Então:
 - Não adicionar dependência sem necessidade clara.
 - Não mexer em `.env` (nem no `DATABASE_URL`) pra "facilitar" um teste: use
   `TEST_DATABASE_URL` ou um container descartável.
-- Não presumir que o worker está rodando: o caminho inline cobre o pedido no
-  request, mas retry/reconciliação só acontecem com `npm run worker`.
+- Não presumir que os workers estão rodando: o request avança a saga até o
+  pagamento, que é remoto — sem `npm run worker:payments` (ou um worker com
+  `WORKER_QUEUES=default,payments`) todo pedido fica "processando", e
+  retry/reconciliação só acontecem com `npm run worker`.

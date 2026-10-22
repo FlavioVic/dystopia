@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { isCheckoutSimulationEnabled } from "@/lib/checkout-simulation";
+import { getStripePublishableKey } from "@/lib/stripe-public";
 import { sagaStepLabel } from "@/lib/saga-ui";
 
 export const metadata: Metadata = {
@@ -27,8 +28,8 @@ const HIGHLIGHTS = [
     body: "Seis passos atômicos, cada um num serviço. Se um falha de vez, os anteriores são desfeitos em ordem reversa — estoque, cobrança e cupom voltam ao que eram.",
   },
   {
-    title: "Fila durável no Postgres",
-    body: "Pedido e job nascem na mesma transação (outbox). Workers concorrentes com SKIP LOCKED, lease com prazo, retry com backoff, dead-letter e reconciliação automática.",
+    title: "Pagamentos em processo próprio",
+    body: "A saga fala com o serviço de pagamentos só por mensagem: comando com endereço de resposta, outbox dos dois lados e resposta aplicada uma vez. Fila durável no Postgres, sem broker.",
   },
   {
     title: "Testado contra banco real",
@@ -44,6 +45,7 @@ const STACK = ["Next.js 16", "React 19", "TypeScript", "PostgreSQL", "Drizzle OR
 
 export default function AboutPage() {
   const simulationEnabled = isCheckoutSimulationEnabled();
+  const stripeEnabled = getStripePublishableKey() != null;
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-12 sm:px-6">
@@ -72,7 +74,16 @@ export default function AboutPage() {
             </code>{" "}
             (ou crie a sua).
           </li>
-          <li>Coloque algo no carrinho e finalize — nenhum pagamento real é processado.</li>
+          <li>
+            Coloque algo no carrinho e finalize — nenhum pagamento real é processado.
+            {stripeEnabled ? (
+              <>
+                {" "}No cartão (Stripe em modo de teste), use{" "}
+                <span className="font-mono text-foreground">4242 4242 4242 4242</span> pra aprovar ou{" "}
+                <span className="font-mono text-foreground">4000 0000 0000 0002</span> pra ver a recusa.
+              </>
+            ) : null}
+          </li>
           {simulationEnabled ? (
             <li>
               No checkout, o <strong className="text-foreground">modo demonstração</strong> deixa você

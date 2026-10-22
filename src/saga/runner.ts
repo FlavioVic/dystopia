@@ -4,9 +4,10 @@
  * O orquestrador (`advanceSaga`) não conhece a fila; aqui a gente traduz o
  * resultado dele em efeito na fila:
  *
- *   retry  → reagenda o MESMO job com backoff
- *   busy   → devolve o job sem gastar tentativa (outro executor está nela)
- *   final  → fecha o job (e qualquer outro job ativo da mesma saga)
+ *   retry   → reagenda o MESMO job com backoff
+ *   busy    → devolve o job sem gastar tentativa (outro executor está nela)
+ *   waiting → fecha o job: passo remoto, quem acorda a saga é a resposta
+ *   final   → fecha o job (e qualquer outro job ativo da mesma saga)
  *
  * São dois caminhos pro mesmo código:
  * - **inline** (`runSagaInline`): o próprio request do checkout avança a saga,
@@ -23,8 +24,9 @@ import { sagas } from "@/db/schema";
 import { createLogger } from "@/lib/logger";
 import * as queue from "@/queue";
 import type { ClaimedJob } from "@/queue";
-import { advanceSaga, type AdvanceOptions, type AdvanceOutcome } from "./orchestrator";
+import { advanceSaga, applyStepReply, type AdvanceOptions, type AdvanceOutcome } from "./orchestrator";
 import { errorMessage } from "./errors";
+import { parseStepReply } from "./messaging";
 
 const logger = createLogger("saga:runner");
 
@@ -104,6 +106,32 @@ export async function handleSagaAdvanceJob(job: ClaimedJob, options: AdvanceOpti
   await syncQueue(sagaId, outcome, { jobId: job.id });
 }
 
+/**
+ * Handler do job `saga.reply`: a resposta de um passo remoto. Aplica (uma vez
+ * só) e avança a saga. Se outro executor estiver com a saga, a resposta volta
+ * pra fila em vez de se perder — ele pode já ter olhado o passo antes de a
+ * resposta chegar e ido embora com `waiting`.
+ */
+export async function handleSagaReplyJob(job: ClaimedJob, options: AdvanceOptions = {}): Promise<void> {
+  const reply = parseStepReply(job.payload);
+  if (!reply) {
+    await queue.fail(job.id, "resposta de passo remoto inválida");
+    return;
+  }
+
+  const applied = await applyStepReply(reply);
+  const outcome = await advanceSaga(reply.sagaId, { workerId: job.payload.workerId as string | undefined, ...options });
+
+  if (outcome.status === "busy") {
+    await queue.release(job.id, { delayMs: 1_000 });
+    return;
+  }
+
+  logger.debug("resposta de passo remoto", { sagaId: reply.sagaId, step: reply.step, phase: reply.phase, applied });
+  await syncQueue(reply.sagaId, outcome, { jobId: null });
+  await queue.complete(job.id);
+}
+
 async function syncQueue(
   sagaId: string,
   outcome: AdvanceOutcome,
@@ -130,6 +158,7 @@ async function syncQueue(
       return;
     }
 
+    case "waiting":
     case "completed":
     case "compensated":
     case "failed":

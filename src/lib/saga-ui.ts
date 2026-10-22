@@ -26,6 +26,7 @@ export const SAGA_STATUS_LABELS: Record<string, string> = {
 
 export const SAGA_STEP_STATUS_LABELS: Record<string, string> = {
   pending: "Pendente",
+  waiting: "Aguardando resposta",
   completed: "OK",
   compensated: "Desfeito",
   failed: "Falhou",
@@ -55,6 +56,8 @@ export function sagaStepStatusClass(status: string): string {
       return "border-accent-secondary/40 bg-accent-secondary/10 text-accent-secondary";
     case "failed":
       return "border-danger/40 bg-danger/10 text-danger";
+    case "waiting":
+      return "border-accent/40 bg-accent/10 text-accent";
     default:
       return "border-border bg-background-elevated-hover text-foreground-muted";
   }

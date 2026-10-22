@@ -11,6 +11,7 @@ import { jobs, sagas } from "@/db/schema";
 import * as queue from "@/queue";
 import { reconcile } from "@/saga/reconcile";
 import { advanceDedupeKey, runSagaInline } from "@/saga/runner";
+import { settleSaga } from "../helpers/saga";
 import { closeDatabase, resetDatabase, seedCheckoutFixture } from "../helpers/db";
 import { startCheckout } from "../helpers/checkout";
 
@@ -37,7 +38,7 @@ describe("reconciliação", () => {
     assert.equal(saga?.leaseUntil, null);
 
     // Depois de liberado, qualquer executor consegue terminar o pedido.
-    assert.equal((await runSagaInline(checkout.sagaId)).status, "completed");
+    assert.equal((await settleSaga(checkout.sagaId)).status, "completed");
   });
 
   it("não encosta em lease ainda válido", async () => {
@@ -85,12 +86,24 @@ describe("reconciliação", () => {
   it("ignora sagas que já terminaram", async () => {
     const fixture = await seedCheckoutFixture({ stock: 5, quantity: 1 });
     const checkout = await startCheckout(fixture);
-    assert.equal((await runSagaInline(checkout.sagaId)).status, "completed");
+    assert.equal((await settleSaga(checkout.sagaId)).status, "completed");
     await db.delete(jobs);
 
     const report = await reconcile();
     assert.equal(report.rescheduledSagas, 0);
     assert.equal((await db.query.jobs.findMany()).length, 0);
+  });
+
+  it("não reenfileira saga que só está esperando a resposta de um passo remoto", async () => {
+    const fixture = await seedCheckoutFixture({ stock: 5, quantity: 1 });
+    const checkout = await startCheckout(fixture);
+    assert.equal((await runSagaInline(checkout.sagaId)).status, "waiting");
+
+    // Pagamentos fora do ar: o comando está na fila dele, a saga espera. Não é
+    // saga parada — reenfileirar o avanço a cada 30 s só faria barulho.
+    const report = await reconcile();
+    assert.equal(report.rescheduledSagas, 0);
+    assert.equal(await queue.findActiveByDedupeKey(advanceDedupeKey(checkout.sagaId)), undefined);
   });
 
   it("devolve pra fila job travado e conta a dead-letter", async () => {

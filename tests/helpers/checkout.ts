@@ -15,7 +15,7 @@ import { startSaga } from "@/saga/runner";
 import { createAddress } from "@/services/addresses";
 import { createOrder, generateOrderNumber } from "@/services/orders";
 import { evaluateCoupon } from "@/services/coupons/rules";
-import type { SimulationMode } from "@/services/payments/gateway";
+import type { SimulationMode } from "@/services/payments/contract";
 import type { CheckoutFixture } from "./db";
 
 export type StartedCheckout = {

@@ -1,0 +1,1 @@
+ALTER TYPE "public"."saga_step_status" ADD VALUE 'waiting' BEFORE 'completed';
