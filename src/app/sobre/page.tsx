@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { isCheckoutSimulationEnabled } from "@/lib/checkout-simulation";
 import { sagaStepLabel } from "@/lib/saga-ui";
 
 export const metadata: Metadata = {
@@ -42,6 +43,8 @@ const HIGHLIGHTS = [
 const STACK = ["Next.js 16", "React 19", "TypeScript", "PostgreSQL", "Drizzle ORM", "Tailwind CSS 4", "node:test"];
 
 export default function AboutPage() {
+  const simulationEnabled = isCheckoutSimulationEnabled();
+
   return (
     <div className="mx-auto max-w-4xl px-4 py-12 sm:px-6">
       <p className="font-mono text-xs font-semibold uppercase tracking-[0.2em] text-accent">Projeto de portfólio</p>
@@ -70,6 +73,13 @@ export default function AboutPage() {
             (ou crie a sua).
           </li>
           <li>Coloque algo no carrinho e finalize — nenhum pagamento real é processado.</li>
+          {simulationEnabled ? (
+            <li>
+              No checkout, o <strong className="text-foreground">modo demonstração</strong> deixa você
+              escolher o que o gateway responde. Tente &ldquo;Recusar pagamento&rdquo; ou &ldquo;Gateway fora
+              do ar&rdquo; pra ver a compensação.
+            </li>
+          ) : null}
           <li>Na página do pedido, acompanhe a saga passo a passo.</li>
         </ol>
       </div>

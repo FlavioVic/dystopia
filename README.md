@@ -287,12 +287,21 @@ todo deploy do worker aplica as pendentes antes de subir o código novo.
    - `DATABASE_URL` = a `DATABASE_PUBLIC_URL` da Railway
    - `SESSION_SECRET` = `openssl rand -base64 32` (novo, nunca o do `.env` local)
    - `PG_POOL_MAX` = `3` (cada instância da função tem o próprio pool)
+   - `ALLOW_CHECKOUT_SIMULATION` = `1` — liga o **modo demonstração** no
+     checkout (ver abaixo)
 3. Deploy. O `vercel.json` fixa as funções em `iad1`, perto do US East da
    Railway — cada página faz várias queries, e a distância até o banco pesa
    mais que a distância até o visitante.
 
-**Não** defina `ALLOW_CHECKOUT_SIMULATION` em produção, e nunca reaproveite
-`.env` local nem a senha `dystopia_dev_pw` do compose.
+Nunca reaproveite o `.env` local nem a senha `dystopia_dev_pw` do compose.
+
+**Modo demonstração.** Com `ALLOW_CHECKOUT_SIMULATION=1`, o checkout mostra um
+seletor pro visitante escolher o que o gateway responde — aprovar, recusar,
+instável ou fora do ar — e ver a saga compensar ou tentar de novo. É seguro
+porque o gateway é simulado: nenhum caminho cobra nada. No dia em que entrar um
+gateway real, a flag sai: cliente não pode escolher o resultado da própria
+cobrança. Os modos "instável" e "fora do ar" dependem do worker rodando (o
+retry sai da fila).
 
 ## Testes
 
@@ -319,8 +328,8 @@ asserção é "o estoque voltou, a cobrança foi estornada, o pedido está
 cancelado, o carrinho continua lá".
 
 Para ver um caminho triste na mão, suba o app com
-`ALLOW_CHECKOUT_SIMULATION=1` e envie `simulate=decline` (ou `flaky_once`,
-`unavailable`) no checkout.
+`ALLOW_CHECKOUT_SIMULATION=1`: o checkout ganha o seletor do modo
+demonstração (recusar, instável, fora do ar).
 
 ### CI
 

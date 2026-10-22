@@ -26,6 +26,7 @@ import { createAddress, getUserAddress } from "@/services/addresses";
 import { createOrder, generateOrderNumber } from "@/services/orders";
 import { isPaymentMethod, type PaymentMethod } from "@/services/payments";
 import { isSimulationMode } from "@/services/payments/gateway";
+import { isCheckoutSimulationEnabled } from "@/lib/checkout-simulation";
 
 const PAYMENT_METHODS = ["pix", "credit_card", "boleto"] as const satisfies readonly PaymentMethod[];
 
@@ -154,11 +155,11 @@ export async function placeOrder(_prev: CheckoutState, formData: FormData): Prom
 
 /**
  * Permite forçar um caminho do gateway simulado (`decline`, `flaky_once`…)
- * pra demonstrar a compensação. Só funciona com `ALLOW_CHECKOUT_SIMULATION=1`
- * no ambiente — em produção o campo do formulário é ignorado.
+ * pra demonstrar a compensação. Com o modo demonstração desligado, o campo do
+ * formulário é ignorado (ver `lib/checkout-simulation`).
  */
 function simulationFromForm(formData: FormData) {
-  if (process.env.ALLOW_CHECKOUT_SIMULATION !== "1") return null;
+  if (!isCheckoutSimulationEnabled()) return null;
   const raw = String(formData.get("simulate") ?? "");
   return isSimulationMode(raw) ? raw : null;
 }

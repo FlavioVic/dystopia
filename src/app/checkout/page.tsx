@@ -4,6 +4,7 @@ import { CheckoutForm } from "@/components/CheckoutForm";
 import { db } from "@/db";
 import { getCurrentUser } from "@/lib/data/auth";
 import { getCart } from "@/lib/data/cart";
+import { isCheckoutSimulationEnabled } from "@/lib/checkout-simulation";
 import { formatAddress } from "@/lib/validation/address";
 import { listAddresses } from "@/services/addresses";
 
@@ -29,6 +30,7 @@ export default async function CheckoutPage() {
         isDefault: address.isDefault,
       }))}
       subtotalCents={cart.subtotalCents}
+      simulationEnabled={isCheckoutSimulationEnabled()}
       lines={cart.lines.map((l) => ({
         itemId: l.itemId,
         name: l.name,

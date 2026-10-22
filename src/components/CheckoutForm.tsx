@@ -33,16 +33,27 @@ const methods = [
   { id: "boleto", label: "Boleto", hint: "vence em 3 dias" },
 ];
 
+// Valores de SIMULATION_MODES (services/payments/gateway); o texto diz o que a
+// saga vai fazer, que é o ponto da demonstração.
+const simulations = [
+  { id: "approve", label: "Aprovar", hint: "caminho feliz: os 6 passos concluem" },
+  { id: "decline", label: "Recusar pagamento", hint: "falha permanente: a reserva de estoque é desfeita" },
+  { id: "flaky_once", label: "Gateway instável", hint: "falha uma vez, a fila tenta de novo e aprova" },
+  { id: "unavailable", label: "Gateway fora do ar", hint: "esgota as tentativas com backoff e desfaz tudo" },
+];
+
 export function CheckoutForm({
   defaultName,
   lines,
   subtotalCents,
   savedAddresses = [],
+  simulationEnabled = false,
 }: {
   defaultName: string;
   lines: Line[];
   subtotalCents: number;
   savedAddresses?: SavedAddress[];
+  simulationEnabled?: boolean;
 }) {
   const [state, formAction, pending] = useActionState(placeOrder, undefined);
   // Começa no endereço padrão (ou no primeiro salvo); sem nada salvo, no formulário.
@@ -168,6 +179,37 @@ export function CheckoutForm({
               ))}
             </div>
           </section>
+
+          {simulationEnabled ? (
+            <section className="rounded-2xl border border-dashed border-accent/40 bg-background-elevated p-5">
+              <h2 className="text-sm font-semibold uppercase tracking-wider text-foreground-muted">
+                Modo demonstração
+              </h2>
+              <p className="mt-1 text-xs text-foreground-muted">
+                Escolha o que o gateway simulado responde e veja, na página do pedido, a saga reagir.
+              </p>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                {simulations.map((s, i) => (
+                  <label
+                    key={s.id}
+                    className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-border p-3 transition-colors has-[:checked]:border-accent has-[:checked]:bg-accent/5"
+                  >
+                    <input
+                      type="radio"
+                      name="simulate"
+                      value={s.id}
+                      defaultChecked={i === 0}
+                      className="mt-0.5 accent-[var(--accent)]"
+                    />
+                    <span>
+                      <span className="block text-sm font-medium">{s.label}</span>
+                      <span className="block text-[11px] text-foreground-muted">{s.hint}</span>
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </section>
+          ) : null}
         </div>
 
         {/* Resumo */}
