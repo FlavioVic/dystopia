@@ -37,7 +37,43 @@ function productImage(slug: string) {
   return `/images/products/${slug}.jpg`;
 }
 
+const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
+
+/**
+ * O seed apaga tudo e cria um admin. Contra o banco local isso é conveniência;
+ * contra um banco remoto (produção/demo) seria apagar pedidos reais e criar um
+ * admin com a senha que está no README público. Então, fora do localhost:
+ * exige confirmação explícita e senha de admin vinda do ambiente.
+ */
+function resolveSeedCredentials(): { adminPassword: string; customerPassword: string; remote: boolean } {
+  const host = new URL(process.env.DATABASE_URL!).hostname;
+  const remote = !LOCAL_HOSTS.has(host);
+  if (!remote) {
+    return {
+      adminPassword: process.env.SEED_ADMIN_PASSWORD ?? "admin123",
+      customerPassword: process.env.SEED_CUSTOMER_PASSWORD ?? "cliente123",
+      remote,
+    };
+  }
+
+  if (process.env.SEED_ALLOW_REMOTE !== "1") {
+    throw new Error(
+      `DATABASE_URL aponta pra um banco remoto (${host}) e o seed faz TRUNCATE em tudo. ` +
+        "Se é isso mesmo, rode com SEED_ALLOW_REMOTE=1.",
+    );
+  }
+  const adminPassword = process.env.SEED_ADMIN_PASSWORD ?? "";
+  if (adminPassword.length < 16) {
+    throw new Error("Banco remoto: defina SEED_ADMIN_PASSWORD com pelo menos 16 caracteres.");
+  }
+  // A conta de cliente é a demo pública (quem visita o portfólio entra com ela);
+  // ela não tem poder nenhum além do que um cadastro novo já teria.
+  return { adminPassword, customerPassword: process.env.SEED_CUSTOMER_PASSWORD ?? "cliente123", remote };
+}
+
 async function main() {
+  const credentials = resolveSeedCredentials();
+
   console.log("🧹 Limpando tabelas...");
   await db.execute(sql`
     TRUNCATE TABLE
@@ -389,8 +425,8 @@ async function main() {
   }
 
   console.log("👤 Criando usuários de teste...");
-  const adminPasswordHash = await bcrypt.hash("admin123", 10);
-  const customerPasswordHash = await bcrypt.hash("cliente123", 10);
+  const adminPasswordHash = await bcrypt.hash(credentials.adminPassword, 10);
+  const customerPasswordHash = await bcrypt.hash(credentials.customerPassword, 10);
 
   await db
     .insert(users)
@@ -452,8 +488,10 @@ async function main() {
 
   console.log("✅ Seed concluído!");
   console.log(`   ${seedProducts.length} produtos em 6 categorias`);
-  console.log(`   Login admin: admin@dystopia.dev / admin123`);
-  console.log(`   Login cliente: cliente@dystopia.dev / cliente123`);
+  // Em banco remoto a senha de admin não vai pro log (log de CI/terminal vaza).
+  const adminShown = credentials.remote ? "(SEED_ADMIN_PASSWORD)" : credentials.adminPassword;
+  console.log(`   Login admin: admin@dystopia.dev / ${adminShown}`);
+  console.log(`   Login cliente: cliente@dystopia.dev / ${credentials.customerPassword}`);
 }
 
 main()

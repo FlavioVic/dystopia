@@ -1,0 +1,14 @@
+# Segredos nunca entram na imagem — variáveis vêm do ambiente da plataforma.
+.env*
+!.env.example
+
+node_modules
+.next
+.git
+.github
+.vercel
+coverage
+tests
+public
+*.tsbuildinfo
+next-env.d.ts

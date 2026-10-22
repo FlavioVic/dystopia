@@ -199,6 +199,11 @@ os mesmos `db:migrate` / `db:seed`.
 | Admin | `admin@dystopia.dev` | `admin123` |
 | Cliente | `cliente@dystopia.dev` | `cliente123` |
 
+Essas senhas valem **só no banco local**. Contra um banco remoto o seed se
+recusa a rodar sem `SEED_ALLOW_REMOTE=1` e sem uma `SEED_ADMIN_PASSWORD` de
+pelo menos 16 caracteres — a senha de admin acima é pública, então nunca chega
+a produção.
+
 ### Scripts úteis
 
 | Comando | O que faz |
@@ -213,6 +218,51 @@ os mesmos `db:migrate` / `db:seed`.
 | `npm run db:migrate` | Aplica migrations pendentes |
 | `npm run db:studio` | Abre o Drizzle Studio (GUI do banco) |
 | `npm run db:seed` | Popula o banco com dados de exemplo |
+
+## Deploy
+
+Dois processos, dois lugares — porque têm formatos diferentes:
+
+| Peça | Onde | Por quê |
+|---|---|---|
+| App web (Next.js) | **Vercel** | serverless; o checkout avança a saga no próprio request |
+| Worker da fila | **Railway** (container, `Dockerfile.worker`) | precisa ficar vivo fazendo polling — serverless não serve |
+| Postgres | **Railway** | mesmo projeto do worker (rede privada entre os dois) |
+
+As migrations rodam no `preDeployCommand` do worker (`railway.json`), então
+todo deploy do worker aplica as pendentes antes de subir o código novo.
+
+### 1. Railway — banco + worker
+
+1. Novo projeto → **Deploy from GitHub repo** → este repositório. O
+   `railway.json` já aponta pro `Dockerfile.worker`.
+2. No mesmo projeto, **+ New → Database → PostgreSQL**. Região: **US East**.
+3. Variável do serviço do worker: `DATABASE_URL` = `${{Postgres.DATABASE_URL}}`
+   (URL interna). Ele não precisa de `SESSION_SECRET` — não lida com sessão.
+4. Em **Settings → Networking** do Postgres, habilite o **TCP Proxy** e copie
+   a `DATABASE_PUBLIC_URL` — é por ela que a Vercel e o seed chegam no banco.
+5. Popule uma vez, da sua máquina (a senha de admin fica só com você):
+
+   ```bash
+   DATABASE_URL='<DATABASE_PUBLIC_URL>' SEED_ALLOW_REMOTE=1 \
+     SEED_ADMIN_PASSWORD="$(openssl rand -base64 24)" npm run db:seed
+   ```
+
+   Guarde a senha gerada num gerenciador antes — o seed não a imprime.
+
+### 2. Vercel — app
+
+1. **Add New → Project** → este repositório (framework detectado: Next.js).
+2. Variáveis de ambiente (Production):
+   - `DATABASE_URL` = a `DATABASE_PUBLIC_URL` da Railway
+   - `SESSION_SECRET` = `openssl rand -base64 32` (novo, nunca o do `.env` local)
+   - `PG_POOL_MAX` = `3` (cada instância da função tem o próprio pool)
+3. Deploy. O `vercel.json` fixa as funções em `iad1`, perto do US East da
+   Railway — cada página faz várias queries, e a distância até o banco pesa
+   mais que a distância até o visitante.
+
+**Não** defina `ALLOW_CHECKOUT_SIMULATION` em produção, e nunca reaproveite
+`.env` local nem a senha `dystopia_dev_pw` do compose.
 
 ## Testes
 
@@ -251,10 +301,6 @@ testes → build de produção. É a mesma sequência que vale localmente:
 ```bash
 npx tsc --noEmit && npm run lint && npm test && npm run build
 ```
-
-> O run só sai do lugar se o repositório tiver GitHub Actions habilitado e com
-> cota — em repositório privado sem minutos disponíveis o run falha no
-> *startup*, sem nem criar o job (repositório público tem Actions ilimitado).
 
 ## Painel admin
 

@@ -1,0 +1,28 @@
+# Worker da fila (sagas) — processo separado do servidor web.
+#
+# O app web vai pra Vercel (serverless, sem processo de longa duração); o
+# worker precisa ficar vivo fazendo polling na fila, então roda como container
+# (Railway/Render/Fly). Mesmo repo, mesmo código: só muda o entrypoint.
+#
+#   docker build -f Dockerfile.worker -t dystopia-worker .
+#   docker run --env-file .env dystopia-worker
+
+FROM node:22-alpine
+
+WORKDIR /app
+
+# tsx e drizzle-kit são devDependencies, mas o worker roda via tsx e as
+# migrations rodam a partir desta imagem — por isso instala tudo.
+COPY package.json package-lock.json ./
+RUN npm ci && npm cache clean --force
+
+COPY tsconfig.json drizzle.config.ts ./
+COPY drizzle ./drizzle
+COPY src ./src
+
+ENV NODE_ENV=production
+USER node
+
+# SIGTERM chega direto no node (sem npm no meio), e o worker termina o tick
+# atual antes de sair.
+CMD ["node", "--import", "tsx", "src/scripts/worker.ts"]

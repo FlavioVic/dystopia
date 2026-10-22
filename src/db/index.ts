@@ -6,8 +6,12 @@ if (!process.env.DATABASE_URL) {
   throw new Error("DATABASE_URL não está definida. Veja o arquivo .env.example.");
 }
 
+// Em serverless (Vercel) cada instância da função tem o próprio pool; com o
+// padrão do `pg` (10) poucas instâncias já estouram o limite de conexões do
+// Postgres. Lá use PG_POOL_MAX baixo; worker e dev ficam com o padrão.
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
+  max: Number(process.env.PG_POOL_MAX ?? 10),
 });
 
 export const db = drizzle(pool, { schema });
