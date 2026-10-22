@@ -77,7 +77,12 @@ export default async function OpenGraphImage() {
               <path d={D_PATH} fillRule="evenodd" fill={ACCENT} />
             </svg>
           </div>
-          <div style={{ fontFamily: "Chakra Petch", fontSize: 44, letterSpacing: 3 }}>DYSTOPIA</div>
+          {/* Mesmo kerning óptico do T-O da logo do site (−0,06em). */}
+          <div style={{ display: "flex", fontFamily: "Chakra Petch", fontSize: 44, letterSpacing: 3 }}>
+            <span>DYS</span>
+            <span style={{ letterSpacing: 3 - 0.06 * 44 }}>T</span>
+            <span>OPIA</span>
+          </div>
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", maxWidth: 940 }}>

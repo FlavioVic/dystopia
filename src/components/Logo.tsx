@@ -81,7 +81,10 @@ export function Logo({
           className="font-brand text-lg font-semibold uppercase leading-none tracking-[0.04em]"
           style={{ color: "var(--logo-ink)" }}
         >
-          Dystopia
+          {/* Kerning óptico no par T-O: a barra do T deixa um vão embaixo e o
+              olho lia "DYST OPIA". −0,06em em cima do tracking fecha sem
+              encostar (comparado lado a lado com −0,04 e −0,08). */}
+          Dys<span className="tracking-[-0.02em]">t</span>opia
         </span>
       ) : null}
     </span>
