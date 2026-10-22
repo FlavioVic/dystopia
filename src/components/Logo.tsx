@@ -19,9 +19,9 @@ const DEFAULT_VARS: Record<string, string> = {
 
 // D chanfrado: silhueta externa (topo/esquerda retos = "costas" do D; cantos
 // direitos cortados a 45°) com o contra-forma recortado via fill-rule evenodd.
-const D_PATH =
+export const D_PATH =
   "M13 10 H29 L38 19 V29 L29 38 H13 Z M21 18 H28 L30 20 V28 L28 30 H21 Z";
-const HEX_POINTS = "24,3 42.2,13.5 42.2,34.5 24,45 5.8,34.5 5.8,13.5";
+export const HEX_POINTS = "24,3 42.2,13.5 42.2,34.5 24,45 5.8,34.5 5.8,13.5";
 
 export function LogoIcon({
   className = "",

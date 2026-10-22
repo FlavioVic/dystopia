@@ -15,6 +15,18 @@ export const metadata: Metadata = {
     template: "%s · Dystopia",
   },
   description: "Colecionáveis, quadrinhos, games e moda geek de um futuro cyberpunk.",
+  // Quem recebe o link compartilhado (LinkedIn, WhatsApp) vê o projeto, não só
+  // a loja. A imagem vem de app/opengraph-image.tsx; na Vercel o Next monta a
+  // URL absoluta com o domínio de produção (sem metadataBase fixo).
+  openGraph: {
+    type: "website",
+    locale: "pt_BR",
+    siteName: "Dystopia",
+    title: "Dystopia — e-commerce geek com checkout orquestrado por SAGA",
+    description:
+      "Projeto de portfólio: loja em Next.js + Postgres com fila durável, compensação, observabilidade e um modo demonstração pra ver tudo acontecer.",
+  },
+  twitter: { card: "summary_large_image" },
 };
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
