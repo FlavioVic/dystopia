@@ -37,7 +37,9 @@ export function SagaTimeline({
               <span className="font-medium">{sagaStepLabel(step.name)}</span>
               <span className="text-[11px] uppercase tracking-wide text-foreground-muted">
                 {SAGA_STEP_STATUS_LABELS[step.status] ?? step.status}
-                {step.attempts > 1 ? ` · ${step.attempts} tentativas` : ""}
+                {/* `attempts` soma ida e compensação (as duas são contadas antes de
+                    rodar); num passo desfeito "2 tentativas" leria como retry. */}
+                {step.attempts > 1 && step.status !== "compensated" ? ` · ${step.attempts} tentativas` : ""}
               </span>
             </span>
             {showErrors && step.error ? (

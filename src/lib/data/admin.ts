@@ -1,7 +1,8 @@
 import { cache } from "react";
-import { eq, sql } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { categories, coupons, orders, products } from "@/db/schema";
+import { REVENUE_STATUSES } from "@/lib/order-status";
 
 export const getAdminStats = cache(async () => {
   const [p] = await db
@@ -14,7 +15,7 @@ export const getAdminStats = cache(async () => {
   const [o] = await db
     .select({
       count: sql<number>`count(*)::int`,
-      revenue: sql<number>`coalesce(sum(${orders.totalCents}), 0)::int`,
+      revenue: sql<number>`(coalesce(sum(${orders.totalCents}) filter (where ${inArray(orders.status, [...REVENUE_STATUSES])}), 0))::int`,
     })
     .from(orders);
   return { productsActive: p.total, lowStock: p.low, ordersCount: o.count, revenueCents: o.revenue };

@@ -190,9 +190,17 @@ export default async function OrderPage(props: PageProps<"/pedido/[orderNumber]"
         </div>
         <div className="rounded-xl border border-border p-4 text-sm">
           <h2 className="text-xs font-semibold uppercase tracking-wider text-foreground-muted">Pagamento</h2>
-          <p className="mt-2 font-medium">{payment ? methodLabel[payment.method] ?? payment.method : "—"}</p>
+          {/* Sem linha de pagamento: ou a saga ainda não chegou lá, ou a
+              autorização foi recusada (a transação do passo não commita nada). */}
+          <p className="mt-2 font-medium">
+            {payment ? methodLabel[payment.method] ?? payment.method : state === "failed" ? "Nenhuma cobrança" : "—"}
+          </p>
           <p className="text-foreground-muted">
-            {payment ? paymentStatusLabel[payment.status] ?? payment.status : "Aguardando confirmação"}
+            {payment
+              ? paymentStatusLabel[payment.status] ?? payment.status
+              : state === "failed"
+                ? "Nada foi debitado"
+                : "Aguardando confirmação"}
           </p>
         </div>
       </div>

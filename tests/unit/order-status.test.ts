@@ -10,6 +10,7 @@ import {
   ORDER_STATUSES,
   ORDER_STATUS_LABELS,
   orderStatusClass,
+  REVENUE_STATUSES,
 } from "@/lib/order-status";
 
 describe("status de pedido", () => {
@@ -61,6 +62,16 @@ describe("máquina de estados", () => {
     assert.equal(isTerminalStatus("refunded"), true);
     assert.equal(isTerminalStatus("delivered"), false);
     assert.deepEqual(nextStatuses("cancelled"), []);
+  });
+
+  it("receita conta só dinheiro aprovado e não devolvido", () => {
+    const revenue = new Set<string>(REVENUE_STATUSES);
+    for (const status of ["pending", "cancelled", "refunded"]) {
+      assert.equal(revenue.has(status), false, `${status} não é receita`);
+    }
+    for (const status of ["paid", "processing", "shipped", "delivered"]) {
+      assert.equal(revenue.has(status), true, `${status} é receita`);
+    }
   });
 
   it("nenhum status permite transição pra si mesmo (quem trata isso é o serviço)", () => {

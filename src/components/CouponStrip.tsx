@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { TicketIcon } from "@/components/TicketIcon";
 import { formatPriceCents } from "@/lib/format";
 
 type Coupon = {
@@ -62,7 +63,7 @@ export function CouponStrip({ coupons }: { coupons: Coupon[] }) {
   return (
     <section className="mt-12 border-t border-border pt-8">
       <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-foreground-muted">
-        <span aria-hidden>🎟️</span> Cupons disponíveis
+        <TicketIcon className="h-4 w-4 text-accent" /> Cupons disponíveis
       </h2>
       <div className="mt-4 flex gap-3 overflow-x-auto pb-1">
         {coupons.map((c) => (

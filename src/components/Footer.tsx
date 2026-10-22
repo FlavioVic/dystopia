@@ -41,7 +41,11 @@ export function Footer({ categories }: { categories: Category[] }) {
       </div>
 
       <div className="border-t border-border px-4 py-6 text-center text-xs text-foreground-muted sm:px-6 lg:px-8">
-        Dystopia — projeto de portfólio. Produtos e marca fictícios.
+        Dystopia —{" "}
+        <Link href="/sobre" className="font-medium text-accent hover:underline">
+          projeto de portfólio
+        </Link>
+        . Produtos e marca fictícios.
       </div>
     </footer>
   );

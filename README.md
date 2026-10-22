@@ -4,26 +4,41 @@ E-commerce geek fictício, construído como projeto de portfólio. Visual vibran
 de marketplace, com cara de loja geek brasileira — e, por baixo, um checkout
 orquestrado por **SAGA** com fila durável, compensação e reconciliação.
 
-## Status atual
+![Home da loja](docs/screenshots/home.webp)
 
-✅ **Etapa 1 — Banco de dados**
-Schema completo modelado, migrado e validado com dados reais.
+## Em 30 segundos
 
-✅ **Etapa 2 — Loja**
-Catálogo (home, listagem com busca/filtros, página de produto), carrinho
-persistente (visitante e logado), autenticação e checkout com cupom e frete.
+- **Checkout que não deixa pedido pela metade.** Seis passos atômicos (estoque,
+  pagamento, cupom, confirmação, carrinho, aviso), cada um num serviço. Se um
+  falha de vez, os anteriores são desfeitos em ordem reversa.
+- **Fila durável no próprio Postgres**, sem broker: outbox, `SKIP LOCKED`,
+  lease, retry com backoff, dead-letter e reconciliação automática.
+- **Testado contra banco real**: compensação, retry, crash no meio do passo e
+  concorrência — e um teste de arquitetura que impede serviço de importar
+  serviço.
+- **Pronto pra ficar exposto**: limite de tentativas contado no banco, login
+  que não revela quais e-mails existem, CSRF e headers de segurança
+  ([detalhes](#segurança)).
+- Loja completa em volta: catálogo com busca e filtros, carrinho persistente,
+  cupons, avaliações com compra verificada, favoritos, endereços e painel admin.
 
-✅ **Etapa 3 — Painel admin**
-`/admin` (só para `role = admin`): métricas, gestão de produtos e de pedidos.
+## Telas
 
-✅ **Etapa 4 — Orquestração do checkout**
-O pedido deixou de ser uma transação gigante: virou uma saga de passos atômicos
-em serviços separados, com fila no Postgres, retry com backoff, compensação em
-ordem reversa e painel de operação em `/admin/orquestracao`.
+| Pedido confirmado: a saga passo a passo | Pagamento recusado: tudo desfeito |
+|---|---|
+| ![Pedido confirmado](docs/screenshots/pedido-confirmado.webp) | ![Pedido compensado](docs/screenshots/pedido-compensado.webp) |
 
-✅ **Etapa 5 — Conta do cliente e catálogo**
-Avaliações com compra verificada, lista de desejos, agenda de endereços
-reaproveitada no checkout e gestão de cupons e variantes no admin.
+| Painel de orquestração (`/admin/orquestracao`) | Checkout com cupom |
+|---|---|
+| ![Orquestração](docs/screenshots/admin-orquestracao.webp) | ![Checkout](docs/screenshots/checkout.webp) |
+
+| Produto | Painel admin | Celular |
+|---|---|---|
+| ![Produto](docs/screenshots/produto.webp) | ![Admin](docs/screenshots/admin-dashboard.webp) | ![Celular](docs/screenshots/mobile-home.webp) |
+
+Os prints são gerados contra um banco populado só pelo seed, com pedidos feitos
+pelo próprio fluxo da loja — o recusado usa o gateway simulado
+(`ALLOW_CHECKOUT_SIMULATION`).
 
 ## Stack
 
@@ -32,7 +47,7 @@ reaproveitada no checkout e gestão de cupons e variantes no admin.
 - **Banco de dados**: PostgreSQL
 - **ORM**: [Drizzle ORM](https://orm.drizzle.team/) + `drizzle-kit` (migrations)
 - **Orquestração**: SAGA + fila, implementadas no projeto (sem broker externo)
-- **Testes**: `node:test` + `tsx` (181 testes, unitários e de integração)
+- **Testes**: `node:test` + `tsx` (187 testes, unitários e de integração)
 
 Dependências de runtime: `next`, `react`, `drizzle-orm`, `pg`, `jose`,
 `bcryptjs`, `dotenv`. Nada além disso — fila, orquestrador, logger e runner de
@@ -84,6 +99,21 @@ placeOrder (Server Action)
 | 4 | `confirm-order` | `services/orders` | cancela o pedido |
 | 5 | `clear-cart` | `services/carts` | restaura os itens do carrinho |
 | 6 | `notify-customer` | `services/notifications` | — (só avisa) |
+
+```mermaid
+flowchart LR
+    S1[1 · reserva estoque] --> S2[2 · autoriza pagamento] --> S3[3 · consome cupom]
+    S3 --> S4[4 · confirma pedido] --> S5[5 · limpa carrinho] --> S6[6 · avisa cliente] --> OK([pedido pago])
+
+    S3 -. falha permanente .-> C2[estorna cobrança]
+    C2 -.-> C1[devolve estoque] -.-> X([pedido cancelado])
+
+    S3 -. falha transitória .-> Q[(fila: retry com backoff)]
+    Q -. até 3 tentativas .-> S3
+```
+
+*Exemplo com falha no passo 3: só o que já foi aplicado (2 e 1) é desfeito, do
+mais recente pro mais antigo. Qualquer passo segue o mesmo padrão.*
 
 - **Falha de negócio** (sem estoque, pagamento recusado, cupom esgotado) →
   compensa na hora, em ordem reversa, e o pedido vira `cancelled`.
@@ -267,7 +297,7 @@ todo deploy do worker aplica as pendentes antes de subir o código novo.
 ## Testes
 
 ```bash
-npm test          # 186 testes
+npm test          # 187 testes
 npm run test:unit # subconjunto sem banco
 ```
 
