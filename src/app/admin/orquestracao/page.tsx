@@ -5,15 +5,16 @@ import { JobActions } from "@/components/admin/JobActions";
 import { requireAdmin } from "@/lib/data/auth";
 import {
   getActiveAndDeadJobs,
-  getJobStats,
+  getOperationalHealth,
   getRecentNotifications,
-  getSagaStats,
   getSagasOverview,
 } from "@/lib/data/orchestration";
+import { formatDuration, HEALTH_WINDOWS, parseHealthWindow, type HealthWindow } from "@/lib/observability";
 import {
   jobStatusClass,
   JOB_STATUS_LABELS,
   sagaStatusClass,
+  sagaStepLabel,
   SAGA_STATUS_LABELS,
 } from "@/lib/saga-ui";
 
@@ -25,47 +26,120 @@ export const metadata: Metadata = { title: "Orquestração · Admin" };
  * É a tela de operação do fluxo de checkout — onde se vê um pedido que
  * compensou, um job que vai tentar de novo, e o que caiu na dead-letter.
  */
-export default async function OrchestrationPage() {
+export default async function OrchestrationPage(props: PageProps<"/admin/orquestracao">) {
   await requireAdmin();
+  const range = parseHealthWindow((await props.searchParams).janela);
 
-  const [sagasList, sagaStats, jobsList, jobStats, notifications] = await Promise.all([
+  const [sagasList, health, jobsList, notifications] = await Promise.all([
     getSagasOverview(12),
-    getSagaStats(),
+    getOperationalHealth(range),
     getActiveAndDeadJobs(20),
-    getJobStats(),
     getRecentNotifications(8),
   ]);
+  const { sagas: sagaMetrics, queue: queueMetrics } = health;
+
+  const finished =
+    (sagaMetrics.byStatus.completed ?? 0) + (sagaMetrics.byStatus.compensated ?? 0) + (sagaMetrics.byStatus.failed ?? 0);
+  const needsAction = (sagaMetrics.byStatus.failed ?? 0) + queueMetrics.dead;
 
   const cards = [
-    { label: "Sagas", value: String(sagaStats.total) },
-    { label: "Concluídas", value: String(sagaStats.byStatus.completed ?? 0) },
-    { label: "Compensadas", value: String(sagaStats.byStatus.compensated ?? 0) },
+    {
+      label: "Taxa de conclusão",
+      value: sagaMetrics.completionRate == null ? "—" : `${Math.round(sagaMetrics.completionRate * 100)}%`,
+      hint: `${sagaMetrics.byStatus.completed ?? 0} de ${finished} terminadas · o resto foi desfeito`,
+    },
+    {
+      label: "Tempo até confirmar",
+      value: formatDuration(sagaMetrics.p50Ms),
+      hint: `p50 · p95 ${formatDuration(sagaMetrics.p95Ms)}`,
+    },
+    {
+      label: "Fila",
+      value: String(queueMetrics.ready),
+      hint: queueMetrics.ready > 0 ? `prontos · mais antigo há ${formatDuration(queueMetrics.oldestReadyAgeMs)}` : "prontos · nada esperando",
+    },
     {
       label: "Precisam de ação",
-      value: String((sagaStats.byStatus.failed ?? 0) + (jobStats.dead ?? 0)),
-      warn: (sagaStats.byStatus.failed ?? 0) + (jobStats.dead ?? 0) > 0,
+      value: String(needsAction),
+      hint: "dead-letter + compensações que falharam",
+      warn: needsAction > 0,
     },
   ];
 
   return (
     <div className="flex flex-col gap-8">
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        {cards.map((card) => (
-          <div key={card.label} className="rounded-xl border border-border bg-background-elevated p-4">
-            <p className="text-[11px] font-medium uppercase tracking-wide text-foreground-muted">{card.label}</p>
-            <p
-              className={`mt-1.5 font-mono text-2xl font-bold tabular-nums ${card.warn ? "text-danger" : ""}`}
-            >
-              {card.value}
-            </p>
+      <section>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-foreground-muted">
+            Saúde · últimas {HEALTH_WINDOWS[range].label}
+          </h2>
+          <nav className="flex gap-1 text-xs" aria-label="Janela das métricas">
+            {(Object.keys(HEALTH_WINDOWS) as HealthWindow[]).map((key) => (
+              <Link
+                key={key}
+                href={key === "24h" ? "/admin/orquestracao" : `/admin/orquestracao?janela=${key}`}
+                className={`rounded-md px-2.5 py-1 font-medium ${key === range ? "bg-accent/10 text-accent" : "text-foreground-muted hover:text-foreground"}`}
+              >
+                {HEALTH_WINDOWS[key].label}
+              </Link>
+            ))}
+          </nav>
+        </div>
+
+        <div className="mt-4 grid grid-cols-2 gap-4 lg:grid-cols-4">
+          {cards.map((card) => (
+            <div key={card.label} className="rounded-xl border border-border bg-background-elevated p-4">
+              <p className="text-[11px] font-medium uppercase tracking-wide text-foreground-muted">{card.label}</p>
+              <p className={`mt-1.5 font-mono text-2xl font-bold tabular-nums ${card.warn ? "text-danger" : ""}`}>
+                {card.value}
+              </p>
+              <p className="mt-1 text-[11px] text-foreground-muted">{card.hint}</p>
+            </div>
+          ))}
+        </div>
+
+        {sagaMetrics.steps.length > 0 ? (
+          <div className="mt-4 overflow-x-auto rounded-xl border border-border">
+            <table className="w-full min-w-[640px] text-sm">
+              <thead className="border-b border-border bg-background-elevated text-left text-xs text-foreground-muted">
+                <tr>
+                  <th className="px-4 py-2.5 font-medium">Passo</th>
+                  <th className="px-4 py-2.5 text-right font-medium">Execuções</th>
+                  <th className="px-4 py-2.5 text-right font-medium">Com retry</th>
+                  <th className="px-4 py-2.5 text-right font-medium">Falhas</th>
+                  <th className="px-4 py-2.5 text-right font-medium" title="Inclui a espera de backoff entre tentativas">
+                    p50 · p95
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {sagaMetrics.steps.map((step) => (
+                  <tr key={step.name} className="border-b border-border last:border-0">
+                    <td className="px-4 py-2.5">{sagaStepLabel(step.name)}</td>
+                    <td className="px-4 py-2.5 text-right tabular-nums">{step.executions}</td>
+                    <td className={`px-4 py-2.5 text-right tabular-nums ${step.retried > 0 ? "text-accent-secondary" : ""}`}>
+                      {step.retried}
+                    </td>
+                    <td className={`px-4 py-2.5 text-right tabular-nums ${step.failed > 0 ? "text-danger" : ""}`}>
+                      {step.failed}
+                    </td>
+                    <td className="px-4 py-2.5 text-right font-mono text-xs tabular-nums text-foreground-muted">
+                      {formatDuration(step.p50Ms)} · {formatDuration(step.p95Ms)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        ))}
-      </div>
+        ) : (
+          <p className="mt-4 text-sm text-foreground-muted">Nenhuma saga nessa janela.</p>
+        )}
+      </section>
 
       <section>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-sm font-semibold uppercase tracking-wider text-foreground-muted">
-            Fila ({Object.entries(jobStats).map(([status, count]) => `${JOB_STATUS_LABELS[status] ?? status}: ${count}`).join(" · ") || "vazia"})
+            Fila ({Object.entries(queueMetrics.byStatus).map(([status, count]) => `${JOB_STATUS_LABELS[status] ?? status}: ${count}`).join(" · ") || "vazia"})
           </h2>
           <JobActions />
         </div>

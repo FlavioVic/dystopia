@@ -71,13 +71,11 @@ export async function processOnce(options: WorkerOptions = {}): Promise<TickRepo
       report.failed += 1;
       const message = errorMessage(error);
       const outcome = await queue.fail(job.id, message);
-      logger.warn("job falhou", {
-        jobId: job.id,
-        type: job.type,
-        attempts: job.attempts,
-        status: outcome.status,
-        error: message,
-      });
+      const fields = { jobId: job.id, type: job.type, attempts: job.attempts, status: outcome.status, error: message };
+      // Dead-letter é nível error de propósito: é a linha que um alerta de log
+      // (Railway, Datadog…) filtra. Falha com tentativa sobrando é só aviso.
+      if (outcome.status === "dead") logger.error("job foi pra dead-letter", fields);
+      else logger.warn("job falhou", fields);
     }
   }
 

@@ -47,7 +47,7 @@ pelo próprio fluxo da loja — o recusado usa o gateway simulado
 - **Banco de dados**: PostgreSQL
 - **ORM**: [Drizzle ORM](https://orm.drizzle.team/) + `drizzle-kit` (migrations)
 - **Orquestração**: SAGA + fila, implementadas no projeto (sem broker externo)
-- **Testes**: `node:test` + `tsx` (187 testes, unitários e de integração)
+- **Testes**: `node:test` + `tsx` (201 testes, unitários e de integração)
 
 Dependências de runtime: `next`, `react`, `drizzle-orm`, `pg`, `jose`,
 `bcryptjs`, `dotenv`. Nada além disso — fila, orquestrador, logger e runner de
@@ -151,6 +151,35 @@ O worker roda a reconciliação a cada 30s (ou `npm run reconcile` na mão):
 
 O item 3 é a garantia de progresso: por pior que seja o momento do crash,
 sempre volta a existir um job pra terminar a saga.
+
+### Observabilidade
+
+`/admin/orquestracao` abre com a **saúde** da operação (últimas 24 h ou 7
+dias), tudo agregado no Postgres com `GROUP BY` e percentis:
+
+- **taxa de conclusão** das sagas e **tempo até confirmar** (p50/p95 — percentil,
+  não média: um pedido que esperou o backoff aparece no p95 sem esconder o
+  caso típico);
+- **por passo**: execuções, quantas precisaram de retry, quantas falharam e a
+  duração (do primeiro início à conclusão, incluindo a espera entre tentativas);
+- **fila**: jobs prontos e há quanto tempo o mais antigo espera, com o mesmo
+  critério do `claim`.
+
+As métricas moram em `queue/metrics.ts` e `saga/metrics.ts`, genéricas como o
+resto dessas camadas. Os **alertas** são uma função pura
+(`lib/observability.ts`) e aparecem no topo de **toda** página do admin:
+
+| Alerta | Nível | Quando |
+|---|---|---|
+| Compensação falhou | crítico | saga em `failed`: algo aplicado não pôde ser desfeito |
+| Dead-letter | crítico | job esgotou as tentativas |
+| Fila atrasada | aviso | job pronto esperando mais de 60 s — worker parado? |
+| Saga parada | aviso | em andamento sem progresso há mais de 5 min |
+
+Pagamento recusado **não** alerta: é a saga funcionando (e, com o modo
+demonstração, seria ruído o dia inteiro). Alerta é pro que exige alguém agir.
+Fora do painel, o worker registra a ida pra dead-letter em nível `error` — com
+`LOG_FORMAT=json`, é a linha que um alerta de log da plataforma filtra.
 
 ## Conta do cliente
 
@@ -306,7 +335,7 @@ retry sai da fila).
 ## Testes
 
 ```bash
-npm test          # 187 testes
+npm test          # 201 testes
 npm run test:unit # subconjunto sem banco
 ```
 
@@ -437,5 +466,5 @@ chamá-lo por rede, trocando só o `invoke`/`compensate` do passo.
 - [x] Avaliações e lista de desejos na interface
 - [x] Agenda de endereços reaproveitada no checkout
 - [x] Admin de cupons e de variantes
-- [ ] Observabilidade: métricas de fila/saga e alerta de dead-letter
+- [x] Observabilidade: métricas de fila/saga e alertas no admin
 - [ ] Extrair `payments` pra um serviço próprio consumindo a fila

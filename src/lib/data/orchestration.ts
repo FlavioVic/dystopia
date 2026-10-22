@@ -2,6 +2,9 @@ import { cache } from "react";
 import { asc, desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { jobs, notifications, sagaSteps, sagas } from "@/db/schema";
+import { computeAlerts, HEALTH_WINDOWS, type HealthWindow } from "@/lib/observability";
+import { getQueueMetrics } from "@/queue/metrics";
+import { getSagaMetrics } from "@/saga/metrics";
 
 /**
  * Leituras do painel de orquestração (admin). Separado de `@/saga` de
@@ -16,13 +19,22 @@ export const getSagasOverview = cache(async (limit = 20) => {
   });
 });
 
-export const getSagaStats = cache(async () => {
-  const rows = await db.select({ status: sagas.status }).from(sagas);
-  const byStatus = rows.reduce<Record<string, number>>((acc, row) => {
-    acc[row.status] = (acc[row.status] ?? 0) + 1;
-    return acc;
-  }, {});
-  return { total: rows.length, byStatus };
+/**
+ * Saúde da operação numa janela: métricas de saga e fila + alertas. Usado pelo
+ * painel de orquestração e pela faixa de alerta do layout do admin (o cache()
+ * faz os dois dividirem a mesma leitura no request).
+ */
+export const getOperationalHealth = cache(async (window: HealthWindow = "24h") => {
+  const now = new Date();
+  const [sagaMetrics, queueMetrics] = await Promise.all([
+    getSagaMetrics(db, { since: new Date(now.getTime() - HEALTH_WINDOWS[window].ms), now }),
+    getQueueMetrics(db, { now }),
+  ]);
+  const alerts = computeAlerts(queueMetrics, {
+    stuck: sagaMetrics.stuck,
+    failed: sagaMetrics.byStatus.failed ?? 0,
+  });
+  return { window, sagas: sagaMetrics, queue: queueMetrics, alerts };
 });
 
 export const getJobsOverview = cache(async (limit = 25) => {
@@ -38,14 +50,6 @@ export const getActiveAndDeadJobs = cache(async (limit = 25) => {
     orderBy: [asc(jobs.runAt)],
     limit,
   });
-});
-
-export const getJobStats = cache(async () => {
-  const rows = await db.select({ status: jobs.status }).from(jobs);
-  return rows.reduce<Record<string, number>>((acc, row) => {
-    acc[row.status] = (acc[row.status] ?? 0) + 1;
-    return acc;
-  }, {});
 });
 
 export const getRecentNotifications = cache(async (limit = 10) => {
