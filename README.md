@@ -267,7 +267,7 @@ todo deploy do worker aplica as pendentes antes de subir o código novo.
 ## Testes
 
 ```bash
-npm test          # 181 testes
+npm test          # 186 testes
 npm run test:unit # subconjunto sem banco
 ```
 
@@ -301,6 +301,26 @@ testes → build de produção. É a mesma sequência que vale localmente:
 ```bash
 npx tsc --noEmit && npm run lint && npm test && npm run build
 ```
+
+## Segurança
+
+O que protege a loja exposta na internet, e onde cada coisa mora:
+
+| Ameaça | Defesa |
+|---|---|
+| Força bruta de senha | Limite por IP no login (10 / 15 min) e no cadastro (5 / h), contado no Postgres com UPSERT atômico (`services/rate-limit`) — em serverless um contador em memória seria dividido entre instâncias |
+| Descobrir quais e-mails têm conta | Login responde a mesma mensagem e no mesmo tempo: e-mail inexistente compara contra um hash bcrypt real |
+| CSRF | Server Actions só aceitam POST e o Next compara `Origin` com `Host`; cookie `SameSite=lax` |
+| Sessão forjada | JWT HS256 em cookie `httpOnly`/`secure`; sem `SESSION_SECRET` o app não sobe |
+| Admin rebaixado mantendo acesso | O papel é relido do banco a cada request, não confiado no JWT |
+| Ver/alterar dado alheio | Toda action de endereço, carrinho, pedido e avaliação filtra pelo dono; action de admin chama `ensureAdmin()` |
+| Clickjacking e afins | `frame-ancestors 'none'`, `X-Frame-Options`, `nosniff`, HSTS, `Referrer-Policy` (`next.config.ts`) |
+| Senha de demo em produção | O seed recusa banco remoto sem `SEED_ALLOW_REMOTE=1` e uma `SEED_ADMIN_PASSWORD` forte |
+
+O limite é por IP e não por e-mail de propósito: por e-mail, qualquer um
+trancaria a conta demo (cujo e-mail é público) errando a senha. O cadastro
+ainda diz "já existe uma conta com esse e-mail" — é a troca usual por uma
+mensagem útil, e o limite de 5 por hora torna a varredura impraticável.
 
 ## Painel admin
 

@@ -15,6 +15,13 @@
       "when": 1792611230010,
       "tag": "0001_busy_blacklash",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792685842600,
+      "tag": "0002_condemned_argent",
+      "breakpoints": true
     }
   ]
 }

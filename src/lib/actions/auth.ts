@@ -8,6 +8,8 @@ import { db } from "@/db";
 import { carts, users } from "@/db/schema";
 import { createSession, deleteSession } from "@/lib/session";
 import { CART_COOKIE } from "@/lib/data/cart";
+import { getRequestIp } from "@/lib/request-ip";
+import { consumeRateLimit, type RateLimitRule } from "@/services/rate-limit";
 
 export type AuthState = {
   errors?: { name?: string; email?: string; password?: string };
@@ -16,6 +18,23 @@ export type AuthState = {
 } | undefined;
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// Por IP, não por e-mail: limite por e-mail deixaria qualquer um trancar a
+// conta demo (cujo e-mail é público) errando a senha de propósito.
+const LOGIN_RULE: RateLimitRule = { limit: 10, windowSeconds: 15 * 60 };
+const SIGNUP_RULE: RateLimitRule = { limit: 5, windowSeconds: 60 * 60 };
+
+// Hash bcrypt válido (custo 10, de um segredo aleatório descartado) pra
+// comparar quando o e-mail não existe. Precisa ser um hash real: um inválido
+// é recusado na hora, e a resposta mais rápida entregaria quais e-mails têm conta.
+const DUMMY_HASH = "$2b$10$Y/CEvd/r/IxO4k29XllMJOjmYQnSj8TaybVNu9sGSAoHuQnkbS5A.";
+
+async function rateLimited(action: string, rule: RateLimitRule): Promise<string | null> {
+  const { allowed, retryAfterSeconds } = await consumeRateLimit(db, `${action}:ip:${await getRequestIp()}`, rule);
+  if (allowed) return null;
+  const minutes = Math.ceil(retryAfterSeconds / 60);
+  return `Muitas tentativas. Tente de novo em ${minutes} ${minutes === 1 ? "minuto" : "minutos"}.`;
+}
 
 /** Ao autenticar, vincula o carrinho de visitante (se houver) ao usuário. */
 async function attachGuestCartToUser(userId: string) {
@@ -34,6 +53,9 @@ export async function signup(_prev: AuthState, formData: FormData): Promise<Auth
   if (!EMAIL_RE.test(email)) errors.email = "Informe um e-mail válido.";
   if (password.length < 8) errors.password = "A senha precisa ter ao menos 8 caracteres.";
   if (Object.keys(errors).length > 0) return { errors, values: { name, email } };
+
+  const limited = await rateLimited("signup", SIGNUP_RULE);
+  if (limited) return { message: limited, values: { name, email } };
 
   const existing = await db.query.users.findFirst({
     where: eq(users.email, email),
@@ -64,13 +86,16 @@ export async function login(_prev: AuthState, formData: FormData): Promise<AuthS
     return { message: "E-mail ou senha inválidos.", values: { email } };
   }
 
+  const limited = await rateLimited("login", LOGIN_RULE);
+  if (limited) return { message: limited, values: { email } };
+
   const user = await db.query.users.findFirst({
     where: eq(users.email, email),
     columns: { id: true, role: true, passwordHash: true },
   });
 
   // Compara sempre (mesmo sem usuário) pra não vazar quais e-mails existem.
-  const hash = user?.passwordHash ?? "$2a$10$invalidinvalidinvalidinvalidinvalidinvalidinvalidin";
+  const hash = user?.passwordHash ?? DUMMY_HASH;
   const ok = await bcrypt.compare(password, hash);
   if (!user || !ok) {
     return { message: "E-mail ou senha inválidos.", values: { email } };

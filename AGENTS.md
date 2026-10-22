@@ -36,7 +36,8 @@ lib/actions/*             borda HTTP (Server Actions): valida entrada, nada de r
 saga/                     orquestração: ordem dos passos, retry, compensação
 services/*                regra de negócio, uma responsabilidade cada
                           (inventory, payments, orders, coupons, carts,
-                           notifications, catalog, reviews, wishlist, addresses)
+                           notifications, catalog, reviews, wishlist, addresses,
+                           rate-limit)
 queue/                    fila genérica (jobs, claim, backoff, DLQ)
 db/                       schema Drizzle + pool
 ```

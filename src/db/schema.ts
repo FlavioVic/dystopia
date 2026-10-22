@@ -493,6 +493,17 @@ export const notifications = pgTable("notifications", {
   index("notifications_correlation_id_idx").on(table.correlationId),
 ]);
 
+// Contador de tentativas por janela fixa (login, cadastro). Mora no banco, não
+// em memória, porque em serverless cada instância teria o próprio contador.
+// Uma linha por chave ("login:ip:1.2.3.4"); a janela vencida é reaproveitada.
+export const rateLimits = pgTable("rate_limits", {
+  key: text("key").primaryKey(),
+  hits: integer("hits").notNull(),
+  windowStartedAt: timestamp("window_started_at", { withTimezone: true }).notNull(),
+}, (table) => [
+  index("rate_limits_window_started_at_idx").on(table.windowStartedAt),
+]);
+
 // ---------------------------------------------------------------------------
 // Relations (usadas pelo Drizzle query API: db.query.products.findMany({ with: {...} }))
 // ---------------------------------------------------------------------------
