@@ -193,7 +193,10 @@ revise o SQL → `npm run db:migrate`. Nunca edite migration já aplicada.
   (`background`, `foreground`, `border`, `signal`…) — não chute hex novo. Cantos
   retos, sem sombra/gradiente/tinta. Vermelho é a cor de AÇÃO (pedido do dono):
   `bg-primary` + `text-primary-foreground` em botões/faixas; texto vermelho
-  pequeno só com `text-signal-text` (o `signal`/`primary` puro só ≥24px). Kit em
+  pequeno só com `text-signal-text` (o `signal`/`primary` puro só ≥24px).
+  Seção de página ganha faixa própria com `<Sector tone="crimson|graphite|bone">`
+  do kit (as classes `.sector-*` redefinem os papéis dentro da faixa, então o
+  componente não muda) — não empilhe seção após seção no mesmo obsidian. Kit em
   `components/Kit.tsx`; marca só via `components/Logo.tsx` (geometria em
   `lib/brand-geometry.ts`, nunca redesenhe). Voz declarativa, sem exclamação.
 - Michroma (`display-*`) nunca abaixo de 12px; no celular, nome longo vai em

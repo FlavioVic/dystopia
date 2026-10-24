@@ -4,9 +4,10 @@
  * DYSTOPIA — tema Obsidian (design system "DYSTOPIA"), com o vermelho
  * promovido a cor de ação: botões, faixas, índices e estados ativos.
  *
- * Cinco cores, sem gradiente, brilho, neon nem transparência: ~70% escuro
- * (obsidian, graphite), ~25% neutro (steel, bone), ≤5% signal-red. Camadas se
- * separam por régua de 1px, nunca por sombra; cantos são retos.
+ * Cinco cores, sem gradiente, brilho, neon nem transparência. Camadas se
+ * separam por régua de 1px, nunca por sombra; cantos são retos. Seções de
+ * página se separam por SETOR (`.sector-*`, mais abaixo): faixas em tons de
+ * vermelho, grafite ou bone, pra que nem tudo pareça o mesmo fundo preto.
  *
  * Os nomes abaixo são PAPÉIS (o que os componentes usam), apontando pra paleta:
  * - accent = ink (bone): botão principal é preenchimento em bone, texto obsidian.
@@ -60,6 +61,59 @@
   --deal: var(--bone);
   --deal-foreground: var(--obsidian);
   --deal-soft: var(--graphite);
+
+  /* Tons do vermelho (feedback de design: "tudo no fundo preto parece do
+     mesmo setor"). Derivados do signal-red, só pra SUPERFÍCIE e régua de um
+     setor — o vermelho de ação continua sendo o signal-red puro. */
+  --crimson-950: #22050a; /* superfície do setor */
+  --crimson-900: #330811; /* superfície elevada / hover */
+  --crimson-800: #521020; /* régua fraca */
+  --crimson-600: #8a1a2c; /* régua */
+  --crimson-muted: #b39a9e; /* texto secundário: 7,5:1 em 950, 6,8:1 em 900 */
+  --crimson-text: #ff6b7a; /* texto vermelho pequeno: 7,0:1 em 950, 6,5:1 em 900 */
+}
+
+/*
+ * Setores: faixas de largura total que redefinem os PAPÉIS dentro delas, pra
+ * que cada seção tenha superfície própria sem o componente saber disso
+ * (ProductCard, PortfolioCard e o kit continuam usando bg-background etc.).
+ */
+.sector-crimson {
+  --background: var(--crimson-950);
+  --background-elevated: var(--crimson-900);
+  --background-elevated-hover: var(--crimson-900);
+  --foreground-muted: var(--crimson-muted);
+  --border: var(--crimson-600);
+  --border-faint: var(--crimson-800);
+  --signal-text: var(--crimson-text);
+  background: var(--background);
+}
+.sector-graphite {
+  --background: var(--graphite);
+  --background-elevated: #2a2b2f;
+  --background-elevated-hover: #2a2b2f;
+  --foreground-muted: #a6a9ae; /* 6,0:1 no hover */
+  --border-faint: #34363b;
+  --signal-text: var(--crimson-text); /* #f04a5d não passa no hover (3,9:1) */
+  background: var(--background);
+}
+/* Setor claro: tinta e fundo invertidos. Vermelho como texto só em ≥24px
+   (4,6:1); texto vermelho pequeno escurece pro hover do primário (6,2:1). */
+.sector-bone {
+  --background: var(--bone);
+  --background-elevated: #dcd7cc;
+  --background-elevated-hover: #dcd7cc;
+  --foreground: var(--obsidian);
+  --foreground-muted: #4a4c50; /* 6,7:1 */
+  --border: var(--steel);
+  --border-faint: #c9c4b9;
+  --border-hover: var(--obsidian);
+  --accent: var(--obsidian);
+  --accent-foreground: var(--bone);
+  --signal-text: var(--primary-hover);
+  background: var(--background);
+  color: var(--foreground);
+  color-scheme: light;
 }
 
 @theme inline {

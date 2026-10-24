@@ -77,6 +77,38 @@ export function PageHeader({
 }
 
 /**
+ * Faixa de largura total com superfície própria. Seções seguidas no mesmo
+ * obsidian parecem um setor só; o tom troca os papéis de cor dentro da faixa
+ * (ver `.sector-*` em globals.css), então o conteúdo não muda nada.
+ */
+export type SectorTone = "obsidian" | "crimson" | "graphite" | "bone";
+
+export function Sector({
+  tone = "obsidian",
+  id,
+  narrow = false,
+  className = "",
+  children,
+}: {
+  tone?: SectorTone;
+  id?: string;
+  narrow?: boolean;
+  className?: string;
+  children: ReactNode;
+}) {
+  const surface = tone === "obsidian" ? "" : `sector-${tone}`;
+  // Grafite encosta em obsidian dos dois lados: a régua marca o limite.
+  const edge = tone === "graphite" ? "border-y border-border-faint" : "";
+  return (
+    <section id={id} className={`scroll-mt-24 ${surface} ${edge}`}>
+      <div className={`mx-auto w-full ${narrow ? "max-w-4xl" : "max-w-7xl"} px-4 py-16 sm:px-6 sm:py-20 lg:px-8 ${className}`}>
+        {children}
+      </div>
+    </section>
+  );
+}
+
+/**
  * Grade com régua: a grade desenha topo/esquerda e cada célula (`gridCell`)
  * desenha direita/base. Célula vazia no fim da linha fica só fundo — sem
  * bloco cinza.

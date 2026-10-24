@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { SectionHeading, buttonPrimary, buttonSecondary, gridCell, gridFrame } from "@/components/Kit";
+import { SectionHeading, Sector, buttonPrimary, buttonSecondary, gridCell, gridFrame } from "@/components/Kit";
 import { EmblemSting } from "@/components/Logo";
 import { Marquee } from "@/components/Marquee";
 import { CountUp, Reveal } from "@/components/Motion";
@@ -84,7 +84,7 @@ export default async function Home() {
       <Marquee items={TICKER} />
 
       {/* ---------------------------------------------------------- serviços */}
-      <section id="servicos" className="mx-auto w-full max-w-7xl scroll-mt-24 px-4 pt-24 sm:px-6 lg:px-8">
+      <Sector tone="crimson" id="servicos">
         <Reveal>
           <SectionHeading
             index="01 / 05"
@@ -130,10 +130,10 @@ export default async function Home() {
             </Reveal>
           ))}
         </div>
-      </section>
+      </Sector>
 
       {/* ---------------------------------------------------------- portfólio */}
-      <section id="portfolio" className="mx-auto w-full max-w-7xl scroll-mt-24 px-4 pt-24 sm:px-6 lg:px-8">
+      <Sector tone="graphite" id="portfolio">
         <Reveal>
           <SectionHeading
             index="02 / 05"
@@ -188,10 +188,10 @@ export default async function Home() {
             </Reveal>
           ))}
         </div>
-      </section>
+      </Sector>
 
       {/* ---------------------------------------------------------- processo */}
-      <section className="mx-auto w-full max-w-7xl px-4 pt-24 sm:px-6 lg:px-8">
+      <Sector tone="bone">
         <Reveal>
           <SectionHeading index="03 / 05" label="Procedimento" title="Como funciona" />
         </Reveal>
@@ -204,7 +204,7 @@ export default async function Home() {
             </Reveal>
           ))}
         </ol>
-      </section>
+      </Sector>
 
       {/* ---------------------------------------------------------- loja */}
       {featured.length > 0 ? (

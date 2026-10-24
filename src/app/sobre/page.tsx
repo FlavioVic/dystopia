@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { buttonPrimary } from "@/components/Kit";
+import { Sector, buttonPrimary } from "@/components/Kit";
 import { isCheckoutSimulationEnabled } from "@/lib/checkout-simulation";
 import { getStripePublishableKey } from "@/lib/stripe-public";
 import { sagaStepLabel } from "@/lib/saga-ui";
@@ -50,59 +50,61 @@ export default function AboutPage() {
   const stripeEnabled = getStripePublishableKey() != null;
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-12 sm:px-6">
-      <p className="label text-foreground-muted">Projeto de portfólio / Flávio Victor</p>
-      <h1 className="display-2 mt-4 text-[26px] leading-[34px] sm:text-[40px] sm:leading-[48px]">Sobre o projeto</h1>
-      <p className="mt-6 max-w-2xl text-lg leading-relaxed text-foreground-muted">
-        Uma loja de hardware e serviços técnicos, projetada e construída por Flávio Victor pra mostrar o que
-        acontece por trás de um botão de &ldquo;Confirmar aquisição&rdquo;. A vitrine é o que você vê; o projeto
-        de verdade é o checkout que não deixa pedido pela metade, mesmo quando o pagamento falha ou o servidor
-        cai no meio.
-      </p>
-      <p className="mt-4 max-w-2xl text-base leading-relaxed text-foreground-muted">
-        As peças são reais, com especificação de fabricante; os preços são fictícios e nada é cobrado. A
-        identidade visual (o emblema, o nome desenhado, a voz) segue um design system próprio.
-      </p>
+    <>
+      <div className="mx-auto max-w-4xl px-4 py-12 sm:px-6 lg:px-8">
+        <p className="label text-foreground-muted">Projeto de portfólio / Flávio Victor</p>
+        <h1 className="display-2 mt-4 text-[26px] leading-[34px] sm:text-[40px] sm:leading-[48px]">Sobre o projeto</h1>
+        <p className="mt-6 max-w-2xl text-lg leading-relaxed text-foreground-muted">
+          Uma loja de hardware e serviços técnicos, projetada e construída por Flávio Victor pra mostrar o que
+          acontece por trás de um botão de &ldquo;Confirmar aquisição&rdquo;. A vitrine é o que você vê; o projeto
+          de verdade é o checkout que não deixa pedido pela metade, mesmo quando o pagamento falha ou o servidor
+          cai no meio.
+        </p>
+        <p className="mt-4 max-w-2xl text-base leading-relaxed text-foreground-muted">
+          As peças são reais, com especificação de fabricante; os preços são fictícios e nada é cobrado. A
+          identidade visual (o emblema, o nome desenhado, a voz) segue um design system próprio.
+        </p>
 
-      <div className="dys-frame mt-10 p-6">
-        <h2 className="label text-foreground">Procedimento de teste</h2>
-        <ol className="mt-3 flex list-decimal flex-col gap-1.5 pl-5 text-sm text-foreground-muted">
-          <li>
-            <Link href="/entrar" className="font-medium text-foreground underline underline-offset-4">
-              Entre
-            </Link>{" "}
-            com a conta demo{" "}
-            <code className="bg-background-elevated px-1.5 py-0.5 font-mono text-xs text-foreground">
-              cliente@dystopia.dev
-            </code>{" "}
-            /{" "}
-            <code className="bg-background-elevated px-1.5 py-0.5 font-mono text-xs text-foreground">
-              cliente123
-            </code>{" "}
-            (ou crie a sua).
-          </li>
-          <li>
-            Coloque uma peça no carrinho e confirme a aquisição. Nenhum pagamento real é processado.
-            {stripeEnabled ? (
-              <>
-                {" "}No cartão (Stripe em modo de teste), use{" "}
-                <span className="font-mono text-foreground">4242 4242 4242 4242</span> pra aprovar ou{" "}
-                <span className="font-mono text-foreground">4000 0000 0000 0002</span> pra ver a recusa.
-              </>
-            ) : null}
-          </li>
-          {simulationEnabled ? (
+        <div className="dys-frame mt-10 p-6">
+          <h2 className="label text-foreground">Procedimento de teste</h2>
+          <ol className="mt-3 flex list-decimal flex-col gap-1.5 pl-5 text-sm text-foreground-muted">
             <li>
-              No checkout, o <strong className="text-foreground">modo demonstração</strong> deixa você
-              escolher o que o gateway responde. Tente &ldquo;Recusar pagamento&rdquo; ou &ldquo;Gateway fora
-              do ar&rdquo; pra ver a compensação.
+              <Link href="/entrar" className="font-medium text-foreground underline underline-offset-4">
+                Entre
+              </Link>{" "}
+              com a conta demo{" "}
+              <code className="bg-background-elevated px-1.5 py-0.5 font-mono text-xs text-foreground">
+                cliente@dystopia.dev
+              </code>{" "}
+              /{" "}
+              <code className="bg-background-elevated px-1.5 py-0.5 font-mono text-xs text-foreground">
+                cliente123
+              </code>{" "}
+              (ou crie a sua).
             </li>
-          ) : null}
-          <li>Na página do pedido, acompanhe a saga passo a passo.</li>
-        </ol>
+            <li>
+              Coloque uma peça no carrinho e confirme a aquisição. Nenhum pagamento real é processado.
+              {stripeEnabled ? (
+                <>
+                  {" "}No cartão (Stripe em modo de teste), use{" "}
+                  <span className="font-mono text-foreground">4242 4242 4242 4242</span> pra aprovar ou{" "}
+                  <span className="font-mono text-foreground">4000 0000 0000 0002</span> pra ver a recusa.
+                </>
+              ) : null}
+            </li>
+            {simulationEnabled ? (
+              <li>
+                No checkout, o <strong className="text-foreground">modo demonstração</strong> deixa você
+                escolher o que o gateway responde. Tente &ldquo;Recusar pagamento&rdquo; ou &ldquo;Gateway fora
+                do ar&rdquo; pra ver a compensação.
+              </li>
+            ) : null}
+            <li>Na página do pedido, acompanhe a saga passo a passo.</li>
+          </ol>
+        </div>
       </div>
 
-      <section className="mt-12">
+      <Sector tone="crimson" narrow>
         <h2 className="label text-foreground-muted">Por baixo do capô</h2>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           {HIGHLIGHTS.map((item) => (
@@ -112,9 +114,9 @@ export default function AboutPage() {
             </div>
           ))}
         </div>
-      </section>
+      </Sector>
 
-      <section className="mt-12">
+      <Sector tone="bone" narrow>
         <h2 className="label text-foreground-muted">Os passos do checkout</h2>
         <ol className="mt-4 border border-border-faint">
           {SAGA_STEPS.map((step, index) => (
@@ -134,9 +136,9 @@ export default function AboutPage() {
             </li>
           ))}
         </ol>
-      </section>
+      </Sector>
 
-      <section className="mt-12 flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
+      <Sector tone="graphite" narrow className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h2 className="label text-foreground-muted">Stack</h2>
           <ul className="mt-3 flex flex-wrap gap-2">
@@ -155,7 +157,7 @@ export default function AboutPage() {
         >
           Código-fonte no GitHub
         </a>
-      </section>
-    </div>
+      </Sector>
+    </>
   );
 }
