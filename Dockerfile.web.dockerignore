@@ -1,0 +1,15 @@
+# Ignore só desta imagem (BuildKit lê <Dockerfile>.dockerignore). Diferente do
+# worker, o app web precisa de public/.
+.env*
+!.env.example
+node_modules
+.next
+.git
+.github
+.vercel
+coverage
+tests
+*.tsbuildinfo
+next-env.d.ts
+CLAUDE.md
+AGENTS.md

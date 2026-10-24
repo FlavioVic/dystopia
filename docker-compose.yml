@@ -1,22 +1,23 @@
-# Postgres de desenvolvimento do Dystopia.
+# Dystopia em containers.
 #
-#   docker compose up -d        # sobe o banco
-#   npm run db:migrate          # aplica as migrations
-#   npm run db:seed             # popula com dados de exemplo
-#   docker compose down         # para (os dados ficam no volume)
-#   docker compose down -v      # para E apaga os dados
+#   docker compose up -d                     # só Postgres + RabbitMQ (dev: app e
+#                                            #   workers rodam na máquina)
+#   docker compose --profile app up --build  # a stack INTEIRA: migrations, app
+#                                            #   web em :3000, worker e pagamentos
+#   docker compose --profile app run --rm migrate npm run db:seed
+#                                            # popula com dados de exemplo
+#   docker compose down [-v]                 # para (e, com -v, apaga os volumes)
 #
-# A porta 5544 (e não 5432) é o padrão de propósito: é comum já ter outro
-# Postgres ocupando a 5432 na máquina. O `.env.example` aponta pra cá.
+# Portas na máquina: Postgres 5544 (não 5432, que costuma estar ocupada),
+# RabbitMQ 5672 + painel http://localhost:15672 (dystopia / dystopia_dev_pw),
+# app 3000. Tudo configurável por variável (POSTGRES_PORT, WEB_PORT…).
 #
-# Só o banco mora aqui. App (`npm run dev`) e worker (`npm run worker`) rodam
-# na máquina durante o desenvolvimento — em produção o worker é um processo
-# separado do servidor web (ver README › Arquitetura).
+# Senhas e segredo de sessão daqui são de DESENVOLVIMENTO — nunca use em
+# produção (ver docs/DEPLOY.md).
 
 services:
   db:
     image: postgres:16-alpine
-    container_name: dystopia_postgres
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-dystopia}
@@ -34,6 +35,99 @@ services:
       timeout: 5s
       retries: 10
 
+  rabbitmq:
+    image: rabbitmq:4.1-management-alpine
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-dystopia}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-dystopia_dev_pw}
+    ports:
+      - "${RABBITMQ_PORT:-5672}:5672"
+      - "${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
+    volumes:
+      - rabbitmqdata:/var/lib/rabbitmq
+    healthcheck:
+      # Porta AMQP aberta = broker pronto (o listener é a última coisa a
+      # subir). NÃO use `rabbitmq-diagnostics ping` aqui: o healthcheck roda
+      # como root e, se chegar antes do servidor, a CLI cria o .erlang.cookie
+      # como root — o servidor (usuário rabbitmq) não lê e morre com eacces.
+      test: ["CMD", "nc", "-z", "127.0.0.1", "5672"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+
+  # ---------------------------------------------------------------- stack (--profile app)
+  # Aplica as migrations e sai; app e workers só sobem depois que ela terminou.
+  migrate:
+    profiles: [app]
+    build: { context: ., dockerfile: Dockerfile.worker }
+    command: ["npm", "run", "db:migrate"]
+    environment: &app-env
+      DATABASE_URL: postgresql://${POSTGRES_USER:-dystopia}:${POSTGRES_PASSWORD:-dystopia_dev_pw}@db:5432/${POSTGRES_DB:-dystopia}
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-dystopia}:${RABBITMQ_PASSWORD:-dystopia_dev_pw}@rabbitmq:5672
+      SESSION_SECRET: ${SESSION_SECRET:-somente-desenvolvimento-troque-em-producao}
+      ALLOW_CHECKOUT_SIMULATION: ${ALLOW_CHECKOUT_SIMULATION:-1}
+      # O app só está acessível pelo `proxy`, que sobrescreve os headers de IP.
+      TRUST_PROXY_HEADERS: "1"
+      # Stack local/CI: os testes de navegador criam várias contas do mesmo IP.
+      # Em produção fica o padrão (5 cadastros/h e 10 logins/15 min por IP).
+      SIGNUP_LIMIT_PER_HOUR: ${SIGNUP_LIMIT_PER_HOUR:-200}
+      LOGIN_LIMIT_PER_15MIN: ${LOGIN_LIMIT_PER_15MIN:-200}
+    depends_on:
+      db: { condition: service_healthy }
+    restart: "no"
+
+  web:
+    profiles: [app]
+    build: { context: ., dockerfile: Dockerfile.web }
+    environment: *app-env
+    # Sem porta publicada: só o `proxy` fala com ele (ver docker/Caddyfile).
+    # Pronto = responde uma página que consulta o banco (não só "processo de pé").
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:3000/produtos"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    depends_on: &after-migrate
+      migrate: { condition: service_completed_successfully }
+      rabbitmq: { condition: service_healthy }
+    restart: unless-stopped
+
+  # Porta de entrada: sobrescreve X-Real-IP/X-Forwarded-For com o IP real da
+  # conexão — sem isso o cliente forjaria o IP e furaria o limite de tentativas.
+  proxy:
+    profiles: [app]
+    image: caddy:2.10-alpine
+    volumes:
+      - ./docker/Caddyfile:/etc/caddy/Caddyfile:ro
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    depends_on:
+      web: { condition: service_healthy }
+    restart: unless-stopped
+
+  # Filas `saga` e `notifications` + relay da outbox + reconciliação.
+  worker:
+    profiles: [app]
+    build: { context: ., dockerfile: Dockerfile.worker }
+    environment:
+      <<: *app-env
+      WORKER_QUEUES: saga,notifications
+    depends_on: *after-migrate
+    restart: unless-stopped
+
+  # Serviço de pagamentos em processo próprio (fila `payments`).
+  payments:
+    profiles: [app]
+    build: { context: ., dockerfile: Dockerfile.worker }
+    command: ["node", "--import", "tsx", "src/scripts/payments-worker.ts"]
+    environment: *app-env
+    depends_on: *after-migrate
+    restart: unless-stopped
+
+# Sem nome fixo: o compose prefixa com o projeto, então duas cópias da stack
+# (ou um teste isolado com `-p`) não disputam o mesmo volume.
 volumes:
   pgdata:
-    name: dystopia_pgdata
+  rabbitmqdata:

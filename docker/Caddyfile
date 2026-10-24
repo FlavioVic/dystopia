@@ -1,0 +1,12 @@
+# Proxy reverso na frente do app web (docker compose --profile app).
+#
+# Existe pelo limite de tentativas: o app identifica o cliente pelo IP em
+# X-Real-IP / X-Forwarded-For, e sem proxy esses headers vêm do próprio
+# cliente (forjáveis). Aqui eles são SOBRESCRITOS com o IP real da conexão,
+# e o app só confia neles porque roda com TRUST_PROXY_HEADERS=1.
+:3000 {
+	reverse_proxy web:3000 {
+		header_up X-Real-IP {remote_host}
+		header_up X-Forwarded-For {remote_host}
+	}
+}

@@ -1,8 +1,8 @@
 # Verificação automática: tipos, lint, migrations, testes e build de produção.
 #
-# Os testes de integração precisam de Postgres de verdade (a suíte exercita
-# `FOR UPDATE SKIP LOCKED`, índice parcial e transações), então o job sobe um
-# service container em vez de mockar banco.
+# Os testes de integração precisam de Postgres e RabbitMQ de verdade (a suíte
+# exercita `FOR UPDATE SKIP LOCKED`, transações, publisher confirm, filas de
+# espera com TTL e DLQ), então o job sobe service containers em vez de mockar.
 
 name: CI
 
@@ -31,9 +31,25 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
+      rabbitmq:
+        image: rabbitmq:4.1-alpine
+        env:
+          RABBITMQ_DEFAULT_USER: dystopia
+          RABBITMQ_DEFAULT_PASS: dystopia_dev_pw
+        ports:
+          - 5672:5672
+        # Porta aberta = pronto. `rabbitmq-diagnostics ping` como healthcheck
+        # roda como root e pode criar o .erlang.cookie antes do servidor,
+        # que aí não sobe (eacces) — ver docker-compose.yml.
+        options: >-
+          --health-cmd "nc -z 127.0.0.1 5672"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 30
 
     env:
       DATABASE_URL: postgresql://dystopia:dystopia_dev_pw@localhost:5432/dystopia
+      RABBITMQ_URL: amqp://dystopia:dystopia_dev_pw@localhost:5672
       # Segredo de CI: serve só pra app subir (sessão é JWT assinado).
       SESSION_SECRET: ci-somente-para-verificacao-nao-use-em-producao
       LOG_LEVEL: error
@@ -64,3 +80,36 @@ jobs:
 
       - name: Build de produção
         run: npm run build
+
+  e2e:
+    name: navegador (Playwright) contra a stack em containers
+    runs-on: ubuntu-latest
+    needs: verificar
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Subir a stack (migrations, app, worker, pagamentos)
+        run: docker compose --profile app up -d --build --wait
+
+      - name: Popular o banco
+        run: docker compose --profile app run --rm migrate npm run db:seed
+
+      - name: Navegador
+        run: npx playwright install --with-deps chromium
+
+      - name: Testes de navegador
+        run: npm run test:e2e
+        env:
+          E2E_BASE_URL: http://localhost:3000
+
+      - name: Logs da stack (se falhar)
+        if: failure()
+        run: docker compose --profile app logs --no-color

@@ -1,6 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  /* Só no build da imagem Docker (Dockerfile.web): servidor autocontido. Na
+   * Vercel e no `next start` local fica o padrão. */
+  ...(process.env.NEXT_OUTPUT === "standalone" ? { output: "standalone" as const } : {}),
   images: {
     /* O catálogo usa ilustrações SVG locais em /public/images. O otimizador do
      * next/image bloqueia SVG por padrão; como são assets próprios e confiáveis,
@@ -9,9 +12,9 @@ const nextConfig: NextConfig = {
     contentDispositionType: "attachment",
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
   },
-  /* Headers de segurança em toda resposta. A CSP aqui só proíbe a loja de ser
-   * embutida em iframe (clickjacking no login/checkout); uma CSP completa
-   * exigiria nonce nos scripts inline do Next a cada request. */
+  /* Headers de segurança em toda resposta. A CSP completa (com nonce por
+   * request) vem do `src/proxy.ts`; esta `frame-ancestors` cobre o que o proxy
+   * não processa (assets, API). */
   async headers() {
     return [
       {
