@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { valuesOf } from "../helpers/form";
 import {
   averageRating,
   MAX_COMMENT_LENGTH,
@@ -15,18 +16,16 @@ function form(values: Record<string, string>): FormData {
 
 describe("validação da avaliação", () => {
   it("aceita nota com título e comentário", () => {
-    const { errors, values } = parseReviewForm(
+    const values = valuesOf(parseReviewForm(
       form({ rating: "4", title: "  Muito bom  ", comment: "Chegou rápido." }),
-    );
-    assert.deepEqual(errors, {});
+    ));
     assert.equal(values.rating, 4);
     assert.equal(values.title, "Muito bom", "título vem sem espaço sobrando");
     assert.equal(values.comment, "Chegou rápido.");
   });
 
   it("aceita nota sem texto nenhum", () => {
-    const { errors, values } = parseReviewForm(form({ rating: "5" }));
-    assert.deepEqual(errors, {});
+    const values = valuesOf(parseReviewForm(form({ rating: "5" })));
     assert.equal(values.title, null);
     assert.equal(values.comment, null);
   });

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { valuesOf } from "../helpers/form";
 import { formatDateInput, parseCouponForm, parseDateInput } from "@/lib/validation/coupon";
 
 function form(values: Record<string, string | undefined>): FormData {
@@ -41,8 +42,7 @@ describe("datas do formulário de cupom", () => {
 
 describe("validação do cupom", () => {
   it("aceita percentual e deixa o código em maiúsculo", () => {
-    const { errors, values } = parseCouponForm(form({ isActive: "on" }));
-    assert.deepEqual(errors, {});
+    const values = valuesOf(parseCouponForm(form({ isActive: "on" })));
     assert.equal(values.code, "BEMVINDO10");
     assert.equal(values.discountType, "percentage");
     assert.equal(values.discountValue, 10);
@@ -53,10 +53,9 @@ describe("validação do cupom", () => {
   });
 
   it("aceita valor fixo em reais e converte pra centavos", () => {
-    const { errors, values } = parseCouponForm(
+    const values = valuesOf(parseCouponForm(
       form({ discountType: "fixed", discountValue: "25,50", minOrder: "150,00" }),
-    );
-    assert.deepEqual(errors, {});
+    ));
     assert.equal(values.discountValue, 2_550);
     assert.equal(values.minOrderCents, 15_000);
   });
@@ -89,8 +88,8 @@ describe("validação do cupom", () => {
   });
 
   it("limite de uso é vazio ou inteiro positivo", () => {
-    assert.equal(parseCouponForm(form({ maxUsage: "" })).values.maxUsage, null);
-    assert.equal(parseCouponForm(form({ maxUsage: "5" })).values.maxUsage, 5);
+    assert.equal(valuesOf(parseCouponForm(form({ maxUsage: "" }))).maxUsage, null);
+    assert.equal(valuesOf(parseCouponForm(form({ maxUsage: "5" }))).maxUsage, 5);
     assert.ok(parseCouponForm(form({ maxUsage: "0" })).errors.maxUsage);
     assert.ok(parseCouponForm(form({ maxUsage: "-2" })).errors.maxUsage);
     assert.ok(parseCouponForm(form({ maxUsage: "muitos" })).errors.maxUsage);
@@ -102,7 +101,7 @@ describe("validação do cupom", () => {
   });
 
   it("validade termina no fim do dia escolhido", () => {
-    const { values } = parseCouponForm(form({ validFrom: "2026-10-01", validUntil: "2026-10-31" }));
+    const values = valuesOf(parseCouponForm(form({ validFrom: "2026-10-01", validUntil: "2026-10-31" })));
     assert.ok(values.validUntil);
     assert.equal(values.validUntil.getDate(), 31);
     assert.equal(values.validUntil.getHours(), 23);
@@ -110,6 +109,6 @@ describe("validação do cupom", () => {
   });
 
   it("checkbox ausente deixa o cupom inativo", () => {
-    assert.equal(parseCouponForm(form({})).values.isActive, false);
+    assert.equal(valuesOf(parseCouponForm(form({}))).isActive, false);
   });
 });

@@ -9,7 +9,7 @@
  * `src/services/*`, orquestrados por `src/saga`.
  *
  * O commit inicial grava, numa única transação: endereço + pedido (`pending`)
- * + itens + saga + job da fila (outbox). Depois disso o avanço é tentado
+ * + itens + saga + mensagem na outbox. Depois disso o avanço é tentado
  * inline (pro cliente já ver o resultado) e, se falhar, o worker termina.
  */
 
@@ -19,7 +19,7 @@ import { getCurrentUser } from "@/lib/data/auth";
 import { getCart } from "@/lib/data/cart";
 import { drainQueueAfterResponse } from "@/lib/inline-worker";
 import { shippingFor, type CouponResult } from "@/lib/shipping";
-import { parseAddressForm } from "@/lib/validation/address";
+import { parseAddressForm, type AddressFormValues } from "@/lib/validation/address";
 import { CHECKOUT_SAGA_TYPE, type CheckoutSagaPayload } from "@/saga/definitions/checkout";
 import { startSaga, tryRunSagaInline } from "@/saga/runner";
 import { resolveCoupon } from "@/services/coupons";
@@ -70,18 +70,17 @@ export async function placeOrder(_prev: CheckoutState, formData: FormData): Prom
   }
 
   // --- endereço: um salvo na agenda ou um novo (que também é salvo) ---
+  // Ou o id de um salvo, ou os dados de um novo — nunca os dois em aberto.
+  let address: { savedId: string } | { values: AddressFormValues };
   const savedAddressId = req(formData, "addressId");
-  let address: { id: string } | null = null;
-
   if (savedAddressId) {
     const saved = await getUserAddress(db, user.id, savedAddressId);
     if (!saved) return { message: "Endereço não encontrado na sua conta." };
-    address = { id: saved.id };
-  }
-
-  const parsedAddress = parseAddressForm(formData);
-  if (!address && Object.keys(parsedAddress.errors).length > 0) {
-    return { errors: parsedAddress.errors };
+    address = { savedId: saved.id };
+  } else {
+    const parsedAddress = parseAddressForm(formData);
+    if (!parsedAddress.ok) return { errors: parsedAddress.errors };
+    address = { values: parsedAddress.values };
   }
 
   const method = req(formData, "paymentMethod");
@@ -114,12 +113,12 @@ export async function placeOrder(_prev: CheckoutState, formData: FormData): Prom
     unitPriceCents: line.unitPriceCents,
   }));
 
-  // --- commit inicial: pedido + saga + job, tudo ou nada (outbox) ---
+  // --- commit inicial: pedido + saga + mensagem, tudo ou nada (outbox) ---
   const { sagaId } = await db.transaction(async (tx) => {
     // Endereço novo entra na agenda do cliente — é o que alimenta
     // /conta/enderecos e o seletor do próximo checkout.
     const shippingAddressId =
-      address?.id ?? (await createAddress(tx, user.id, parsedAddress.values)).id;
+      "savedId" in address ? address.savedId : (await createAddress(tx, user.id, address.values)).id;
 
     const { orderId } = await createOrder(tx, {
       orderNumber,
@@ -162,8 +161,8 @@ export async function placeOrder(_prev: CheckoutState, formData: FormData): Prom
   });
 
   // Caminho rápido: tenta terminar a saga no próprio request pro cliente já
-  // cair na página do pedido com o resultado. Se não der, o job na fila
-  // garante que o worker termina (ver src/saga/runner.ts).
+  // cair na página do pedido com o resultado. Se não der, a mensagem na
+  // outbox garante que o worker termina (ver src/saga/runner.ts).
   await tryRunSagaInline(sagaId);
   // Sem worker de pé (deploy só-Vercel): pagamento, resposta e e-mail saem
   // daqui, depois do redirect — esperando retries em backoff se precisar.

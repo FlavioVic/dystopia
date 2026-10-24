@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { valuesOf } from "../helpers/form";
 import { parseProductForm, toCents } from "@/lib/validation/product";
 
 function form(values: Record<string, string | undefined>): FormData {
@@ -41,10 +42,9 @@ describe("conversão de preço", () => {
 
 describe("validação do formulário de produto", () => {
   it("aceita um formulário completo e normaliza os valores", () => {
-    const { errors, values } = parseProductForm(
+    const values = valuesOf(parseProductForm(
       form({ brand: "Dystopia Labs", compareAt: "119,90", isActive: "on", isFeatured: "on", slug: "CANECA-X" }),
-    );
-    assert.deepEqual(errors, {});
+    ));
     assert.equal(values.slug, "caneca-x", "slug vira minúsculo");
     assert.equal(values.priceCents, 7_990);
     assert.equal(values.compareAtPriceCents, 11_990);
@@ -55,7 +55,7 @@ describe("validação do formulário de produto", () => {
   });
 
   it("trata checkbox ausente como falso e marca vazia como null", () => {
-    const { values } = parseProductForm(form({}));
+    const values = valuesOf(parseProductForm(form({})));
     assert.equal(values.isActive, false);
     assert.equal(values.isFeatured, false);
     assert.equal(values.brand, null);
@@ -82,7 +82,10 @@ describe("validação do formulário de produto", () => {
   it("valida estoque inteiro e não negativo", () => {
     assert.equal(parseProductForm(form({ stock: "-2" })).errors.stock, "Estoque inválido.");
     assert.equal(parseProductForm(form({ stock: "" })).errors.stock, "Estoque inválido.");
-    assert.equal(parseProductForm(form({ stock: "2.5" })).errors.stock, undefined, "parseInt corta a fração");
+    // Estrito como o da variante: antes o parseInt aceitava "2.5" (virava 2)
+    // e "12abc" (virava 12).
+    assert.equal(parseProductForm(form({ stock: "2.5" })).errors.stock, "Estoque inválido.");
+    assert.equal(parseProductForm(form({ stock: "12abc" })).errors.stock, "Estoque inválido.");
   });
 
   it('exige que o preço "de" seja maior que o de venda', () => {

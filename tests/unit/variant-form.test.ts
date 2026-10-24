@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { valuesOf } from "../helpers/form";
 import { formatAttributes, parseAttributes, parseVariantForm } from "@/lib/validation/variant";
 
 function form(values: Record<string, string | undefined>): FormData {
@@ -38,15 +39,14 @@ describe("atributos da variante", () => {
 
 describe("validação da variante", () => {
   it("aceita variante sem preço (herda do produto)", () => {
-    const { errors, values } = parseVariantForm(form({ price: "" }));
-    assert.deepEqual(errors, {});
+    const values = valuesOf(parseVariantForm(form({ price: "" })));
     assert.equal(values.priceCents, null);
     assert.equal(values.sku, "SKU-M-PRETO", "SKU vai pra maiúscula");
     assert.equal(values.stockQuantity, 4);
   });
 
   it("converte preço informado pra centavos", () => {
-    assert.equal(parseVariantForm(form({ price: "99,90" })).values.priceCents, 9_990);
+    assert.equal(valuesOf(parseVariantForm(form({ price: "99,90" }))).priceCents, 9_990);
     assert.ok(parseVariantForm(form({ price: "abc" })).errors.price);
   });
 

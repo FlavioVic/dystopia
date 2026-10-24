@@ -34,8 +34,9 @@ export async function submitReview(_prev: ReviewState, formData: FormData): Prom
   });
   if (!product) return { message: "Produto não encontrado." };
 
-  const { errors, values } = parseReviewForm(formData);
-  if (Object.keys(errors).length > 0) return { errors };
+  const parsed = parseReviewForm(formData);
+  if (!parsed.ok) return { errors: parsed.errors };
+  const { values } = parsed;
 
   await db.transaction(async (tx) => {
     await upsertReview(tx, {

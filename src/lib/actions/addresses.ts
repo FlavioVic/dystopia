@@ -22,8 +22,9 @@ export async function saveAddress(_prev: AddressState, formData: FormData): Prom
   const user = await getCurrentUser();
   if (!user) return { message: "Entre na sua conta." };
 
-  const { errors, values } = parseAddressForm(formData);
-  if (Object.keys(errors).length > 0) return { errors };
+  const parsed = parseAddressForm(formData);
+  if (!parsed.ok) return { errors: parsed.errors };
+  const { values } = parsed;
 
   await createAddress(db, user.id, values, {
     makeDefault: formData.get("isDefault") != null ? true : undefined,
