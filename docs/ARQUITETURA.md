@@ -1,29 +1,21 @@
-<!-- BEGIN:nextjs-agent-rules -->
-
-## This is NOT the Next.js you know
-
-This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
-
-This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
-
-<!-- END:nextjs-agent-rules -->
-
-# Dystopia — guia de engenharia
+# Dystopia — arquitetura e guia de engenharia
 
 Loja de peças de PC + serviços técnicos (orçamento) em Next.js 16 (App Router) + Postgres/Drizzle, projeto de portfólio de Flávio Victor. O checkout é
-orquestrado por uma **SAGA** com fila durável. Leia este arquivo antes de
-mexer em qualquer coisa de pedido, estoque, pagamento ou fila.
+orquestrado por uma **SAGA** sobre **RabbitMQ** (com outbox transacional no
+Postgres). Leia este arquivo antes de mexer em qualquer coisa de pedido,
+estoque, pagamento ou fila.
 
 ## Comandos
 
 | Comando | Pra quê |
 |---|---|
-| `docker compose up -d` | Postgres de dev na porta 5544 (só o banco) |
+| `docker compose up -d` | Postgres de dev (porta 5544) + RabbitMQ (5672, painel 15672) |
 | `npm run dev` | App em http://localhost:3000 |
-| `npm run worker` | Worker da fila (processa as sagas) — suba junto do dev |
+| `npm run worker` | Consome as filas `saga` e `notifications`, publica a outbox (relay) e reconcilia — suba junto do dev |
 | `npm run worker:payments` | Processo do serviço de pagamentos (fila `payments`) — sem ele, todo pedido fica "processando" |
-| `npm run reconcile` | Reconciliação manual (libera leases, reenfileira sagas órfãs) |
-| `npm test` | Suíte completa (cria/migra `dystopia_test` sozinho) |
+| `npm run reconcile` | Reconciliação manual (libera leases, recria avanço de saga parada) |
+| `npm test` | Suíte completa (cria/migra `dystopia_test` e usa filas `dystopia_test.*` sozinho) |
+| `npm test -- <termo>` | Só os arquivos de teste com o termo no nome |
 | `npm run test:unit` | Só os testes que não precisam de banco |
 | `npm run lint` · `npx tsc --noEmit` | Lint e tipos — ambos têm que ficar limpos |
 | `npm run db:generate` → `db:migrate` | Nova migration a partir de `src/db/schema.ts` |
@@ -37,9 +29,10 @@ lib/actions/*             borda HTTP (Server Actions): valida entrada, nada de r
 saga/                     orquestração: ordem dos passos, retry, compensação
 services/*                regra de negócio, uma responsabilidade cada
                           (inventory, payments, orders, coupons, carts,
-                           notifications, catalog, reviews, wishlist, addresses,
-                           rate-limit, service-requests)
-queue/                    fila genérica (jobs, claim, backoff, DLQ)
+                           accounts, notifications, catalog, reviews, wishlist,
+                           addresses, rate-limit, service-requests)
+queue/                    fila genérica: outbox + relay, RabbitMQ, política
+                          de retry (filas de espera com TTL), DLQ
 db/                       schema Drizzle + pool
 ```
 
@@ -48,7 +41,11 @@ A dependência só aponta pra baixo: **borda → saga → serviços → db**.
 - um **serviço** não importa outro serviço (quem compõe é a saga), não importa
   `next/*`, não importa `lib/actions`/`lib/data`/`components`. Do `saga/` ele
   só pode importar `@/saga/errors`;
-- a **fila** não conhece saga nenhuma em específico (só o registry de handlers);
+- a **fila** não conhece saga nenhuma em específico (só o registry de handlers)
+  e não importa serviço nenhum;
+- uma **Server Action** não escreve no banco: valida (parser de
+  `lib/validation`), chama o serviço e traduz o resultado pra tela. Abrir uma
+  transação pra compor serviços pode (é o outbox do checkout);
 - o **orquestrador** não conhece a definição concreta — chega nela via
   `src/saga/registry.ts`;
 - **pagamentos roda em processo próprio**: fora de `services/payments` (e dos
@@ -64,16 +61,18 @@ reescrever regra.
 
 ```
 placeOrder (Server Action)
-  └─ 1 transação: endereço + pedido(pending) + itens + saga + job   ← outbox
+  └─ 1 transação: endereço + pedido(pending) + itens + saga + mensagem na outbox
          │
          ├─ caminho rápido: o próprio request avança a saga (tryRunSagaInline)
          │                  até o pagamento, que é remoto → saga em `waiting`
-         └─ caminho durável: `npm run worker` pega o job da fila
+         └─ caminho durável: relay publica no RabbitMQ → `npm run worker`
+                 consome a fila `saga`
                  (lease na saga garante que só um dos dois avança por vez)
 
 passo remoto (pagamento):
   saga ── payments.authorize ──▶ fila `payments` ──▶ npm run worker:payments
-  saga ◀──── saga.reply ─────── fila `default` ◀── (cobrança + resposta: 1 tx)
+  saga ◀──── saga.reply ─────── fila `saga` ◀── (cobrança + resposta: 1 tx)
+  (as duas setas passam pela outbox de quem envia + relay)
 
 SAGA checkout (src/saga/definitions/checkout.ts)
   1 reserve-stock       inventory      ⇄ devolve as unidades
@@ -84,18 +83,40 @@ SAGA checkout (src/saga/definitions/checkout.ts)
   6 notify-customer     notifications  (sem compensação)
 
 falha permanente em qualquer passo → compensa de 1..n-1 em ordem REVERSA
-falha transitória → volta pra fila com backoff (3 tentativas por passo);
-                    no passo remoto quem tenta de novo é o processo de pagamentos,
-                    e esgotado ele RESPONDE com falha (a saga não espera pra sempre)
+falha transitória → retry com backoff (3 tentativas por passo); a saga SEGURA
+                    o lease até a hora do retry, então mensagem duplicada não
+                    adianta a tentativa; no passo remoto quem tenta de novo é o
+                    processo de pagamentos, e na última tentativa ele RESPONDE
+                    com falha (a saga não espera pra sempre)
 ```
 
 Estado durável: `sagas` (instância), `saga_steps` (log por passo = registro de
-idempotência), `jobs` (fila). Visível em `/admin/orquestracao`.
+idempotência), `outbox` (caixa de saída) e as filas no RabbitMQ. Visível em
+`/admin/orquestracao`.
+
+### A fila (RabbitMQ)
+
+Cada fila lógica (`saga`, `payments`, `notifications`) vira no broker: a fila
+de trabalho `<p>.<fila>`, filas de espera `<p>.<fila>.retry.<ms>` (TTL +
+dead-letter-exchange de volta pra de trabalho) e a DLQ `<p>.<fila>.dlq`. `<p>`
+é `RABBITMQ_PREFIX` (`dystopia`; nos testes, `dystopia_test`). Topologia em
+`src/queue/broker.ts`, política em `src/queue/worker.ts › handleDelivery`:
+
+- handler ok → `ack`; lançou erro transitório (ou desconhecido) → fila de
+  espera do backoff, tentativa + 1; `PermanentError`, tentativas esgotadas,
+  mensagem ilegível ou tipo sem handler → DLQ (com o erro no cabeçalho);
+- handler devolve `{ retryInMs, countAttempt: false }` pra adiar sem ser falha
+  (saga em backoff/ocupada) — não empurra pra DLQ;
+- `ack` só DEPOIS de encaminhar com publisher confirm: crash = reentrega,
+  nunca perda. Por isso **todo handler é idempotente**;
+- consumo por push (`startWorker`, processos de pé) ou pull (`drainQueues`,
+  worker embutido e testes) — o mesmo `handleDelivery`.
 
 ## Invariantes (quebrar isso é bug, não escolha de estilo)
 
-1. **Outbox**: job de saga é inserido na MESMA transação do fato de negócio.
-   Nunca enfileire depois do commit.
+1. **Outbox**: mensagem é gravada (`enqueue` → tabela `outbox`) na MESMA
+   transação do fato de negócio; só o relay publica no RabbitMQ. Nunca publique
+   direto no broker de dentro de regra de negócio, nem depois do commit "na mão".
 2. **Passo = transação**: o efeito do passo e o log dele (`saga_steps`)
    commitam juntos. Nunca faça um passo em duas transações. Passo remoto é a
    exceção controlada: o log vira `waiting` junto com o comando (outbox), o
@@ -139,16 +160,32 @@ serviço publica isso num `contract.ts` e consome a fila com um handler que
 grava o efeito + `sendReply` na mesma transação (ver
 `services/payments/consumer.ts`). Esgotou as tentativas: responda com falha.
 
-**Novo formulário**: validação pura em `src/lib/validation/<nome>.ts`
-(entra `FormData`, sai `{ errors, values }`), teste unitário cobrindo os cantos,
-e a Server Action só chama o parser + o serviço.
+**Escrita que depende do estado atual** (somar quantidade, "já existe?"): uma
+instrução só no banco — `INSERT ... ON CONFLICT`, `UPDATE ... WHERE` — nunca
+"consulta, decide, escreve", que perde pra duas requisições simultâneas. Ver
+`services/carts` (`addItem`) e `services/accounts` (`registerAccount`).
+
+**Novo formulário**: schema Zod em `src/lib/validation/<nome>.ts`, montado com
+as peças de `validation/form.ts` (`requiredText`, `cents`, `wholeNumber`…) e
+exposto como `parseXForm(formData)` → `FormResult` (`{ ok: true, values }` ou
+`{ ok: false, errors }` — o tipo não deixa usar valor sem checar `ok`). Teste
+unitário cobrindo os cantos; a Server Action só chama o parser + o serviço.
+
+**Listagem**: paginada (`lib/pagination.ts`, `?pagina=`) com `limit`/`offset` e
+total por `count(*)`; página além da última é 404. Nunca carregue a tabela
+inteira pra contar ou mostrar.
 
 **Novo serviço**: pasta em `src/services/<nome>/` recebendo `Executor`
 (`Database | Transaction`) como primeiro parâmetro — é o que permite compor
 vários serviços numa transação só e testar com o banco de teste.
 
-**Novo tipo de job**: registre em `src/queue/handlers.ts`. Devolva
-`{ settled: true }` só se o handler mesmo cuidar do destino do job.
+**Novo tipo de mensagem**: o produtor chama `enqueue(tx, { type, queue, payload })`
+dentro da transação; o handler (`(message) => Promise<HandlerResult>`) entra
+no registro da saga (`src/queue/handlers.ts`) ou, se for de um serviço, na raiz
+de composição (`src/composition/worker.ts`). Fila nova: adicione em
+`ALL_QUEUES` (composição) e em quem consome (`WORKER_QUEUES`/script). O
+handler tem que ser idempotente (reentrega é normal) e lançar `PermanentError`
+pro que retry não conserta.
 
 **Mudança de schema**: edite `src/db/schema.ts` → `npm run db:generate` →
 revise o SQL → `npm run db:migrate`. Nunca edite migration já aplicada.
@@ -156,28 +193,36 @@ revise o SQL → `npm run db:migrate`. Nunca edite migration já aplicada.
 ## Testes
 
 - `tests/unit/` — função pura, sem banco (`npm run test:unit`).
-- `tests/integration/` — Postgres real, rodando em série; `resetDatabase()` no
-  `beforeEach` e `closeDatabase()` no `after` (senão o processo não encerra).
-- `tests/helpers/` — fixtures (`seedCheckoutFixture`) e o atalho `startCheckout`,
-  que monta o pedido igual à Server Action.
+- `tests/integration/` — Postgres e RabbitMQ reais, rodando em série;
+  `resetDatabase()` no `beforeEach` (trunca e esvazia as filas de teste) e
+  `closeDatabase()` no `after` (fecha pool e conexão AMQP — senão o processo
+  não encerra). Retry passa de verdade pelas filas de espera (50–400 ms nos
+  testes): espere com `waitForRetries()`, não adiante relógio.
+- `tests/e2e/` — navegador (Playwright, `npm run test:e2e`) contra a loja
+  rodando — por padrão a stack do `docker compose --profile app`. A fixture
+  falha o teste em qualquer erro de console ou violação de CSP.
+- `tests/helpers/` — fixtures (`seedCheckoutFixture`), o atalho `startCheckout`,
+  que monta o pedido igual à Server Action, e `work()`/`settleSaga()`/
+  `pendingWork()` pra consumir e inspecionar as filas.
 - O runner (`tests/run.ts`) deriva o banco de teste do `DATABASE_URL`
   (`..._test`), cria e migra sozinho.
 - Teste de comportamento, não de implementação: os casos de saga checam o
   **efeito** (estoque, cobrança, status, carrinho), não a chamada interna.
-- CI (`.github/workflows/ci.yml`) repete a sequência completa com Postgres de
-  verdade: tipos → lint → migrations em banco limpo → testes → build. Se passar
-  local e quebrar no CI, suspeite de algo que depende do banco de dev já
-  populado.
+- CI (`.github/workflows/ci.yml`) repete a sequência completa com Postgres e
+  RabbitMQ de verdade: tipos → lint → migrations em banco limpo → testes →
+  build. Se passar local e quebrar no CI, suspeite de algo que depende do
+  banco de dev já populado.
 
 ## Convenções
 
 - Código e comentário em **pt-BR**; comentário explica *por quê*, não *o quê*.
-- Sem dependência nova sem motivo forte (hoje: next, react, drizzle, pg, jose,
-  bcryptjs, dotenv). Fila, saga, logger e runner de teste são caseiros de
-  propósito; o Stripe é chamado via `fetch` (sem SDK) e o Stripe.js vem de
-  js.stripe.com, como o Stripe exige.
+- Sem dependência nova sem motivo forte (hoje: next, react, drizzle, pg,
+  amqplib, zod, jose, bcryptjs, dotenv; em dev, Playwright pros testes de
+  navegador). Saga, relay, política de retry, logger e
+  runner de teste são caseiros de propósito; o Stripe é chamado via `fetch`
+  (sem SDK) e o Stripe.js vem de js.stripe.com, como o Stripe exige.
 - Efeito externo nunca sai de dentro da transação de um passo: e-mail é
-  gravado no passo e entregue por job (`notifications.deliver`), com
+  gravado no passo e entregue por mensagem (`notifications.deliver`), com
   `Idempotency-Key`. Com `RESEND_API_KEY`, `EMAIL_REDIRECT_TO` é obrigatório
   (sandbox) — demo pública não manda e-mail pra quem se cadastrou.
 - Chave secreta do Stripe só no processo de pagamentos; o app web usa só a
@@ -185,10 +230,11 @@ revise o SQL → `npm run db:migrate`. Nunca edite migration já aplicada.
   consciente: com `INLINE_WORKER=1` (demo só-Vercel) pagamentos roda no
   mesmo runtime do app, então a secreta de teste vai pra Vercel também.
 - **Worker embutido** (`INLINE_WORKER=1`, `src/lib/inline-worker.ts`): sem
-  worker de pé, checkout, página do pedido e painel de orquestração drenam a
-  fila no `after()`, e `/api/cron/fila` (cron da Vercel) é a rede de
-  segurança. Quem pluga os handlers é `src/composition/worker.ts`, o mesmo
-  que o `npm run worker` usa — a fila e a saga não mudam.
+  worker de pé, checkout, página do pedido e painel de orquestração publicam
+  a outbox e drenam o RabbitMQ por pull no `after()`, e `/api/cron/fila` (cron
+  da Vercel) é a rede de segurança. Quem pluga os handlers é
+  `src/composition/worker.ts`, o mesmo que o `npm run worker` usa — a fila e a
+  saga não mudam. Broker do deploy: CloudAMQP (plano grátis), `RABBITMQ_URL`.
 - Identidade do design system "DYSTOPIA": tokens de `globals.css` por papel
   (`background`, `foreground`, `border`, `signal`…) — não chute hex novo. Cantos
   retos, sem sombra/gradiente/tinta. Vermelho é a cor de AÇÃO (pedido do dono):
@@ -214,9 +260,20 @@ revise o SQL → `npm run db:migrate`. Nunca edite migration já aplicada.
 
 - `next/image` devolve 400 pra SVG sem `images.dangerouslyAllowSVG`
   (já configurado); mudança em `next.config.ts` exige reiniciar o dev server.
+- **CSP com nonce** (`src/proxy.ts`, `lib/csp.ts`): todo `<script>` escrito à
+  mão precisa de `nonce={nonce}` (lido do header `x-nonce`, como no layout),
+  senão o navegador bloqueia. Script carregado por outro script confiável
+  passa pelo `strict-dynamic`.
+- **IP do cliente** (`lib/request-ip.ts`) só vem de header quando há quem o
+  escreva por nós: Vercel, ou proxy próprio com `TRUST_PROXY_HEADERS=1` (o
+  Caddy do compose). Sem isso o cliente forja `X-Forwarded-For` e fura o
+  limite de tentativas; em produção o código falha fechado.
+- **Sem `loading.tsx` na raiz**: com ele a página vai em streaming e o
+  `notFound()` responde 200 em vez de 404.
 - `tsx` compila pra CJS: **sem top-level await** em script (`src/scripts/*`
   usa `main().catch(...)`).
 - `generateOrderNumber` usa o ano **local** — teste com `new Date(2026, 0, 1)`,
   não com string UTC.
-- Server Action não dá pra chamar com curl ingenuamente (protocolo RSC). Tem
-  receita em `CLAUDE.md`.
+- Server Action não dá pra chamar com curl ingenuamente (protocolo RSC): o
+  id vem do bundle, os argumentos vão no campo `0` do multipart, e os campos
+  de um `FormData` (`_1_<nome>`) têm que vir ANTES do `0`.
