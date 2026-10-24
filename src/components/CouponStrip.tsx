@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Rule } from "@/components/Kit";
+import { Rule, Sector } from "@/components/Kit";
 import { formatPriceCents } from "@/lib/format";
 
 type Coupon = {
@@ -55,13 +55,14 @@ function CouponCard({ coupon }: { coupon: Coupon }) {
 export function CouponStrip({ coupons }: { coupons: Coupon[] }) {
   if (coupons.length === 0) return null;
   return (
-    <section className="mt-16">
+    // A faixa vem daqui: sem cupom não sobra setor vazio na página.
+    <Sector tone="crimson">
       <Rule label="Diretivas em vigor" index={`${String(coupons.length).padStart(2, "0")} códigos`} />
       <div className="mt-6 flex gap-4 overflow-x-auto pb-1">
         {coupons.map((c) => (
           <CouponCard key={c.code} coupon={c} />
         ))}
       </div>
-    </section>
+    </Sector>
   );
 }

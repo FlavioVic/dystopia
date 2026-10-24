@@ -15,7 +15,9 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
           <span className="dys-label dys-label--restricted">Restrito</span>
           <h1 className="display-4">Comando</h1>
         </div>
-        <div className="flex items-center gap-4">
+        {/* min-w-0 + max-w-full: sem isso a nav cresce até o conteúdo e o
+            overflow-x-auto dela nunca entra — a página estoura no celular. */}
+        <div className="flex min-w-0 max-w-full items-center gap-4">
           <AdminNav />
           <Link href="/" className="label hidden text-foreground-muted hover:text-foreground sm:inline">
             Voltar à loja
