@@ -2,13 +2,14 @@
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import bcrypt from "bcryptjs";
-import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { carts, users } from "@/db/schema";
 import { createSession, deleteSession } from "@/lib/session";
 import { CART_COOKIE } from "@/lib/data/cart";
 import { getRequestIp } from "@/lib/request-ip";
+import { parseLoginForm, parseSignupForm } from "@/lib/validation/account";
+import { PermanentError } from "@/saga/errors";
+import { registerAccount, verifyCredentials, type Account } from "@/services/accounts";
+import { claimGuestCart } from "@/services/carts";
 import { consumeRateLimit, type RateLimitRule } from "@/services/rate-limit";
 
 export type AuthState = {
@@ -17,17 +18,17 @@ export type AuthState = {
   values?: { name?: string; email?: string };
 } | undefined;
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
 // Por IP, não por e-mail: limite por e-mail deixaria qualquer um trancar a
-// conta demo (cujo e-mail é público) errando a senha de propósito.
-const LOGIN_RULE: RateLimitRule = { limit: 10, windowSeconds: 15 * 60 };
-const SIGNUP_RULE: RateLimitRule = { limit: 5, windowSeconds: 60 * 60 };
+// conta demo (cujo e-mail é público) errando a senha de propósito. O número
+// muda por variável só pra stack de teste (vários cadastros do mesmo IP); o
+// padrão é o de produção.
+const LOGIN_RULE: RateLimitRule = { limit: limitFromEnv("LOGIN_LIMIT_PER_15MIN", 10), windowSeconds: 15 * 60 };
+const SIGNUP_RULE: RateLimitRule = { limit: limitFromEnv("SIGNUP_LIMIT_PER_HOUR", 5), windowSeconds: 60 * 60 };
 
-// Hash bcrypt válido (custo 10, de um segredo aleatório descartado) pra
-// comparar quando o e-mail não existe. Precisa ser um hash real: um inválido
-// é recusado na hora, e a resposta mais rápida entregaria quais e-mails têm conta.
-const DUMMY_HASH = "$2b$10$Y/CEvd/r/IxO4k29XllMJOjmYQnSj8TaybVNu9sGSAoHuQnkbS5A.";
+function limitFromEnv(name: string, fallback: number): number {
+  const value = Number(process.env[name]);
+  return Number.isInteger(value) && value > 0 ? value : fallback;
+}
 
 async function rateLimited(action: string, rule: RateLimitRule): Promise<string | null> {
   const { allowed, retryAfterSeconds } = await consumeRateLimit(db, `${action}:ip:${await getRequestIp()}`, rule);
@@ -36,74 +37,48 @@ async function rateLimited(action: string, rule: RateLimitRule): Promise<string 
   return `Muitas tentativas. Tente de novo em ${minutes} ${minutes === 1 ? "minuto" : "minutos"}.`;
 }
 
-/** Ao autenticar, vincula o carrinho de visitante (se houver) ao usuário. */
-async function attachGuestCartToUser(userId: string) {
+/** Abre a sessão e leva junto o carrinho de visitante, se houver. */
+async function signIn(account: Account): Promise<never> {
+  await createSession({ userId: account.id, role: account.role });
   const token = (await cookies()).get(CART_COOKIE)?.value;
-  if (!token) return;
-  await db.update(carts).set({ userId }).where(eq(carts.sessionToken, token));
+  if (token) await claimGuestCart(db, token, account.id);
+  redirect("/conta");
 }
 
 export async function signup(_prev: AuthState, formData: FormData): Promise<AuthState> {
-  const name = String(formData.get("name") ?? "").trim();
-  const email = String(formData.get("email") ?? "").trim().toLowerCase();
-  const password = String(formData.get("password") ?? "");
-
-  const errors: NonNullable<AuthState>["errors"] = {};
-  if (name.length < 2) errors.name = "Informe seu nome (mín. 2 caracteres).";
-  if (!EMAIL_RE.test(email)) errors.email = "Informe um e-mail válido.";
-  if (password.length < 8) errors.password = "A senha precisa ter ao menos 8 caracteres.";
-  if (Object.keys(errors).length > 0) return { errors, values: { name, email } };
+  // O que a pessoa digitou volta pro formulário (a senha nunca).
+  const echo = { name: String(formData.get("name") ?? ""), email: String(formData.get("email") ?? "") };
+  const parsed = parseSignupForm(formData);
+  if (!parsed.ok) return { errors: parsed.errors, values: echo };
+  const { values } = parsed;
 
   const limited = await rateLimited("signup", SIGNUP_RULE);
-  if (limited) return { message: limited, values: { name, email } };
+  if (limited) return { message: limited, values: echo };
 
-  const existing = await db.query.users.findFirst({
-    where: eq(users.email, email),
-    columns: { id: true },
-  });
-  if (existing) {
-    return { errors: { email: "Já existe uma conta com esse e-mail." }, values: { name, email } };
+  let account: Account;
+  try {
+    account = await registerAccount(db, values);
+  } catch (error) {
+    if (error instanceof PermanentError && error.code === "email_taken") {
+      return { errors: { email: error.message }, values: echo };
+    }
+    throw error;
   }
-
-  const passwordHash = await bcrypt.hash(password, 10);
-  const [user] = await db
-    .insert(users)
-    .values({ name, email, passwordHash })
-    .returning({ id: users.id, role: users.role });
-
-  if (!user) return { message: "Não foi possível criar a conta. Tente de novo.", values: { name, email } };
-
-  await createSession({ userId: user.id, role: user.role });
-  await attachGuestCartToUser(user.id);
-  redirect("/conta");
+  return signIn(account);
 }
 
 export async function login(_prev: AuthState, formData: FormData): Promise<AuthState> {
-  const email = String(formData.get("email") ?? "").trim().toLowerCase();
-  const password = String(formData.get("password") ?? "");
-
-  if (!EMAIL_RE.test(email) || password.length === 0) {
-    return { message: "E-mail ou senha inválidos.", values: { email } };
-  }
+  const echo = { email: String(formData.get("email") ?? "") };
+  const parsed = parseLoginForm(formData);
+  if (!parsed.ok) return { message: "E-mail ou senha inválidos.", values: echo };
+  const { email, password } = parsed.values;
 
   const limited = await rateLimited("login", LOGIN_RULE);
-  if (limited) return { message: limited, values: { email } };
+  if (limited) return { message: limited, values: echo };
 
-  const user = await db.query.users.findFirst({
-    where: eq(users.email, email),
-    columns: { id: true, role: true, passwordHash: true },
-  });
-
-  // Compara sempre (mesmo sem usuário) pra não vazar quais e-mails existem.
-  const hash = user?.passwordHash ?? DUMMY_HASH;
-  const ok = await bcrypt.compare(password, hash);
-  if (!user || !ok) {
-    return { message: "E-mail ou senha inválidos.", values: { email } };
-  }
-
-  await createSession({ userId: user.id, role: user.role });
-  await attachGuestCartToUser(user.id);
-  redirect("/conta");
+  const account = await verifyCredentials(db, { email, password });
+  if (!account) return { message: "E-mail ou senha inválidos.", values: echo };
+  return signIn(account);
 }
 
 export async function logout(): Promise<void> {

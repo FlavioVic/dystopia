@@ -127,6 +127,22 @@ describe("fronteiras da arquitetura", () => {
     }
   });
 
+  it("Server Action não escreve no banco: valida a entrada e chama o serviço", () => {
+    // Leitura pra decidir a resposta (guarda, redirect) é ok, e abrir uma
+    // transação pra compor serviços também (é o outbox do checkout). Mutação
+    // na borda não: vira regra fora do serviço, sem teste, e com o "lê,
+    // decide, escreve" que dá corrida.
+    for (const file of sourceFiles(path.join("src", "lib", "actions"))) {
+      const content = readFileSync(path.join(ROOT, file), "utf-8");
+      const writes = [...content.matchAll(/\b(?:db|tx)\s*\.\s*(insert|update|delete)\s*\(/g)];
+      assert.deepEqual(
+        writes.map((match) => match[1]),
+        [],
+        `${file} escreve no banco direto — mova a escrita pra um serviço`,
+      );
+    }
+  });
+
   it("o orquestrador não conhece a definição concreta (só o registry)", () => {
     for (const specifier of importsOf("src/saga/orchestrator.ts")) {
       assert.ok(
