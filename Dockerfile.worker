@@ -2,7 +2,8 @@
 #
 # O app web vai pra Vercel (serverless, sem processo de longa duração); o
 # worker precisa ficar vivo fazendo polling na fila, então roda como container
-# (Railway/Render/Fly). Mesmo repo, mesmo código: só muda o entrypoint.
+# (Fly.io, Render…). Mesmo repo, mesmo código: só muda o entrypoint. A demo
+# pública dispensa o container: ver INLINE_WORKER no README › Deploy.
 #
 #   docker build -f Dockerfile.worker -t dystopia-worker .
 #   docker run --env-file .env dystopia-worker

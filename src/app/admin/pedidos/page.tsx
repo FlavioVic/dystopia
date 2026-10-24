@@ -13,7 +13,7 @@ export default async function AdminOrders() {
 
   return (
     <div>
-      <h2 className="text-sm font-semibold uppercase tracking-wider text-foreground-muted">
+      <h2 className="label text-foreground-muted">
         Pedidos ({orders.length})
       </h2>
 
@@ -49,7 +49,7 @@ export default async function AdminOrders() {
                   </td>
                   <td className="px-4 py-2.5 tabular-nums">{o.items.length}</td>
                   <td className="px-4 py-2.5">
-                    <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${orderStatusClass(o.status)}`}>
+                    <span className={`label whitespace-nowrap px-2 py-0.5 ${orderStatusClass(o.status)}`}>
                       {ORDER_STATUS_LABELS[o.status as OrderStatus] ?? o.status}
                     </span>
                   </td>

@@ -1,38 +1,37 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { ImageResponse } from "next/og";
-import { D_PATH, HEX_POINTS } from "@/components/Logo";
+import { GATE_PATH, WORDMARK_PATH, WORDMARK_WIDTH } from "@/lib/brand-geometry";
 
 /**
  * Prévia do link (LinkedIn, WhatsApp, X…). Gerada no build a partir daqui,
  * então muda junto com o código — não é um PNG solto pra lembrar de refazer.
  *
- * O renderizador do `next/og` não lê CSS vars nem WOFF2: as cores repetem os
- * tokens de globals.css (--accent, --magenta, --violet, --amber-bright) e a
- * fonte da marca vem do TTF ao lado dos WOFF2.
+ * O renderizador do `next/og` não lê CSS vars nem WOFF2: as cores repetem a
+ * paleta de globals.css e as fontes vêm dos TTF ao lado dos WOFF2 (convertidos
+ * dos mesmos arquivos do design system).
  */
 
-export const alt = "Dystopia — e-commerce geek com checkout orquestrado por SAGA";
+export const alt = "DYSTOPIA — loja de hardware e serviços técnicos, projeto de portfólio de Flávio Victor";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
-const ACCENT = "#c2410c";
-const MAGENTA = "#db2777";
-const VIOLET = "#7c3aed";
-const AMBER = "#fbbf24";
+const OBSIDIAN = "#0b0b0c";
+const BONE = "#e7e3da";
+const STEEL = "#6e7176";
+const MUTED = "#8e9196";
+const FAINT = "#2a2b2f";
+const SIGNAL = "#c8102e";
 
-const TAGS = ["Next.js 16", "PostgreSQL", "SAGA", "Outbox", "TypeScript"];
-
-// Hexágonos de fundo, como no hero da home: [x, y, tamanho, opacidade].
-const HEXES: [number, number, number, number][] = [
-  [820, -40, 300, 0.16],
-  [1010, 210, 220, 0.12],
-  [860, 380, 260, 0.1],
-  [1080, 470, 160, 0.14],
-];
+const SPEC = ["NEXT.JS 16", "POSTGRESQL", "SAGA", "OUTBOX", "FILA DURÁVEL"];
 
 export default async function OpenGraphImage() {
-  const brandFont = await readFile(join(process.cwd(), "src/app/fonts/ChakraPetch-Bold.ttf"));
+  const [display, mono] = await Promise.all([
+    readFile(join(process.cwd(), "src/app/fonts/Michroma-Regular.ttf")),
+    readFile(join(process.cwd(), "src/app/fonts/IBMPlexMono-Medium.ttf")),
+  ]);
+
+  const wordmarkCap = 34;
 
   return new ImageResponse(
     (
@@ -43,88 +42,72 @@ export default async function OpenGraphImage() {
           display: "flex",
           flexDirection: "column",
           justifyContent: "space-between",
-          padding: "64px 72px",
-          color: "white",
-          backgroundImage: `linear-gradient(100deg, ${ACCENT} 0%, ${MAGENTA} 55%, ${VIOLET} 100%)`,
-          position: "relative",
+          padding: 64,
+          background: OBSIDIAN,
+          color: BONE,
+          fontFamily: "Plex",
+          // Grade modular (rule-faint), como no fundo das páginas.
+          backgroundImage: `linear-gradient(to right, ${FAINT} 1px, transparent 1px), linear-gradient(to bottom, ${FAINT} 1px, transparent 1px)`,
+          backgroundSize: "64px 64px",
         }}
       >
-        {HEXES.map(([x, y, s, opacity]) => (
-          <svg
-            key={`${x}-${y}`}
-            width={s}
-            height={s}
-            viewBox="0 0 48 48"
-            style={{ position: "absolute", left: x, top: y, opacity }}
-          >
-            <polygon points={HEX_POINTS} fill="none" stroke="white" strokeWidth="1.2" />
-          </svg>
-        ))}
-
-        <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
-          <div
-            style={{
-              display: "flex",
-              width: 72,
-              height: 72,
-              borderRadius: 16,
-              background: "white",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <svg width="60" height="60" viewBox="0 0 48 48">
-              <path d={D_PATH} fillRule="evenodd" fill={ACCENT} />
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 28 }}>
+            <svg width="84" height="84" viewBox="0 0 24 24">
+              <path d={GATE_PATH} fill={SIGNAL} />
+            </svg>
+            <svg
+              width={(wordmarkCap * WORDMARK_WIDTH) / 100}
+              height={wordmarkCap}
+              viewBox={`0 0 ${WORDMARK_WIDTH} 100`}
+            >
+              <path d={WORDMARK_PATH} fill={BONE} />
             </svg>
           </div>
-          {/* Mesmo kerning óptico do T-O da logo do site (−0,06em). */}
-          <div style={{ display: "flex", fontFamily: "Chakra Petch", fontSize: 44, letterSpacing: 3 }}>
-            <span>DYS</span>
-            <span style={{ letterSpacing: 3 - 0.06 * 44 }}>T</span>
-            <span>OPIA</span>
+          <div style={{ display: "flex", fontSize: 18, letterSpacing: 3, color: MUTED }}>DYS-0001 / SETOR 04</div>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+          <div style={{ display: "flex", fontFamily: "Michroma", fontSize: 58, letterSpacing: 6, lineHeight: 1.2 }}>
+            A ORDEM É UM SERVIÇO.
+          </div>
+          <div style={{ display: "flex", fontSize: 24, color: MUTED, letterSpacing: 1 }}>
+            Hardware, montagem, manutenção e desenvolvimento de software.
           </div>
         </div>
 
-        <div style={{ display: "flex", flexDirection: "column", maxWidth: 940 }}>
-          <div style={{ fontSize: 24, letterSpacing: 6, color: AMBER, fontWeight: 700 }}>PROJETO DE PORTFÓLIO</div>
-          <div
-            style={{
-              marginTop: 18,
-              fontFamily: "Chakra Petch",
-              fontSize: 62,
-              lineHeight: 1.04,
-              textTransform: "uppercase",
-            }}
-          >
-            Checkout que não deixa pedido pela metade
-          </div>
-          <div style={{ marginTop: 24, fontSize: 28, lineHeight: 1.35, opacity: 0.9 }}>
-            E-commerce geek em Next.js + Postgres: SAGA com fila durável, compensação e observabilidade.
-          </div>
-        </div>
-
-        <div style={{ display: "flex", gap: 12 }}>
-          {TAGS.map((tag) => (
-            <div
-              key={tag}
-              style={{
-                display: "flex",
-                padding: "8px 18px",
-                borderRadius: 999,
-                border: "2px solid rgba(255,255,255,0.45)",
-                background: "rgba(255,255,255,0.12)",
-                fontSize: 22,
-              }}
-            >
-              {tag}
+        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+          <div style={{ display: "flex", height: 1, background: STEEL }} />
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div style={{ display: "flex", gap: 14 }}>
+              {SPEC.map((tag) => (
+                <div
+                  key={tag}
+                  style={{
+                    display: "flex",
+                    border: `2px solid ${BONE}`,
+                    padding: "6px 12px",
+                    fontSize: 16,
+                    letterSpacing: 2,
+                  }}
+                >
+                  {tag}
+                </div>
+              ))}
             </div>
-          ))}
+            <div style={{ display: "flex", fontSize: 18, letterSpacing: 2, color: BONE }}>
+              PORTFÓLIO / FLÁVIO VICTOR
+            </div>
+          </div>
         </div>
       </div>
     ),
     {
       ...size,
-      fonts: [{ name: "Chakra Petch", data: brandFont, weight: 700, style: "normal" }],
+      fonts: [
+        { name: "Michroma", data: display, weight: 400, style: "normal" },
+        { name: "Plex", data: mono, weight: 500, style: "normal" },
+      ],
     },
   );
 }

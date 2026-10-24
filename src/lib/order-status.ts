@@ -31,15 +31,15 @@ export function orderStatusClass(status: string): string {
   switch (status) {
     case "delivered":
     case "paid":
-      return "bg-deal-soft text-success";
+      return "border border-foreground text-foreground";
     case "shipped":
     case "processing":
-      return "bg-accent/10 text-accent";
+      return "bg-foreground text-background";
     case "cancelled":
     case "refunded":
-      return "bg-danger/10 text-danger";
+      return "bg-signal text-on-signal";
     default:
-      return "bg-background-elevated-hover text-foreground-muted";
+      return "border border-border-faint text-foreground-muted";
   }
 }
 

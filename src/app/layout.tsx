@@ -6,25 +6,26 @@ import { getCategories } from "@/lib/data/products";
 import { getCartCount } from "@/lib/data/cart";
 import { getCurrentUser } from "@/lib/data/auth";
 import { getWishlistProductIds } from "@/lib/data/wishlist";
-import { chakraPetch } from "./fonts";
+import { interTight, michroma, plexMono } from "./fonts";
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "Dystopia — loja geek",
-    template: "%s · Dystopia",
+    default: "DYSTOPIA — hardware sob controle",
+    template: "%s · DYSTOPIA",
   },
-  description: "Colecionáveis, quadrinhos, games e moda geek de um futuro cyberpunk.",
+  description:
+    "Peças de PC e serviços técnicos: montagem, manutenção, formatação e desenvolvimento de software, por Flávio Victor.",
   // Quem recebe o link compartilhado (LinkedIn, WhatsApp) vê o projeto, não só
   // a loja. A imagem vem de app/opengraph-image.tsx; na Vercel o Next monta a
   // URL absoluta com o domínio de produção (sem metadataBase fixo).
   openGraph: {
     type: "website",
     locale: "pt_BR",
-    siteName: "Dystopia",
-    title: "Dystopia — e-commerce geek com checkout orquestrado por SAGA",
+    siteName: "DYSTOPIA",
+    title: "DYSTOPIA — loja de hardware com checkout orquestrado por SAGA",
     description:
-      "Projeto de portfólio: loja em Next.js + Postgres com fila durável, compensação, observabilidade e um modo demonstração pra ver tudo acontecer.",
+      "Projeto de portfólio de Flávio Victor: e-commerce de peças de PC em Next.js + Postgres, com fila durável, compensação, observabilidade e serviços técnicos.",
   },
   twitter: { card: "summary_large_image" },
 };
@@ -38,7 +39,16 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   ]);
 
   return (
-    <html lang="pt-BR" className={`h-full antialiased ${chakraPetch.variable}`}>
+    <html
+      lang="pt-BR"
+      className={`h-full ${michroma.variable} ${interTight.variable} ${plexMono.variable}`}
+      suppressHydrationWarning
+    >
+      <head>
+        {/* Liga a animação de "revelar" só quando há JS: sem isso, o conteúdo
+            nunca fica escondido esperando um script que não vai rodar. */}
+        <script dangerouslySetInnerHTML={{ __html: "document.documentElement.classList.add('js-reveal')" }} />
+      </head>
       <body className="flex min-h-full flex-col bg-background text-foreground">
         <PromoBar />
         <Header

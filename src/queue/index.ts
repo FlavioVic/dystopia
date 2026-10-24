@@ -202,6 +202,36 @@ export async function release(
     .where(eq(jobs.id, jobId));
 }
 
+/**
+ * Quando pode aparecer o próximo job pronto nestas filas: o `run_at` do
+ * próximo esperando (retry em backoff, job agendado) ou "agora" se há job
+ * `running` com outro executor — ele pode falhar e virar retry, ou gerar job
+ * novo (a resposta de um passo remoto). `null` = nada em andamento. Quem drena
+ * a fila sem ser processo de longa duração (o worker embutido na Vercel) usa
+ * pra decidir se vale esperar mais um pouco ou encerrar.
+ */
+export async function nextScheduledAt(
+  queues: string[] = [DEFAULT_QUEUE],
+  options: { executor?: Executor; now?: Date } = {},
+): Promise<Date | null> {
+  const executor = options.executor ?? db;
+  const now = options.now ?? new Date();
+  const [row] = await executor
+    .select({
+      runAt: sql<Date | string | null>`min(case when ${jobs.status} = 'running' then ${now} else ${jobs.runAt} end)`,
+    })
+    .from(jobs)
+    .where(
+      and(
+        inArray(jobs.queue, queues),
+        // `running` de lease vencido é executor morto: quem cuida é a
+        // reconciliação, não vale segurar o dreno esperando por ele.
+        sql`(${jobs.status} in ('queued', 'failed') or (${jobs.status} = 'running' and ${jobs.leaseUntil} > ${now}))`,
+      ),
+    );
+  return row?.runAt ? new Date(row.runAt) : null;
+}
+
 /** Jobs ativos com uma dedupe key (0 ou 1, por causa do índice único parcial). */
 export async function findActiveByDedupeKey(
   dedupeKey: string,

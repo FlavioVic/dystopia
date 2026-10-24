@@ -1,15 +1,31 @@
 import localFont from "next/font/local";
 
 /**
- * Chakra Petch — fonte da marca (wordmark da logo). Auto-hospedada via
- * next/font/local (subset latin baixado do Google Fonts), sem requisição
- * externa em runtime. Exposta como var CSS --font-chakra.
+ * Fontes da marca DYSTOPIA, auto-hospedadas (subsets latinos do design system,
+ * SIL OFL 1.1 — ver fonts/OFL.txt). Sem requisição externa em runtime.
+ *
+ * - Michroma: display. Só caixa alta, sempre com tracking, nunca abaixo de 12px.
+ * - Inter Tight: tudo que se lê como frase.
+ * - IBM Plex Mono: códigos, seriais, preços, rótulos.
  */
-export const chakraPetch = localFont({
+export const michroma = localFont({
+  src: [{ path: "./fonts/Michroma-Regular.woff2", weight: "400", style: "normal" }],
+  display: "swap",
+  variable: "--font-michroma",
+});
+
+export const interTight = localFont({
+  src: [{ path: "./fonts/InterTight-Variable.woff2", weight: "100 900", style: "normal" }],
+  display: "swap",
+  variable: "--font-inter-tight",
+});
+
+export const plexMono = localFont({
   src: [
-    { path: "./fonts/ChakraPetch-SemiBold.woff2", weight: "600", style: "normal" },
-    { path: "./fonts/ChakraPetch-Bold.woff2", weight: "700", style: "normal" },
+    { path: "./fonts/IBMPlexMono-Regular.woff2", weight: "400", style: "normal" },
+    { path: "./fonts/IBMPlexMono-Medium.woff2", weight: "500", style: "normal" },
+    { path: "./fonts/IBMPlexMono-SemiBold.woff2", weight: "600", style: "normal" },
   ],
   display: "swap",
-  variable: "--font-chakra",
+  variable: "--font-plex-mono",
 });

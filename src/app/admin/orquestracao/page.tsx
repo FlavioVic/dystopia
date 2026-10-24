@@ -3,6 +3,7 @@ import Link from "next/link";
 import { SagaTimeline } from "@/components/SagaTimeline";
 import { JobActions } from "@/components/admin/JobActions";
 import { requireAdmin } from "@/lib/data/auth";
+import { drainQueueAfterResponse } from "@/lib/inline-worker";
 import {
   getActiveAndDeadJobs,
   getOperationalHealth,
@@ -19,6 +20,13 @@ import {
 } from "@/lib/saga-ui";
 
 export const metadata: Metadata = { title: "Orquestração · Admin" };
+export const maxDuration = 30;
+
+const NOTIFICATION_STATUS = {
+  pending: { label: "Na fila", className: "bg-background-elevated text-accent" },
+  sent: { label: "Enviada", className: "border border-foreground text-foreground" },
+  failed: { label: "Falhou", className: "bg-signal text-on-signal" },
+} as const;
 
 /**
  * Painel de orquestração: o estado da SAGA e da fila em tempo real.
@@ -28,6 +36,9 @@ export const metadata: Metadata = { title: "Orquestração · Admin" };
  */
 export default async function OrchestrationPage(props: PageProps<"/admin/orquestracao">) {
   await requireAdmin();
+  // Worker embutido: abrir o painel reconcilia e drena (retry que venceu,
+  // lease de executor morto) — o que o worker de pé faria sozinho.
+  drainQueueAfterResponse({ budgetMs: 20_000, reconcile: true });
   const range = parseHealthWindow((await props.searchParams).janela);
 
   const [sagasList, health, jobsList, notifications] = await Promise.all([
@@ -70,7 +81,7 @@ export default async function OrchestrationPage(props: PageProps<"/admin/orquest
     <div className="flex flex-col gap-8">
       <section>
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-foreground-muted">
+          <h2 className="label text-foreground-muted">
             Saúde · últimas {HEALTH_WINDOWS[range].label}
           </h2>
           <nav className="flex gap-1 text-xs" aria-label="Janela das métricas">
@@ -78,7 +89,7 @@ export default async function OrchestrationPage(props: PageProps<"/admin/orquest
               <Link
                 key={key}
                 href={key === "24h" ? "/admin/orquestracao" : `/admin/orquestracao?janela=${key}`}
-                className={`rounded-md px-2.5 py-1 font-medium ${key === range ? "bg-accent/10 text-accent" : "text-foreground-muted hover:text-foreground"}`}
+                className={`rounded-md px-2.5 py-1 font-medium ${key === range ? "bg-background-elevated text-accent" : "text-foreground-muted hover:text-foreground"}`}
               >
                 {HEALTH_WINDOWS[key].label}
               </Link>
@@ -90,7 +101,7 @@ export default async function OrchestrationPage(props: PageProps<"/admin/orquest
           {cards.map((card) => (
             <div key={card.label} className="rounded-xl border border-border bg-background-elevated p-4">
               <p className="text-[11px] font-medium uppercase tracking-wide text-foreground-muted">{card.label}</p>
-              <p className={`mt-1.5 font-mono text-2xl font-bold tabular-nums ${card.warn ? "text-danger" : ""}`}>
+              <p className={`mt-1.5 font-mono text-2xl font-bold tabular-nums ${card.warn ? "text-foreground" : ""}`}>
                 {card.value}
               </p>
               <p className="mt-1 text-[11px] text-foreground-muted">{card.hint}</p>
@@ -117,10 +128,10 @@ export default async function OrchestrationPage(props: PageProps<"/admin/orquest
                   <tr key={step.name} className="border-b border-border last:border-0">
                     <td className="px-4 py-2.5">{sagaStepLabel(step.name)}</td>
                     <td className="px-4 py-2.5 text-right tabular-nums">{step.executions}</td>
-                    <td className={`px-4 py-2.5 text-right tabular-nums ${step.retried > 0 ? "text-accent-secondary" : ""}`}>
+                    <td className={`px-4 py-2.5 text-right tabular-nums ${step.retried > 0 ? "text-foreground-muted" : ""}`}>
                       {step.retried}
                     </td>
-                    <td className={`px-4 py-2.5 text-right tabular-nums ${step.failed > 0 ? "text-danger" : ""}`}>
+                    <td className={`px-4 py-2.5 text-right tabular-nums ${step.failed > 0 ? "text-foreground" : ""}`}>
                       {step.failed}
                     </td>
                     <td className="px-4 py-2.5 text-right font-mono text-xs tabular-nums text-foreground-muted">
@@ -138,7 +149,7 @@ export default async function OrchestrationPage(props: PageProps<"/admin/orquest
 
       <section>
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-foreground-muted">
+          <h2 className="label text-foreground-muted">
             Fila ({Object.entries(queueMetrics.byStatus).map(([status, count]) => `${JOB_STATUS_LABELS[status] ?? status}: ${count}`).join(" · ") || "vazia"})
           </h2>
           <JobActions />
@@ -164,7 +175,7 @@ export default async function OrchestrationPage(props: PageProps<"/admin/orquest
                   <tr key={job.id} className="border-b border-border last:border-0">
                     <td className="px-4 py-2.5 font-mono text-xs">{job.type}</td>
                     <td className="px-4 py-2.5">
-                      <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${jobStatusClass(job.status)}`}>
+                      <span className={`label whitespace-nowrap px-2 py-0.5 ${jobStatusClass(job.status)}`}>
                         {JOB_STATUS_LABELS[job.status] ?? job.status}
                       </span>
                     </td>
@@ -189,7 +200,7 @@ export default async function OrchestrationPage(props: PageProps<"/admin/orquest
       </section>
 
       <section>
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-foreground-muted">Sagas recentes</h2>
+        <h2 className="label text-foreground-muted">Sagas recentes</h2>
 
         {sagasList.length === 0 ? (
           <p className="mt-4 text-sm text-foreground-muted">Nenhuma saga ainda — faça um pedido pra ver.</p>
@@ -207,7 +218,7 @@ export default async function OrchestrationPage(props: PageProps<"/admin/orquest
                       {saga.correlationId}
                     </Link>
                   </div>
-                  <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${sagaStatusClass(saga.status)}`}>
+                  <span className={`label whitespace-nowrap px-2 py-0.5 ${sagaStatusClass(saga.status)}`}>
                     {SAGA_STATUS_LABELS[saga.status] ?? saga.status}
                   </span>
                 </header>
@@ -243,8 +254,8 @@ export default async function OrchestrationPage(props: PageProps<"/admin/orquest
       </section>
 
       <section>
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-foreground-muted">
-          Notificações enviadas
+        <h2 className="label text-foreground-muted">
+          Notificações
         </h2>
         {notifications.length === 0 ? (
           <p className="mt-4 text-sm text-foreground-muted">Nada enviado ainda.</p>
@@ -254,9 +265,22 @@ export default async function OrchestrationPage(props: PageProps<"/admin/orquest
               <li key={notification.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 text-sm">
                 <span className="min-w-0">
                   <span className="line-clamp-1 font-medium">{notification.subject}</span>
-                  <span className="text-xs text-foreground-muted">{notification.recipient}</span>
+                  <span className="block text-xs text-foreground-muted">
+                    {notification.recipient}
+                    {/* Sandbox: o e-mail foi pra outro endereço — mostra pra onde. */}
+                    {notification.deliveredTo && notification.deliveredTo !== notification.recipient
+                      ? ` → entregue em ${notification.deliveredTo}`
+                      : ""}
+                    {notification.provider ? ` · ${notification.provider}` : ""}
+                  </span>
+                  {notification.status === "failed" && notification.lastError ? (
+                    <span className="block text-xs text-foreground">{notification.lastError}</span>
+                  ) : null}
                 </span>
-                <span className="text-xs text-foreground-muted">
+                <span className="flex items-center gap-2 text-xs text-foreground-muted">
+                  <span className={`label whitespace-nowrap px-2 py-0.5 ${NOTIFICATION_STATUS[notification.status].className}`}>
+                    {NOTIFICATION_STATUS[notification.status].label}
+                  </span>
                   {new Date(notification.createdAt).toLocaleString("pt-BR")}
                 </span>
               </li>

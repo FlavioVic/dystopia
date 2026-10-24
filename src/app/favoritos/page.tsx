@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { ProductGrid, buttonPrimary } from "@/components/Kit";
 import { redirect } from "next/navigation";
 import { ProductCard } from "@/components/ProductCard";
 import { getCurrentUser } from "@/lib/data/auth";
 import { getWishlist } from "@/lib/data/wishlist";
 
-export const metadata: Metadata = { title: "Favoritos" };
+export const metadata: Metadata = { title: "Arquivo de favoritos" };
 
 export default async function WishlistPage() {
   const user = await getCurrentUser();
@@ -17,34 +18,29 @@ export default async function WishlistPage() {
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="font-brand text-2xl font-bold uppercase tracking-tight">Favoritos</h1>
+          <h1 className="display-2 text-[26px] leading-[34px] sm:text-[32px] sm:leading-[40px]">Arquivo</h1>
           <p className="mt-1 text-sm text-foreground-muted">
             {items.length === 0
-              ? "Nada salvo ainda."
-              : items.length === 1
-                ? "1 produto salvo pra depois."
-                : `${items.length} produtos salvos pra depois.`}
+              ? "Nenhum item arquivado."
+              : `${String(items.length).padStart(2, "0")} ${items.length === 1 ? "item arquivado" : "itens arquivados"}.`}
           </p>
         </div>
-        <Link href="/conta" className="text-sm text-foreground-muted hover:text-foreground">
-          ← Minha conta
+        <Link href="/conta" className="label text-foreground-muted hover:text-foreground">
+          Voltar à ficha
         </Link>
       </div>
 
       {items.length === 0 ? (
-        <div className="mt-10 rounded-2xl border border-border bg-background-elevated p-10 text-center">
-          <p className="text-sm text-foreground-muted">
-            Toque no ♡ dos produtos que você quer comprar depois — eles aparecem aqui.
+        <div className="mt-10 flex flex-col items-start gap-5 border-t border-border-faint pt-10">
+          <p className="text-base text-foreground-muted">
+            Use &ldquo;Salvar&rdquo; em qualquer item do inventário. Ele fica arquivado aqui.
           </p>
-          <Link
-            href="/produtos"
-            className="mt-5 inline-block rounded-lg bg-accent px-5 py-2.5 text-sm font-semibold text-accent-foreground"
-          >
-            Ver produtos
+          <Link href="/produtos" className={buttonPrimary}>
+            Consultar inventário
           </Link>
         </div>
       ) : (
-        <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+        <ProductGrid>
           {items.map((item) => (
             <ProductCard
               key={item.productId}
@@ -52,6 +48,7 @@ export default async function WishlistPage() {
                 id: item.product.id,
                 slug: item.product.slug,
                 name: item.product.name,
+                brand: item.product.brand,
                 priceCents: item.product.priceCents,
                 compareAtPriceCents: item.product.compareAtPriceCents,
                 stockQuantity: item.product.stockQuantity,
@@ -61,7 +58,7 @@ export default async function WishlistPage() {
               }}
             />
           ))}
-        </div>
+        </ProductGrid>
       )}
     </div>
   );

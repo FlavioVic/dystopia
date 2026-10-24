@@ -78,6 +78,7 @@ describe("passo remoto — resposta", () => {
     const fixture = await seedCheckoutFixture({ stock: 5, quantity: 1 });
     const checkout = await startCheckout(fixture);
     assert.equal((await settleSaga(checkout.sagaId)).status, "completed");
+    await work("all"); // entrega da confirmação, pra só sobrar a resposta repetida
 
     const original = await db.query.jobs.findFirst({ where: eq(jobs.type, SAGA_REPLY_JOB) });
     assert.ok(original);

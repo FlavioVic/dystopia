@@ -12,10 +12,12 @@
  */
 
 import "dotenv/config";
+import { workerHandlers } from "@/composition/worker";
 import { db as pgDb, pgPool } from "@/db";
 import { createLogger } from "@/lib/logger";
 import { startWorker } from "@/queue/worker";
-import { cardProvider, paymentHandlers } from "@/services/payments/consumer";
+import { emailProvider } from "@/services/notifications/delivery";
+import { cardProvider } from "@/services/payments/consumer";
 import { pruneRateLimits } from "@/services/rate-limit";
 
 const logger = createLogger("worker");
@@ -38,13 +40,15 @@ async function main(): Promise<void> {
     .map((queue) => queue.trim())
     .filter(Boolean);
   if (queues.includes("payments")) logger.info("gateway de cartão", { provider: cardProvider() });
+  // Config de e-mail errada derruba aqui, não na primeira confirmação.
+  logger.info("entrega de e-mail", { provider: emailProvider() });
 
   const worker = startWorker({
     queues,
     batchSize: Number(process.env.WORKER_BATCH_SIZE ?? 5),
     pollMs: Number(process.env.WORKER_POLL_MS ?? 1_000),
     reconcileEveryMs: Number(process.env.WORKER_RECONCILE_MS ?? 30_000),
-    handlers: paymentHandlers,
+    handlers: workerHandlers(),
   });
 
   void pruneOldRateLimits();

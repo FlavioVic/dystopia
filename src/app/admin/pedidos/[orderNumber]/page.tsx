@@ -36,7 +36,7 @@ export default async function AdminOrderDetail(props: PageProps<"/admin/pedidos/
       <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <h2 className="font-mono text-lg font-bold">{order.orderNumber}</h2>
-          <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${orderStatusClass(order.status)}`}>
+          <span className={`label whitespace-nowrap px-2 py-0.5 ${orderStatusClass(order.status)}`}>
             {ORDER_STATUS_LABELS[order.status as OrderStatus] ?? order.status}
           </span>
         </div>
@@ -47,14 +47,14 @@ export default async function AdminOrderDetail(props: PageProps<"/admin/pedidos/
 
       <div className="mt-5 grid gap-5 lg:grid-cols-2">
         <div className="rounded-xl border border-border bg-background-elevated p-4">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-foreground-muted">Atualizar status</h3>
+          <h3 className="label text-foreground-muted">Atualizar status</h3>
           <div className="mt-3">
             <OrderStatusForm orderId={order.id} current={order.status} />
           </div>
         </div>
 
         <div className="rounded-xl border border-border bg-background-elevated p-4">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-foreground-muted">
+          <h3 className="label text-foreground-muted">
             Orquestração (saga)
           </h3>
           <div className="mt-3">
@@ -96,7 +96,7 @@ export default async function AdminOrderDetail(props: PageProps<"/admin/pedidos/
             {order.discountCents > 0 ? (
               <div className="flex justify-between">
                 <dt className="text-foreground-muted">Desconto{order.coupon ? ` (${order.coupon.code})` : ""}</dt>
-                <dd className="font-mono tabular-nums text-success">- {formatPriceCents(order.discountCents)}</dd>
+                <dd className="font-mono tabular-nums text-foreground">- {formatPriceCents(order.discountCents)}</dd>
               </div>
             ) : null}
             <div className="flex justify-between"><dt className="text-foreground-muted">Frete</dt><dd className="font-mono tabular-nums">{order.shippingCents === 0 ? "Grátis" : formatPriceCents(order.shippingCents)}</dd></div>
@@ -106,12 +106,12 @@ export default async function AdminOrderDetail(props: PageProps<"/admin/pedidos/
 
         <aside className="flex flex-col gap-4 text-sm">
           <div className="rounded-xl border border-border p-4">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-foreground-muted">Cliente</h3>
+            <h3 className="label text-foreground-muted">Cliente</h3>
             <p className="mt-2 font-medium">{order.user.name}</p>
             <p className="text-foreground-muted">{order.user.email}</p>
           </div>
           <div className="rounded-xl border border-border p-4">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-foreground-muted">Entrega</h3>
+            <h3 className="label text-foreground-muted">Entrega</h3>
             <p className="mt-2 font-medium">{order.shippingAddress.recipientName}</p>
             <p className="text-foreground-muted">
               {order.shippingAddress.street}, {order.shippingAddress.number}
@@ -123,7 +123,7 @@ export default async function AdminOrderDetail(props: PageProps<"/admin/pedidos/
             </p>
           </div>
           <div className="rounded-xl border border-border p-4">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-foreground-muted">Pagamento</h3>
+            <h3 className="label text-foreground-muted">Pagamento</h3>
             <p className="mt-2 font-medium">{payment ? methodLabel[payment.method] ?? payment.method : "—"}</p>
             <p className="text-foreground-muted">{payment ? `${payment.provider} · ${payment.status}` : ""}</p>
           </div>

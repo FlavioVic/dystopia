@@ -1,0 +1,85 @@
+"use client";
+
+import { useEffect, useRef, useState, type ReactNode } from "react";
+
+/**
+ * Revela o bloco quando entra na tela (uma vez). O CSS em globals.css só
+ * esconde quando o <head> marcou `.js-reveal`, então sem JS nada some.
+ */
+export function Reveal({
+  children,
+  delay = 0,
+  className = "",
+  as: Tag = "div",
+}: {
+  children: ReactNode;
+  delay?: number;
+  className?: string;
+  as?: "div" | "section" | "li" | "article";
+}) {
+  const ref = useRef<HTMLElement>(null);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setVisible(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: "0px 0px -8% 0px" },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <Tag
+      ref={ref as never}
+      data-visible={visible}
+      className={`reveal ${className}`}
+      style={{ "--delay": `${delay}ms` } as React.CSSProperties}
+    >
+      {children}
+    </Tag>
+  );
+}
+
+/** Conta de 0 até `value` quando aparece (mono, com zero à esquerda). */
+export function CountUp({ value, pad = 2, duration = 1200 }: { value: number; pad?: number; duration?: number }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const [shown, setShown] = useState(value);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    let frame = 0;
+    const observer = new IntersectionObserver(([entry]) => {
+      if (!entry.isIntersecting) return;
+      observer.disconnect();
+      const start = performance.now();
+      const tick = (now: number) => {
+        const t = Math.min(1, (now - start) / duration);
+        setShown(Math.round(value * (1 - Math.pow(1 - t, 3))));
+        if (t < 1) frame = requestAnimationFrame(tick);
+      };
+      setShown(0);
+      frame = requestAnimationFrame(tick);
+    });
+    observer.observe(el);
+    return () => {
+      observer.disconnect();
+      cancelAnimationFrame(frame);
+    };
+  }, [value, duration]);
+
+  return (
+    <span ref={ref} className="tabular-nums">
+      {String(shown).padStart(pad, "0")}
+    </span>
+  );
+}

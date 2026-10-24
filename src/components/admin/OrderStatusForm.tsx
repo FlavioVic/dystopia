@@ -38,7 +38,7 @@ export function OrderStatusForm({ orderId, current }: { orderId: string; current
           setStatus(e.target.value);
           setMsg(null);
         }}
-        className="rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-accent"
+        className="rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-foreground"
       >
         {options.map((option) => (
           <option key={option} value={option}>
@@ -59,12 +59,12 @@ export function OrderStatusForm({ orderId, current }: { orderId: string; current
             );
           })
         }
-        className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+        className="rounded-lg bg-primary px-4 py-2 label text-primary-foreground transition-colors disabled:cursor-not-allowed disabled:opacity-40"
       >
         {pending ? "Salvando…" : "Salvar"}
       </button>
       {msg ? (
-        <span className={`text-xs ${msg.ok ? "text-success" : "text-danger"}`}>{msg.text}</span>
+        <span className={`text-xs ${msg.ok ? "text-foreground" : "text-foreground"}`}>{msg.text}</span>
       ) : null}
     </div>
   );

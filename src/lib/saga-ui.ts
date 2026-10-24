@@ -35,29 +35,29 @@ export const SAGA_STEP_STATUS_LABELS: Record<string, string> = {
 export function sagaStatusClass(status: string): string {
   switch (status) {
     case "completed":
-      return "bg-deal-soft text-success";
+      return "border border-foreground text-foreground";
     case "running":
     case "compensating":
-      return "bg-accent/10 text-accent";
+      return "bg-foreground text-background";
     case "compensated":
-      return "bg-accent-secondary/10 text-accent-secondary";
+      return "border border-border text-foreground-muted";
     case "failed":
-      return "bg-danger/10 text-danger";
+      return "bg-signal text-on-signal";
     default:
-      return "bg-background-elevated-hover text-foreground-muted";
+      return "border border-border-faint text-foreground-muted";
   }
 }
 
 export function sagaStepStatusClass(status: string): string {
   switch (status) {
     case "completed":
-      return "border-success/40 bg-deal-soft text-success";
+      return "border-foreground text-foreground";
     case "compensated":
-      return "border-accent-secondary/40 bg-accent-secondary/10 text-accent-secondary";
+      return "border-border text-foreground-muted";
     case "failed":
-      return "border-danger/40 bg-danger/10 text-danger";
+      return "border-signal bg-signal text-on-signal";
     case "waiting":
-      return "border-accent/40 bg-accent/10 text-accent";
+      return "border-foreground bg-foreground text-background";
     default:
       return "border-border bg-background-elevated-hover text-foreground-muted";
   }
@@ -74,15 +74,15 @@ export const JOB_STATUS_LABELS: Record<string, string> = {
 export function jobStatusClass(status: string): string {
   switch (status) {
     case "done":
-      return "bg-deal-soft text-success";
+      return "border border-foreground text-foreground";
     case "running":
     case "queued":
-      return "bg-accent/10 text-accent";
+      return "bg-foreground text-background";
     case "failed":
-      return "bg-accent-secondary/10 text-accent-secondary";
+      return "border border-border text-foreground-muted";
     case "dead":
-      return "bg-danger/10 text-danger";
+      return "bg-signal text-on-signal";
     default:
-      return "bg-background-elevated-hover text-foreground-muted";
+      return "border border-border-faint text-foreground-muted";
   }
 }

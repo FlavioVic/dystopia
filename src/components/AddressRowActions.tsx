@@ -29,11 +29,11 @@ export function AddressRowActions({ addressId, isDefault }: { addressId: string;
         type="button"
         disabled={pending}
         onClick={() => run(() => removeAddress(addressId))}
-        className="text-xs font-medium text-foreground-muted hover:text-danger disabled:opacity-50"
+        className="text-xs font-medium text-foreground-muted hover:text-foreground disabled:opacity-50"
       >
         Remover
       </button>
-      {error ? <span className="text-[11px] text-danger">{error}</span> : null}
+      {error ? <span className="text-[11px] text-foreground">{error}</span> : null}
     </div>
   );
 }

@@ -120,15 +120,15 @@ export function StripeCardField({ publishableKey, ref }: { publishableKey: strin
     <div className="mt-4">
       <div
         ref={mountRef}
-        className="min-h-10 rounded-lg border border-border bg-background px-3 py-2.5 transition-colors focus-within:border-accent"
+        className="min-h-10 rounded-lg border border-border bg-background px-3 py-2.5 transition-colors focus-within:border-foreground"
       />
       {status === "loading" ? (
         <p className="mt-1.5 text-xs text-foreground-muted">Carregando o campo seguro do Stripe…</p>
       ) : null}
       {status === "failed" ? (
-        <p className="mt-1.5 text-xs text-danger">Não foi possível carregar o Stripe. Recarregue a página.</p>
+        <p className="mt-1.5 text-xs text-foreground">Não foi possível carregar o Stripe. Recarregue a página.</p>
       ) : null}
-      {error ? <p className="mt-1.5 text-xs text-danger">{error}</p> : null}
+      {error ? <p className="mt-1.5 text-xs text-foreground">{error}</p> : null}
       <p className="mt-2 text-[11px] leading-relaxed text-foreground-muted">
         Stripe em modo de teste — nenhum cartão real é cobrado. Use{" "}
         <span className="font-mono text-foreground">4242 4242 4242 4242</span> pra aprovar ou{" "}

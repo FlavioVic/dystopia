@@ -30,7 +30,7 @@ export function VariantRow({
           <span className="tabular-nums">
             {variant.priceCents != null ? formatPriceCents(variant.priceCents) : "preço do produto"}
           </span>
-          <span className={`tabular-nums ${variant.stockQuantity <= 3 ? "text-accent-secondary" : ""}`}>
+          <span className={`tabular-nums ${variant.stockQuantity <= 3 ? "text-foreground-muted" : ""}`}>
             estoque {variant.stockQuantity}
           </span>
           <button
@@ -49,19 +49,19 @@ export function VariantRow({
                 setError(result.ok ? null : result.error ?? "Erro.");
               })
             }
-            className="font-medium hover:text-danger disabled:opacity-50"
+            className="font-medium hover:text-foreground disabled:opacity-50"
           >
             {removing ? "…" : "Remover"}
           </button>
         </div>
       </div>
 
-      {error ? <p className="mt-2 text-[11px] text-danger">{error}</p> : null}
+      {error ? <p className="mt-2 text-[11px] text-foreground">{error}</p> : null}
 
       {editing ? (
         <form action={formAction} className="mt-3 border-t border-border pt-3">
           {state?.message ? (
-            <p className="mb-2 rounded-lg border border-danger/30 bg-danger/10 px-2.5 py-1.5 text-xs text-danger">
+            <p className="mb-2 rounded-lg border border-signal bg-signal px-2.5 py-1.5 text-xs text-on-signal">
               {state.message}
             </p>
           ) : null}
@@ -69,7 +69,7 @@ export function VariantRow({
           <button
             type="submit"
             disabled={pending}
-            className="mt-3 rounded-lg bg-accent px-4 py-2 text-xs font-semibold text-accent-foreground disabled:opacity-50"
+            className="mt-3 rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground disabled:opacity-50"
           >
             {pending ? "Salvando…" : "Salvar variante"}
           </button>

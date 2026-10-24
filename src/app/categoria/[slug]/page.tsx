@@ -1,11 +1,10 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { PageHeader, ProductGrid, counted } from "@/components/Kit";
 import { ProductCard } from "@/components/ProductCard";
 import { getProductsByCategorySlug } from "@/lib/data/products";
 
-export async function generateMetadata(
-  props: PageProps<"/categoria/[slug]">,
-): Promise<Metadata> {
+export async function generateMetadata(props: PageProps<"/categoria/[slug]">): Promise<Metadata> {
   const { slug } = await props.params;
   const { category } = await getProductsByCategorySlug(slug);
   if (!category) return {};
@@ -19,27 +18,22 @@ export default async function CategoryPage(props: PageProps<"/categoria/[slug]">
   if (!category) notFound();
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-      <div className="border-b border-border pb-6">
-        <h1 className="text-2xl font-bold tracking-tight">{category.name}</h1>
-        {category.description ? (
-          <p className="mt-2 max-w-xl text-sm text-foreground-muted">{category.description}</p>
-        ) : null}
-        <p className="mt-2 text-xs text-foreground-muted">
-          {products.length} produto{products.length === 1 ? "" : "s"}
-        </p>
-      </div>
+    <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+      <PageHeader
+        label="Inventário / Categoria"
+        title={category.name}
+        description={category.description ?? undefined}
+        meta={counted(products.length, "item registrado", "itens registrados")}
+      />
 
       {products.length > 0 ? (
-        <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+        <ProductGrid>
           {products.map((p, i) => (
-            <ProductCard key={p.slug} product={p} priority={i < 4} />
+            <ProductCard key={p.slug} product={{ ...p, category }} priority={i < 4} />
           ))}
-        </div>
+        </ProductGrid>
       ) : (
-        <p className="mt-10 text-sm text-foreground-muted">
-          Nenhum produto nessa categoria ainda.
-        </p>
+        <p className="mt-12 text-base text-foreground-muted">Nenhum item registrado nesta categoria.</p>
       )}
     </div>
   );

@@ -24,7 +24,7 @@ export default async function AdminDashboard() {
         {cards.map((c) => (
           <div key={c.label} className="rounded-xl border border-border bg-background-elevated p-4">
             <p className="text-[11px] font-medium uppercase tracking-wide text-foreground-muted">{c.label}</p>
-            <p className={`mt-1.5 font-mono text-2xl font-bold tabular-nums ${c.warn ? "text-accent-secondary" : ""}`}>
+            <p className={`mt-1.5 font-mono text-2xl font-bold tabular-nums ${c.warn ? "text-foreground-muted" : ""}`}>
               {c.value}
             </p>
           </div>
@@ -33,7 +33,7 @@ export default async function AdminDashboard() {
 
       <section>
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-foreground-muted">Pedidos recentes</h2>
+          <h2 className="label text-foreground-muted">Pedidos recentes</h2>
           <Link href="/admin/pedidos" className="text-sm text-accent hover:underline">ver todos →</Link>
         </div>
 
@@ -60,7 +60,7 @@ export default async function AdminDashboard() {
                     </td>
                     <td className="px-4 py-2.5">{o.user.name}</td>
                     <td className="px-4 py-2.5">
-                      <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${orderStatusClass(o.status)}`}>
+                      <span className={`label whitespace-nowrap px-2 py-0.5 ${orderStatusClass(o.status)}`}>
                         {ORDER_STATUS_LABELS[o.status as OrderStatus] ?? o.status}
                       </span>
                     </td>

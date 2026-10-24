@@ -23,7 +23,7 @@ export function WishlistToggle({
   const [active, setActive] = useState(initial);
   const [pending, startTransition] = useTransition();
 
-  const dimension = size === "sm" ? "h-8 w-8 text-sm" : "h-9 w-9 text-base";
+  const dimension = size === "sm" ? "px-2 py-1" : "px-3 py-2";
 
   return (
     <button
@@ -53,13 +53,13 @@ export function WishlistToggle({
           setActive(result.inWishlist ?? next);
         });
       }}
-      className={`flex ${dimension} items-center justify-center rounded-full border backdrop-blur transition-colors disabled:opacity-60 ${
+      className={`label border ${dimension} disabled:opacity-60 ${
         active
-          ? "border-accent/40 bg-accent/15 text-accent"
-          : "border-border bg-background/80 text-foreground-muted hover:border-accent/40 hover:text-accent"
+          ? "border-foreground bg-foreground text-background"
+          : "border-border bg-background text-foreground-muted hover:border-foreground hover:text-foreground"
       }`}
     >
-      {active ? "♥" : "♡"}
+      {active ? "Salvo" : "Salvar"}
     </button>
   );
 }

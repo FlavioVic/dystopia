@@ -81,7 +81,7 @@ export async function processOnce(options: WorkerOptions = {}): Promise<TickRepo
       const outcome = await queue.fail(job.id, message);
       const fields = { jobId: job.id, type: job.type, attempts: job.attempts, status: outcome.status, error: message };
       // Dead-letter é nível error de propósito: é a linha que um alerta de log
-      // (Railway, Datadog…) filtra. Falha com tentativa sobrando é só aviso.
+      // (Fly, Datadog…) filtra. Falha com tentativa sobrando é só aviso.
       if (outcome.status === "dead") logger.error("job foi pra dead-letter", fields);
       else logger.warn("job falhou", fields);
     }
@@ -93,9 +93,14 @@ export async function processOnce(options: WorkerOptions = {}): Promise<TickRepo
 /**
  * Drena a fila até não sobrar job pronto (ou até estourar o orçamento de
  * tempo). Útil no caminho inline e nos testes de integração.
+ *
+ * `waitForScheduled`: com a fila vazia, se o próximo job agendado (retry em
+ * backoff) fica pronto dentro do orçamento, espera por ele em vez de sair —
+ * é o que deixa o worker embutido na Vercel levar um retry até o fim sem
+ * processo de longa duração.
  */
 export async function drainQueue(
-  options: WorkerOptions & { budgetMs?: number; maxTicks?: number } = {},
+  options: WorkerOptions & { budgetMs?: number; maxTicks?: number; waitForScheduled?: boolean } = {},
 ): Promise<TickReport> {
   const budgetMs = options.budgetMs ?? 5_000;
   const maxTicks = options.maxTicks ?? 50;
@@ -109,7 +114,16 @@ export async function drainQueue(
     total.completed += report.completed;
     total.failed += report.failed;
     total.unknown += report.unknown;
-    if (report.claimed === 0) break;
+    if (report.claimed > 0) continue;
+
+    if (!options.waitForScheduled) break;
+    const next = await queue.nextScheduledAt(options.queues);
+    if (!next) break;
+    const waitMs = Math.max(0, next.getTime() - Date.now());
+    if (Date.now() - startedAt + waitMs > budgetMs) break;
+    // Pronto mas não pego = está com outro executor (ex.: o dreno da página que
+    // o redirect renderiza no mesmo request); um respiro e olha de novo.
+    await new Promise((resolve) => setTimeout(resolve, Math.max(waitMs, 250)));
   }
 
   return total;

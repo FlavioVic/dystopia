@@ -27,6 +27,7 @@ const TABLES = [
   "sagas",
   "jobs",
   "wishlist_items",
+  "service_requests",
   "reviews",
   "payments",
   "order_items",

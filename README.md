@@ -1,8 +1,14 @@
-# Dystopia 🛒⚡
+# DYSTOPIA
 
-E-commerce geek fictício, construído como projeto de portfólio. Visual vibrante
-de marketplace, com cara de loja geek brasileira — e, por baixo, um checkout
-orquestrado por **SAGA** com fila durável, compensação e reconciliação.
+Loja de peças de PC e serviços técnicos (montagem, manutenção, formatação e
+desenvolvimento de software), projetada e construída por **Flávio Victor** como
+projeto de portfólio. Por fora, uma identidade distópica fria e rigorosa; por
+baixo, um checkout orquestrado por **SAGA** com fila durável, compensação e
+reconciliação.
+
+**Demo:** <https://dystopia-wheat.vercel.app> — conta de cliente
+`cliente@dystopia.dev` / `cliente123`. Peças reais, preços fictícios, nada é
+cobrado.
 
 ![Home da loja](docs/screenshots/home.webp)
 
@@ -19,8 +25,14 @@ orquestrado por **SAGA** com fila durável, compensação e reconciliação.
 - **Pronto pra ficar exposto**: limite de tentativas contado no banco, login
   que não revela quais e-mails existem, CSRF e headers de segurança
   ([detalhes](#segurança)).
-- Loja completa em volta: catálogo com busca e filtros, carrinho persistente,
-  cupons, avaliações com compra verificada, favoritos, endereços e painel admin.
+- Loja completa em volta: inventário de hardware com ficha técnica, busca,
+  carrinho persistente, cupons, avaliações com compra verificada, favoritos,
+  endereços e painel admin.
+- **Serviços com orçamento** (o foco da home): pedido registrado com protocolo
+  (`DYS-S000000`), acompanhado pelo admin em `/admin/orcamentos`.
+- **Portfólio** (`/portfolio`): os projetos públicos do GitHub, com capturas
+  reais quando dá pra mostrar sem inventar resultado e diagrama de arquitetura
+  quando não.
 
 ## Telas
 
@@ -28,17 +40,51 @@ orquestrado por **SAGA** com fila durável, compensação e reconciliação.
 |---|---|
 | ![Pedido confirmado](docs/screenshots/pedido-confirmado.webp) | ![Pedido compensado](docs/screenshots/pedido-compensado.webp) |
 
-| Painel de orquestração (`/admin/orquestracao`) | Checkout com cupom |
-|---|---|
-| ![Orquestração](docs/screenshots/admin-orquestracao.webp) | ![Checkout](docs/screenshots/checkout.webp) |
+| Painel de orquestração (`/admin/orquestracao`) |
+|---|
+| ![Orquestração](docs/screenshots/admin-orquestracao.webp) |
 
-| Produto | Painel admin | Celular |
-|---|---|---|
-| ![Produto](docs/screenshots/produto.webp) | ![Admin](docs/screenshots/admin-dashboard.webp) | ![Celular](docs/screenshots/mobile-home.webp) |
+| Serviços e orçamento | Portfólio |
+|---|---|
+| ![Serviços](docs/screenshots/servicos.webp) | ![Portfólio](docs/screenshots/portfolio.webp) |
+
+| Produto com foto real e ficha técnica | Checkout com cupom |
+|---|---|
+| ![Produto](docs/screenshots/produto.webp) | ![Checkout](docs/screenshots/checkout.webp) |
+
+| Painel admin | Celular |
+|---|---|
+| ![Admin](docs/screenshots/admin-dashboard.webp) | ![Celular](docs/screenshots/mobile-home.webp) |
 
 Os prints são gerados contra um banco populado só pelo seed, com pedidos feitos
-pelo próprio fluxo da loja — o recusado usa o gateway simulado
-(`ALLOW_CHECKOUT_SIMULATION`).
+pelo próprio fluxo da loja num navegador de verdade (Playwright) — o recusado
+usa o gateway simulado (`ALLOW_CHECKOUT_SIMULATION`).
+
+## Identidade visual
+
+O design system "DYSTOPIA" trata a marca como uma instituição que já é dona da
+cidade: contenção, disciplina, permanência. No código, isso vira regra:
+
+- **Cinco cores** (`globals.css`): obsidian e graphite no fundo, steel e bone
+  no neutro e **signal-red como cor de ação** — botões, faixas, índices, estado
+  ativo. Texto vermelho pequeno usa um tom mais claro (`signal-text`, 5,5:1) pra
+  passar contraste. Sem gradiente, brilho ou sombra; camadas se separam por régua.
+- **Cantos retos** em tudo (os raios do Tailwind são zerados no tema).
+- **Tipografia**: Michroma em caixa alta pra nomear, Inter Tight pra ler, IBM
+  Plex Mono pra código, serial, preço e rótulo — auto-hospedadas.
+- **Marca desenhada**, nunca digitada: o emblema "The Gate" e o nome vêm da
+  geometria original (`src/lib/brand-geometry.ts`, `src/components/Logo.tsx`).
+- **Voz** declarativa e sem exclamação ("A ordem é um serviço.", "Aquisição
+  registrada."). Estado é dito por palavra num rótulo, não só por cor.
+- **Imagens de produto**: foto real quando a Wikimedia Commons tem o **modelo
+  exato** sob licença livre (com crédito na página do produto e em `/creditos`);
+  senão, placa técnica gerada (`npm run art`). Nunca foto de outro modelo.
+- **Movimento** mecânico e curto: blocos revelados ao rolar, o emblema montado
+  na abertura (a vinheta do design system), faixa contínua, contadores e linha
+  vermelha no hover — tudo desligado com `prefers-reduced-motion`.
+
+O kit da linguagem gráfica (régua com índice, rótulo de classificação, botões,
+grade com régua, campos de formulário) mora em `src/components/Kit.tsx`.
 
 ## Stack
 
@@ -47,7 +93,7 @@ pelo próprio fluxo da loja — o recusado usa o gateway simulado
 - **Banco de dados**: PostgreSQL
 - **ORM**: [Drizzle ORM](https://orm.drizzle.team/) + `drizzle-kit` (migrations)
 - **Orquestração**: SAGA + fila, implementadas no projeto (sem broker externo)
-- **Testes**: `node:test` + `tsx` (224 testes, unitários e de integração)
+- **Testes**: `node:test` + `tsx` (254 testes, unitários e de integração)
 
 Dependências de runtime: `next`, `react`, `drizzle-orm`, `pg`, `jose`,
 `bcryptjs`, `dotenv`. Nada além disso — fila, orquestrador, logger e runner de
@@ -187,6 +233,30 @@ saga ── payments.authorize { pm_… } ──▶ processo de pagamentos ─�
 Pra testar: `4242 4242 4242 4242` aprova; `4000 0000 0000 0002` é recusado pelo
 Stripe e a saga desfaz a reserva de estoque. Qualquer validade futura e CVC.
 
+### E-mail de confirmação (Resend)
+
+O último passo da saga, `notify-customer`, só **grava** a notificação
+(`pending`) e enfileira a entrega — na mesma transação (outbox). O e-mail sai
+num job à parte (`notifications.deliver`): se saísse de dentro do passo e a
+transação desfizesse, o cliente receberia confirmação de um pedido que não
+existe.
+
+- **Idempotente**: a chave da notificação vai no header `Idempotency-Key` do
+  Resend; job reprocessado depois de um crash não manda dois e-mails.
+- **Falha transitória** (429, 5xx, rede) volta pra fila com backoff; esgotadas
+  as 5 tentativas, dead-letter (alerta no admin) e a notificação fica `failed`.
+  Recusa definitiva (endereço inválido) marca `failed` na hora.
+- **Modo sandbox** (`EMAIL_REDIRECT_TO`): numa demo pública qualquer um se
+  cadastra com o e-mail de outra pessoa, então todo e-mail vai pro dono do
+  projeto, com o destinatário original no assunto
+  (`[demo → cliente@…] Pedido … confirmado`). Com `RESEND_API_KEY` e sem o
+  redirecionamento, o worker se recusa a subir — entregar ao comprador exige
+  `EMAIL_DELIVER_TO_RECIPIENTS=1` (e um domínio verificado no Resend).
+- Sem `RESEND_API_KEY`, a entrega é simulada (só marca como enviada).
+
+`/admin/orquestracao` mostra cada notificação com o status da entrega e pra
+onde ela foi de fato.
+
 ### Garantias (e como cada uma é obtida)
 
 | Garantia | Mecanismo |
@@ -252,7 +322,7 @@ Fora do painel, o worker registra a ida pra dead-letter em nível `error` — co
 |---|---|
 | `/conta` | Dados da conta e histórico de pedidos (com o status real de cada um) |
 | `/conta/enderecos` | Agenda de endereços: cadastrar, definir padrão, remover |
-| `/favoritos` | Lista de desejos (coração na vitrine e na página do produto) |
+| `/favoritos` | Arquivo de favoritos ("Salvar" na vitrine e na página do produto) |
 
 - **Avaliações**: quem está logado avalia direto na página do produto (1 a 5
   estrelas, título e comentário opcionais). Uma avaliação por pessoa por
@@ -263,13 +333,13 @@ Fora do painel, o worker registra a ida pra dead-letter em nível `error` — co
   aparecem como opção no próximo pedido. Endereço usado em pedido não pode ser
   removido (a FK é `RESTRICT` de propósito) — a interface explica em vez de
   estourar erro.
-- **Favoritos**: o coração aparece em toda a vitrine com **uma** query por
+- **Favoritos**: o "Salvar" aparece em toda a vitrine com **uma** query por
   request (React `cache()` + um componente de servidor que resolve o estado),
   não uma por card.
 
 ## Modelagem do banco
 
-18 tabelas: 14 do domínio de e-commerce + 4 da orquestração.
+19 tabelas: 15 do domínio (loja e serviços) + 4 da orquestração.
 
 | Domínio | Tabelas |
 |---|---|
@@ -278,12 +348,14 @@ Fora do painel, o worker registra a ida pra dead-letter em nível `error` — co
 | Carrinho | `carts`, `cart_items` |
 | Pedidos | `orders`, `order_items`, `payments`, `coupons` |
 | Social | `reviews`, `wishlist_items` |
+| Serviços | `service_requests` |
 | Orquestração | `sagas`, `saga_steps`, `jobs`, `notifications` |
 
 Decisões de design:
 
 - **Preços em centavos** (`integer`) em vez de float, pra evitar erro de arredondamento.
 - **Snapshots de preço** em `cart_items` e `order_items` — o preço do produto pode mudar depois da compra, então guardamos o valor no momento da operação.
+- **Ficha técnica em lista** (`products.specs` é `jsonb` com `[{ label, value }]`) — a ordem de exibição importa e cada categoria tem rótulos próprios (VRAM, soquete, TDP…).
 - **Variantes flexíveis** (`product_variants.attributes` é `jsonb`) — um produto pode ter tamanho, cor, ou nenhuma variação, sem precisar de colunas fixas pra cada atributo possível.
 - **Categorias hierárquicas** (`categories.parent_id` auto-referenciado) — dá pra ter subcategorias no futuro sem migrar o schema de novo.
 - **Carrinho de visitante** (`carts.session_token` nullable junto de `user_id` nullable) — permite carrinho antes do login.
@@ -298,7 +370,7 @@ cp .env.example .env          # ajuste SESSION_SECRET (openssl rand -base64 32)
 npm install
 docker compose up -d          # Postgres 16 na porta 5544
 npm run db:migrate            # cria o schema
-npm run db:seed               # 20 produtos, categorias, usuários e cupom
+npm run db:seed               # 28 peças, 10 categorias, usuários e cupom
 npm run dev                   # loja em http://localhost:3000
 npm run worker                # em outro terminal: processa a fila/sagas
 npm run worker:payments       # em outro terminal: processo de pagamentos
@@ -344,60 +416,93 @@ a produção.
 | `npm run db:migrate` | Aplica migrations pendentes |
 | `npm run db:studio` | Abre o Drizzle Studio (GUI do banco) |
 | `npm run db:seed` | Popula o banco com dados de exemplo |
+| `npm run art` | Regera as placas técnicas (SVG) de produtos e categorias |
+| `npm run art:portfolio` | Regera os diagramas de arquitetura do portfólio |
+| `npm run catalog:media` | Sincroniza só imagens e vitrine do catálogo (seguro em produção: não apaga contas) |
 
 ## Deploy
 
-Dois processos, dois lugares — porque têm formatos diferentes:
+A demo pública roda **de graça**, em dois lugares:
 
 | Peça | Onde | Por quê |
 |---|---|---|
-| App web (Next.js) | **Vercel** | serverless; o checkout avança a saga no próprio request |
-| Worker da fila | **Railway** (container, `Dockerfile.worker`) | precisa ficar vivo fazendo polling — serverless não serve |
-| Postgres | **Railway** | mesmo projeto do worker (rede privada entre os dois) |
+| App web + worker embutido | **Vercel** (Hobby) | serverless; drena a fila depois dos requests (ver abaixo) |
+| Postgres | **Neon** (Free) | Postgres gerenciado; só acorda quando alguém usa o site |
 
-As migrations rodam no `preDeployCommand` do worker (`railway.json`), então
-todo deploy do worker aplica as pendentes antes de subir o código novo.
+Os dois em US East (Neon `us-east-1`, Vercel `iad1`): cada página faz várias
+queries, e a distância até o banco pesa mais que a distância até o visitante.
 
-### 1. Railway — banco + worker
+### Worker embutido (`INLINE_WORKER=1`)
 
-1. Novo projeto → **Deploy from GitHub repo** → este repositório. O
-   `railway.json` já aponta pro `Dockerfile.worker`.
-2. No mesmo projeto, **+ New → Database → PostgreSQL**. Região: **US East**.
-3. Variáveis do serviço do worker:
-   - `DATABASE_URL` = `${{Postgres.DATABASE_URL}}` (URL interna). Ele não
-     precisa de `SESSION_SECRET` — não lida com sessão.
-   - `STRIPE_SECRET_KEY` = a chave **secreta de teste** (`sk_test_…`). Só o
-     worker recebe essa chave — é ele quem fala com o Stripe.
-   - A imagem já vem com `WORKER_QUEUES=default,payments`: um container só,
-     consumindo a fila da saga **e** a de pagamentos. Pra pagamentos em
-     serviço próprio, defina `WORKER_QUEUES=default` neste e crie um segundo
-     serviço do mesmo repo com o comando de start
-     `npx tsx src/scripts/payments-worker.ts`.
-4. Em **Settings → Networking** do Postgres, habilite o **TCP Proxy** e copie
-   a `DATABASE_PUBLIC_URL` — é por ela que a Vercel e o seed chegam no banco.
-5. Popule uma vez, da sua máquina (a senha de admin fica só com você):
+Um worker de pé (`npm run worker` num container) consultaria a fila a cada
+segundo — e banco serverless que recebe query a cada segundo nunca dorme: a
+cota grátis do Neon acaba no meio do mês. Então, na demo, ninguém fica de pé:
+
+- **o checkout** avança a saga até o pagamento (como sempre) e, depois de
+  responder (`after()`), drena a fila: pagamento, resposta, e-mail — e, se o
+  gateway oscilar, espera o retry em backoff (até 45 s, dentro do
+  `maxDuration` da rota);
+- **a página do pedido**, enquanto está "processando", empurra a fila a cada
+  atualização — se o dreno do checkout morrer no meio, ela termina;
+- **o painel de orquestração** reconcilia e drena quando é aberto;
+- **o cron diário** (`vercel.json` → `/api/cron/fila`, protegido por
+  `CRON_SECRET`) é a rede de segurança pro que nenhum request empurrou.
+
+O desenho não muda: o pedido continua nascendo com o job na mesma transação
+(outbox), pagamentos continua falando por mensagem (fila `payments`), e
+vários drenos ao mesmo tempo são seguros (`SKIP LOCKED` + lease na saga). Muda
+só **quem** executa a fila — `src/composition/worker.ts` monta os mesmos
+handlers pros dois executores. Com tráfego de verdade, o caminho é subir o
+`Dockerfile.worker` num container e desligar a flag.
+
+### 1. Neon — banco
+
+1. Novo projeto (plano **Free**), Postgres 18, região
+   **AWS US East 1 (N. Virginia)**.
+2. Em **Connect**, copie as duas strings de conexão:
+   - **pooled** (host com `-pooler`, PgBouncer em modo transação) — Vercel,
+     onde cada instância da função abre o próprio pool. O app não usa nada
+     que dependa de sessão (advisory lock, `LISTEN`, `SET`), então o modo
+     transação serve;
+   - **direta** (host sem `-pooler`) — migrations e seed, da sua máquina.
+
+   Nas duas, troque `sslmode=require` por `sslmode=verify-full`: é o que o
+   `pg` já faz hoje (verifica o certificado), e o `require` vai enfraquecer
+   numa versão futura do driver — ele avisa isso no log.
+3. Migre e popule uma vez, pela string **direta** (a senha de admin fica só
+   com você):
 
    ```bash
-   DATABASE_URL='<DATABASE_PUBLIC_URL>' SEED_ALLOW_REMOTE=1 \
-     SEED_ADMIN_PASSWORD="$(openssl rand -base64 24)" npm run db:seed
+   export DATABASE_URL='<string direta do Neon>'
+   npm run db:migrate
+   SEED_ALLOW_REMOTE=1 SEED_ADMIN_PASSWORD="$(openssl rand -base64 24)" npm run db:seed
    ```
 
-   Guarde a senha gerada num gerenciador antes — o seed não a imprime.
+   Guarde a senha gerada num gerenciador antes — o seed não a imprime. Toda
+   migration nova depois disso: o mesmo `npm run db:migrate`, antes do deploy
+   que depende dela.
 
 ### 2. Vercel — app
 
 1. **Add New → Project** → este repositório (framework detectado: Next.js).
 2. Variáveis de ambiente (Production):
-   - `DATABASE_URL` = a `DATABASE_PUBLIC_URL` da Railway
+   - `DATABASE_URL` = a string **pooled** do Neon
    - `SESSION_SECRET` = `openssl rand -base64 32` (novo, nunca o do `.env` local)
    - `PG_POOL_MAX` = `3` (cada instância da função tem o próprio pool)
+   - `INLINE_WORKER` = `1` e `CRON_SECRET` = `openssl rand -base64 32`
    - `ALLOW_CHECKOUT_SIMULATION` = `1` — liga o **modo demonstração** no
      checkout (ver abaixo)
-   - `STRIPE_PUBLISHABLE_KEY` = a chave **pública de teste** (`pk_test_…`). A
-     secreta NÃO vai pra Vercel.
-3. Deploy. O `vercel.json` fixa as funções em `iad1`, perto do US East da
-   Railway — cada página faz várias queries, e a distância até o banco pesa
-   mais que a distância até o visitante.
+   - Opcionais (sem elas, cartão e e-mail são simulados):
+     - `STRIPE_PUBLISHABLE_KEY` + `STRIPE_SECRET_KEY` — chaves de **teste**
+       (`pk_test_…`/`sk_test_…`). Com o worker embutido, pagamentos roda no
+       mesmo runtime do app, então a secreta vai pra Vercel também — por isso
+       só chave de teste é aceita.
+     - `RESEND_API_KEY` + `EMAIL_REDIRECT_TO` = **o e-mail da sua conta no
+       Resend** (modo sandbox: sem domínio próprio, o Resend só entrega pra
+       ele).
+     - `SERVICE_ALERT_TO` — quem recebe o aviso de cada pedido de orçamento
+       (gravado na mesma transação do pedido e entregue pela fila).
+3. Deploy. O `vercel.json` fixa as funções em `iad1` e registra o cron.
 
 Nunca reaproveite o `.env` local nem a senha `dystopia_dev_pw` do compose.
 
@@ -407,13 +512,14 @@ instável ou fora do ar — e ver a saga compensar ou tentar de novo. É seguro
 porque nada é cobrado de verdade: o simulado não cobra, e o Stripe só aceita
 chave de teste. A falha é injetada antes do provedor. No dia em que houver
 cobrança real (chave de produção), a flag sai: cliente não pode escolher o
-resultado da própria cobrança. Os modos "instável" e "fora do ar" dependem do worker rodando (o
-retry sai da fila).
+resultado da própria cobrança. Os modos "instável" e "fora do ar" dependem de
+alguém drenar a fila (o retry sai dela): o worker de pé ou, na demo, o
+embutido.
 
 ## Testes
 
 ```bash
-npm test          # 224 testes
+npm test          # 254 testes
 npm run test:unit # subconjunto sem banco
 ```
 
@@ -540,10 +646,11 @@ chamá-lo por rede, trocando só o `invoke`/`compensate` do passo.
 - [x] Painel admin (produtos/pedidos)
 - [x] SAGA + fila + compensação + reconciliação
 - [x] Gateway de pagamento real: cartão pelo Stripe (modo de teste)
-- [ ] Notificação de verdade (e-mail/webhook) no passo `notify-customer`
+- [x] E-mail de verdade no passo `notify-customer` (Resend, por outbox, com modo sandbox)
 - [x] Avaliações e lista de desejos na interface
 - [x] Agenda de endereços reaproveitada no checkout
 - [x] Admin de cupons e de variantes
 - [x] Observabilidade: métricas de fila/saga e alertas no admin
 - [x] Extrair `payments` pra um serviço próprio consumindo a fila
+- [x] Pivô pra loja de hardware + serviços técnicos, com identidade visual própria
 - [ ] Banco próprio pro serviço de pagamentos (hoje: tabelas próprias, banco compartilhado)

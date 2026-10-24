@@ -1,19 +1,22 @@
-import { TicketIcon } from "@/components/TicketIcon";
+import Link from "next/link";
 
+/** Faixa de diretiva no topo: o vermelho de ação, com o chamado principal. */
 export function PromoBar() {
   return (
-    <div className="gradient-brand text-white">
-      <div className="mx-auto flex max-w-7xl items-center justify-center gap-x-2 gap-y-0.5 px-4 py-2 text-center text-[12px] font-medium leading-tight sm:text-sm">
-        <TicketIcon className="hidden h-4 w-4 shrink-0 sm:inline" />
-        <span>
-          Cupom{" "}
-          <strong className="rounded bg-white/20 px-1.5 py-0.5 font-mono font-bold tracking-wide">
-            BEMVINDO10
-          </strong>{" "}
-          — 10% OFF na primeira compra
+    <div className="bg-primary text-primary-foreground">
+      <div className="label mx-auto flex max-w-7xl items-center justify-center gap-x-4 gap-y-1 px-4 py-2 text-center">
+        <span className="hidden sm:inline">Diretiva 01 / Orçamento sem custo para todo serviço</span>
+        <span className="sm:hidden">Orçamento sem custo</span>
+        <span aria-hidden="true" className="opacity-60">
+          /
         </span>
-        <span className="hidden text-white/60 md:inline">·</span>
-        <span className="hidden md:inline">Frete grátis a partir de R$ 149,90</span>
+        <Link href="/servicos#orcamento" className="underline underline-offset-4 hover:opacity-80">
+          Solicitar agora
+        </Link>
+        <span aria-hidden="true" className="hidden opacity-60 md:inline">
+          /
+        </span>
+        <span className="hidden md:inline">Loja: cupom BEMVINDO10 na primeira aquisição</span>
       </div>
     </div>
   );

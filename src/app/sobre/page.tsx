@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { buttonPrimary } from "@/components/Kit";
 import { isCheckoutSimulationEnabled } from "@/lib/checkout-simulation";
 import { getStripePublishableKey } from "@/lib/stripe-public";
 import { sagaStepLabel } from "@/lib/saga-ui";
 
 export const metadata: Metadata = {
   title: "Sobre o projeto",
-  description: "Dystopia é um projeto de portfólio: e-commerce em Next.js com checkout orquestrado por SAGA.",
+  description:
+    "DYSTOPIA é um projeto de portfólio de Flávio Victor: loja de hardware em Next.js com checkout orquestrado por SAGA.",
 };
 
 const REPO_URL = "https://github.com/FlavioVic/dystopia";
@@ -49,33 +51,38 @@ export default function AboutPage() {
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-12 sm:px-6">
-      <p className="font-mono text-xs font-semibold uppercase tracking-[0.2em] text-accent">Projeto de portfólio</p>
-      <h1 className="mt-2 font-brand text-3xl font-bold uppercase tracking-tight sm:text-4xl">Sobre o Dystopia</h1>
-      <p className="mt-4 max-w-2xl leading-relaxed text-foreground-muted">
-        Uma loja geek fictícia construída pra mostrar o que acontece por trás de um botão de
-        &ldquo;Finalizar pedido&rdquo;. A vitrine é o que você vê; o projeto de verdade é o checkout que
-        não deixa pedido pela metade, mesmo quando o pagamento falha ou o servidor cai no meio.
+      <p className="label text-foreground-muted">Projeto de portfólio / Flávio Victor</p>
+      <h1 className="display-2 mt-4 text-[26px] leading-[34px] sm:text-[40px] sm:leading-[48px]">Sobre o projeto</h1>
+      <p className="mt-6 max-w-2xl text-lg leading-relaxed text-foreground-muted">
+        Uma loja de hardware e serviços técnicos, projetada e construída por Flávio Victor pra mostrar o que
+        acontece por trás de um botão de &ldquo;Confirmar aquisição&rdquo;. A vitrine é o que você vê; o projeto
+        de verdade é o checkout que não deixa pedido pela metade, mesmo quando o pagamento falha ou o servidor
+        cai no meio.
+      </p>
+      <p className="mt-4 max-w-2xl text-base leading-relaxed text-foreground-muted">
+        As peças são reais, com especificação de fabricante; os preços são fictícios e nada é cobrado. A
+        identidade visual (o emblema, o nome desenhado, a voz) segue um design system próprio.
       </p>
 
-      <div className="mt-8 rounded-xl border border-accent/30 bg-accent/5 p-5">
-        <h2 className="text-sm font-semibold">Experimente</h2>
+      <div className="dys-frame mt-10 p-6">
+        <h2 className="label text-foreground">Procedimento de teste</h2>
         <ol className="mt-3 flex list-decimal flex-col gap-1.5 pl-5 text-sm text-foreground-muted">
           <li>
-            <Link href="/entrar" className="font-medium text-accent hover:underline">
+            <Link href="/entrar" className="font-medium text-foreground underline underline-offset-4">
               Entre
             </Link>{" "}
             com a conta demo{" "}
-            <code className="rounded bg-background-elevated px-1.5 py-0.5 font-mono text-xs text-foreground">
+            <code className="bg-background-elevated px-1.5 py-0.5 font-mono text-xs text-foreground">
               cliente@dystopia.dev
             </code>{" "}
             /{" "}
-            <code className="rounded bg-background-elevated px-1.5 py-0.5 font-mono text-xs text-foreground">
+            <code className="bg-background-elevated px-1.5 py-0.5 font-mono text-xs text-foreground">
               cliente123
             </code>{" "}
             (ou crie a sua).
           </li>
           <li>
-            Coloque algo no carrinho e finalize — nenhum pagamento real é processado.
+            Coloque uma peça no carrinho e confirme a aquisição. Nenhum pagamento real é processado.
             {stripeEnabled ? (
               <>
                 {" "}No cartão (Stripe em modo de teste), use{" "}
@@ -96,10 +103,10 @@ export default function AboutPage() {
       </div>
 
       <section className="mt-12">
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-foreground-muted">Por baixo do capô</h2>
+        <h2 className="label text-foreground-muted">Por baixo do capô</h2>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           {HIGHLIGHTS.map((item) => (
-            <div key={item.title} className="rounded-lg border border-border bg-background-elevated p-5">
+            <div key={item.title} className="border border-border-faint bg-background-elevated p-5">
               <h3 className="font-semibold">{item.title}</h3>
               <p className="mt-2 text-sm leading-relaxed text-foreground-muted">{item.body}</p>
             </div>
@@ -108,15 +115,15 @@ export default function AboutPage() {
       </section>
 
       <section className="mt-12">
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-foreground-muted">Os passos do checkout</h2>
-        <ol className="mt-4 overflow-hidden rounded-lg border border-border bg-background-elevated">
+        <h2 className="label text-foreground-muted">Os passos do checkout</h2>
+        <ol className="mt-4 border border-border-faint">
           {SAGA_STEPS.map((step, index) => (
             <li
               key={step.name}
-              className="flex items-center gap-4 border-b border-border px-5 py-3 text-sm last:border-b-0"
+              className="flex items-center gap-4 border-b border-border-faint px-5 py-3 text-sm last:border-b-0"
             >
-              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent/10 font-mono text-[11px] font-bold text-accent">
-                {index + 1}
+              <span className="serial w-6 shrink-0 text-foreground-muted">
+                {String(index + 1).padStart(2, "0")}
               </span>
               <span className="flex min-w-0 flex-1 flex-col gap-0.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                 <span className="font-medium">{sagaStepLabel(step.name)}</span>
@@ -131,10 +138,10 @@ export default function AboutPage() {
 
       <section className="mt-12 flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-foreground-muted">Stack</h2>
+          <h2 className="label text-foreground-muted">Stack</h2>
           <ul className="mt-3 flex flex-wrap gap-2">
             {STACK.map((tech) => (
-              <li key={tech} className="rounded-full border border-border px-3 py-1 text-xs text-foreground-muted">
+              <li key={tech} className="dys-label dys-label--notice">
                 {tech}
               </li>
             ))}
@@ -144,9 +151,9 @@ export default function AboutPage() {
           href={REPO_URL}
           target="_blank"
           rel="noreferrer"
-          className="inline-flex shrink-0 items-center justify-center gap-2 rounded-md bg-accent px-4 py-2.5 text-sm font-semibold text-accent-foreground transition-opacity hover:opacity-90"
+          className={buttonPrimary}
         >
-          Ver o código no GitHub →
+          Código-fonte no GitHub
         </a>
       </section>
     </div>

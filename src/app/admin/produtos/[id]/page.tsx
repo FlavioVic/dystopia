@@ -19,7 +19,7 @@ export default async function EditProductPage(props: PageProps<"/admin/produtos/
 
   return (
     <div className="max-w-3xl">
-      <h2 className="font-brand text-xl font-bold uppercase tracking-tight">Editar produto</h2>
+      <h2 className="display-3 text-[20px] leading-[28px]">Editar produto</h2>
       <p className="mt-1 text-sm text-foreground-muted">{product.name}</p>
       <div className="mt-6">
         <ProductForm
@@ -43,7 +43,7 @@ export default async function EditProductPage(props: PageProps<"/admin/produtos/
       </div>
 
       <section className="mt-10 border-t border-border pt-6">
-        <h3 className="text-sm font-semibold uppercase tracking-wider text-foreground-muted">
+        <h3 className="label text-foreground-muted">
           Variantes ({product.variants.length})
         </h3>
         <p className="mt-1 text-xs text-foreground-muted">

@@ -23,6 +23,7 @@ import * as queue from "@/queue";
 import * as catalog from "@/services/catalog";
 import * as couponsService from "@/services/coupons";
 import { transitionOrder } from "@/services/orders";
+import * as serviceRequestsService from "@/services/service-requests";
 import { PermanentError } from "@/saga/errors";
 
 async function ensureAdmin() {
@@ -230,4 +231,17 @@ export async function runReconcile(): Promise<SimpleResult & { report?: Record<s
   const report = await reconcile();
   refresh();
   return { ok: true, report };
+}
+
+/** Muda o andamento de um pedido de orçamento (painel /admin/orcamentos). */
+export async function updateServiceRequestStatus(id: string, status: string): Promise<SimpleResult> {
+  await ensureAdmin();
+  try {
+    await serviceRequestsService.updateServiceRequestStatus(db, id, status);
+  } catch (error) {
+    if (error instanceof PermanentError) return { ok: false, error: error.message };
+    throw error;
+  }
+  refresh();
+  return { ok: true };
 }

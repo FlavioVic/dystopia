@@ -31,7 +31,8 @@ function importsOf(relativePath: string): string[] {
 }
 
 describe("fronteiras da arquitetura", () => {
-  const backendDirs = ["src/services", "src/saga", "src/queue"];
+  // `src/composition` também: o worker de pé (container) monta a fila por ele.
+  const backendDirs = ["src/services", "src/saga", "src/queue", "src/composition"];
 
   it("serviços, saga e fila não dependem do Next (precisam rodar no worker)", () => {
     for (const dir of backendDirs) {
@@ -100,12 +101,13 @@ describe("fronteiras da arquitetura", () => {
   });
 
   it("pagamentos é conhecido só pelo contrato (roda em processo próprio)", () => {
-    // Quem monta processo (src/scripts) pluga os handlers; o resto do sistema
-    // fala com pagamentos por mensagem, então só pode ver o contrato.
+    // Quem monta processo (src/scripts) ou o worker embutido (src/composition)
+    // pluga os handlers; o resto do sistema fala com pagamentos por mensagem,
+    // então só pode ver o contrato.
     const owner = path.join("src", "services", "payments");
-    const composition = path.join("src", "scripts");
+    const composition = [path.join("src", "scripts"), path.join("src", "composition")];
     for (const file of sourceFiles("src")) {
-      if (file.startsWith(owner) || file.startsWith(composition)) continue;
+      if (file.startsWith(owner) || composition.some((dir) => file.startsWith(dir))) continue;
       for (const specifier of importsOf(file)) {
         if (!specifier.startsWith("@/services/payments")) continue;
         assert.equal(

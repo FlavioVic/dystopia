@@ -60,7 +60,7 @@ export function CartItemRow({ line }: { line: CartLine }) {
             type="button"
             onClick={remove}
             disabled={isPending}
-            className="shrink-0 text-xs text-foreground-muted transition-colors hover:text-danger disabled:opacity-40"
+            className="shrink-0 text-xs text-foreground-muted transition-colors hover:text-foreground disabled:opacity-40"
           >
             Remover
           </button>

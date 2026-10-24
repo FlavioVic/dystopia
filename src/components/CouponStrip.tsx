@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { TicketIcon } from "@/components/TicketIcon";
+import { Rule } from "@/components/Kit";
 import { formatPriceCents } from "@/lib/format";
 
 type Coupon = {
@@ -30,14 +30,10 @@ function CouponCard({ coupon }: { coupon: Coupon }) {
   }
 
   return (
-    <div className="relative flex shrink-0 items-center gap-3 overflow-hidden rounded-xl border border-violet/25 bg-violet/5 p-3 pl-4">
-      <span className="absolute left-0 top-0 h-full w-1.5 gradient-brand" aria-hidden />
+    <div className="dys-frame flex shrink-0 items-center gap-5 px-5 py-4">
       <div className="min-w-0">
-        <div className="flex items-baseline gap-1.5">
-          <span className="font-brand text-lg font-bold text-violet">{value}</span>
-          <span className="text-xs text-foreground-muted">OFF</span>
-        </div>
-        <p className="truncate text-[11px] text-foreground-muted">
+        <span className="font-mono text-2xl font-semibold text-foreground">-{value}</span>
+        <p className="label mt-1 truncate text-foreground-muted">
           {coupon.minOrderCents > 0
             ? `Acima de ${formatPriceCents(coupon.minOrderCents)}`
             : coupon.description ?? "Sem mínimo"}
@@ -46,13 +42,11 @@ function CouponCard({ coupon }: { coupon: Coupon }) {
       <button
         type="button"
         onClick={copy}
-        className="flex items-center gap-1.5 rounded-lg border border-dashed border-violet/50 bg-background px-2.5 py-1.5 font-mono text-xs font-bold text-violet transition-colors hover:bg-violet/10"
+        className="flex flex-col items-start border border-foreground px-3 py-2 hover:bg-foreground hover:text-background"
         aria-label={`Copiar cupom ${coupon.code}`}
       >
-        {coupon.code}
-        <span className="text-[10px] font-sans font-semibold uppercase tracking-wide text-foreground-muted">
-          {copied ? "copiado ✓" : "copiar"}
-        </span>
+        <span className="serial">{coupon.code}</span>
+        <span className="label text-[10px] opacity-70">{copied ? "Copiado" : "Copiar código"}</span>
       </button>
     </div>
   );
@@ -61,11 +55,9 @@ function CouponCard({ coupon }: { coupon: Coupon }) {
 export function CouponStrip({ coupons }: { coupons: Coupon[] }) {
   if (coupons.length === 0) return null;
   return (
-    <section className="mt-12 border-t border-border pt-8">
-      <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-foreground-muted">
-        <TicketIcon className="h-4 w-4 text-accent" /> Cupons disponíveis
-      </h2>
-      <div className="mt-4 flex gap-3 overflow-x-auto pb-1">
+    <section className="mt-16">
+      <Rule label="Diretivas em vigor" index={`${String(coupons.length).padStart(2, "0")} códigos`} />
+      <div className="mt-6 flex gap-4 overflow-x-auto pb-1">
         {coupons.map((c) => (
           <CouponCard key={c.code} coupon={c} />
         ))}

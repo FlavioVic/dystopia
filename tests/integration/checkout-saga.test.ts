@@ -112,7 +112,15 @@ describe("saga de checkout — caminho feliz", () => {
       "notify-customer": "completed",
     });
 
-    // Nada sobra pra worker nenhum: avanço, comando e resposta foram fechados.
+    // A confirmação sai por outbox: gravada no passo, entregue por um job.
+    assert.equal(sent[0].status, "pending");
+    assert.deepEqual((await activeJobs()).map((job) => job.type), ["notifications.deliver"]);
+    await work("all");
+    const delivered = await db.query.notifications.findFirst({ where: eq(notifications.id, sent[0].id) });
+    assert.equal(delivered?.status, "sent");
+    assert.equal(delivered?.provider, "simulado", "sem RESEND_API_KEY a entrega é simulada");
+
+    // Nada sobra pra worker nenhum: avanço, comando, resposta e entrega fechados.
     assert.deepEqual(await activeJobs(), []);
     assert.equal((await work("all")).claimed, 0);
   });

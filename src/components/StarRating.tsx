@@ -1,3 +1,7 @@
+/**
+ * Nota de avaliação. A marca não usa ícone decorativo: cinco quadrados (cheio =
+ * ponto atingido) e o número em mono.
+ */
 export function StarRating({
   rating,
   count,
@@ -8,24 +12,19 @@ export function StarRating({
   size?: "sm" | "md";
 }) {
   const full = Math.round(rating);
-  const dim = size === "sm" ? "h-3.5 w-3.5" : "h-4 w-4";
+  const dim = size === "sm" ? "h-2 w-2" : "h-2.5 w-2.5";
 
   return (
-    <div className="flex items-center gap-1.5">
-      <div className="flex" aria-label={`${rating.toFixed(1)} de 5 estrelas`}>
+    <div className="flex items-center gap-2" aria-label={`${rating.toFixed(1)} de 5`}>
+      <div className="flex gap-1" aria-hidden="true">
         {Array.from({ length: 5 }).map((_, i) => (
-          <svg
-            key={i}
-            viewBox="0 0 20 20"
-            className={`${dim} ${i < full ? "fill-accent-secondary" : "fill-border"}`}
-          >
-            <path d="M10 1.5l2.6 5.6 6.1.6-4.6 4.1 1.3 6-5.4-3.1-5.4 3.1 1.3-6L1.3 7.7l6.1-.6z" />
-          </svg>
+          <span key={i} className={`${dim} border border-foreground ${i < full ? "bg-foreground" : ""}`} />
         ))}
       </div>
-      {typeof count === "number" && (
-        <span className="text-xs text-foreground-muted">({count})</span>
-      )}
+      <span className="font-mono text-xs text-foreground-muted">
+        {rating.toFixed(1)}
+        {typeof count === "number" ? ` / ${String(count).padStart(2, "0")}` : ""}
+      </span>
     </div>
   );
 }

@@ -1,37 +1,65 @@
 @import "tailwindcss";
 
 /*
- * Dystopia — tema: claro, minimalista, com toque industrial/tech.
- * Base clara, tipografia limpa, acento em laranja da marca (ação/preço/links) e
- * âmbar como destaque secundário (avaliações, badges). Sem tons pastel/rosa.
- * A logo usa o laranja vibrante #EA580C (orange-600); a UI usa um tom um nível
- * mais fundo (#C2410C, orange-700) pra manter contraste de TEXTO em AA.
- * Contraste checado (WCAG AA): fg/bg 17.3:1, accent/bg 4.8:1, accent2/bg 4.6:1.
+ * DYSTOPIA — tema Obsidian (design system "DYSTOPIA"), com o vermelho
+ * promovido a cor de ação: botões, faixas, índices e estados ativos.
+ *
+ * Cinco cores, sem gradiente, brilho, neon nem transparência: ~70% escuro
+ * (obsidian, graphite), ~25% neutro (steel, bone), ≤5% signal-red. Camadas se
+ * separam por régua de 1px, nunca por sombra; cantos são retos.
+ *
+ * Os nomes abaixo são PAPÉIS (o que os componentes usam), apontando pra paleta:
+ * - accent = ink (bone): botão principal é preenchimento em bone, texto obsidian.
+ * - signal/danger = signal-red: só alerta, valor crítico e o RESTRITO. Texto
+ *   vermelho pequeno sobre obsidian não passa contraste (3,3:1) — em texto, o
+ *   erro é dito por palavra em `foreground`, e o vermelho vira preenchimento
+ *   (`bg-signal text-on-signal`, 4,6:1) ou borda.
+ * - success/deal: a marca não tem verde. Status vai em palavra; oferta é rótulo
+ *   em bone (CLASSIFIED), não cor.
+ *
+ * Contraste (WCAG): bone/obsidian 15,4:1 · bone/graphite 12,7:1 ·
+ * ink-muted/obsidian 6,2:1 · ink-muted/graphite 5,1:1 · bone/signal 4,6:1.
+ * steel (#6e7176) só pra régua, tique e texto ≥ 24px (4,0:1).
  */
 
 :root {
-  --background: #f5f6f8;
-  --background-elevated: #ffffff;
-  --background-elevated-hover: #eef0f3;
-  --foreground: #111217;
-  --foreground-muted: #5c6270;
-  --border: #e3e5ea;
-  --border-hover: #c9ccd4;
+  /* paleta da marca (fixa) */
+  --obsidian: #0b0b0c;
+  --graphite: #1f2023;
+  --steel: #6e7176;
+  --bone: #e7e3da;
+  --signal-red: #c8102e;
 
-  --accent: #c2410c; /* laranja da marca (orange-700) — ações, preço, links; AA em texto */
-  --accent-foreground: #ffffff;
-  --accent-secondary: #b45309; /* âmbar — avaliações, destaques secundários */
+  /* papéis */
+  --background: var(--obsidian); /* surface */
+  --background-elevated: var(--graphite); /* surface-raised */
+  --background-elevated-hover: #2a2b2f; /* rule-faint: hover de linha/painel */
+  --foreground: var(--bone); /* ink */
+  --foreground-muted: #8e9196; /* ink-muted: rótulo, metadado, texto pequeno técnico */
+  --border: var(--steel); /* rule */
+  --border-faint: #2a2b2f; /* rule-faint: grade e guias, sem significado */
+  --border-hover: var(--bone);
 
-  --danger: #dc2626;
-  --success: #15803d;
+  --accent: var(--bone);
+  --accent-foreground: var(--obsidian);
+  --accent-secondary: #8e9196;
 
-  /* Paleta vibrante (hero, badges de oferta, gradientes) */
-  --magenta: #db2777; /* rosa-magenta — parceiro do gradiente */
-  --violet: #7c3aed; /* violeta — categorias, gradiente */
-  --deal: #16a34a; /* verde vivo — % OFF, frete grátis */
-  --deal-foreground: #ffffff;
-  --deal-soft: #dcfce7; /* fundo do badge de frete grátis */
-  --amber-bright: #fbbf24; /* âmbar vivo — destaques sobre o hero */
+  --signal: var(--signal-red);
+  --on-signal: var(--bone);
+  /* Vermelho como AÇÃO (pedido do dono do projeto: mais vermelho na tela).
+     Preenchimento sempre com texto bone (4,6:1); hover escurece (6,2:1).
+     Texto vermelho pequeno usa signal-text (5,5:1 obsidian / 4,5:1 graphite) —
+     o signal-red puro só passa como texto a partir de 24px. */
+  --primary: var(--signal-red);
+  --primary-hover: #a30d26;
+  --primary-foreground: var(--bone);
+  --signal-text: #f04a5d;
+  --danger: var(--signal-red);
+  --success: var(--bone);
+
+  --deal: var(--bone);
+  --deal-foreground: var(--obsidian);
+  --deal-soft: var(--graphite);
 }
 
 @theme inline {
@@ -41,78 +69,304 @@
   --color-foreground: var(--foreground);
   --color-foreground-muted: var(--foreground-muted);
   --color-border: var(--border);
+  --color-border-faint: var(--border-faint);
   --color-border-hover: var(--border-hover);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent-secondary: var(--accent-secondary);
+  --color-signal: var(--signal);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-signal-text: var(--signal-text);
+  --color-on-signal: var(--on-signal);
   --color-danger: var(--danger);
   --color-success: var(--success);
-  --color-magenta: var(--magenta);
-  --color-violet: var(--violet);
   --color-deal: var(--deal);
   --color-deal-foreground: var(--deal-foreground);
   --color-deal-soft: var(--deal-soft);
-  --color-amber-bright: var(--amber-bright);
-  --font-sans:
-    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  --font-mono:
-    ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Consolas, "Liberation Mono", monospace;
-  /* Chakra Petch — fonte da marca (wordmark). --font-chakra vem do next/font. */
-  --font-brand:
-    var(--font-chakra), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --color-steel: var(--steel);
+  --color-graphite: var(--graphite);
+  --color-obsidian: var(--obsidian);
+  --color-bone: var(--bone);
+
+  --font-sans: var(--font-inter-tight), "Helvetica Neue", Arial, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, Menlo, monospace;
+  /* Michroma: títulos, navegação, sinalização. Caixa alta, com tracking. */
+  --font-display: var(--font-michroma), Arial, sans-serif;
+  --font-brand: var(--font-display);
+
+  /* Cantos retos em tudo. `rounded-full` continua: só pra círculo de verdade
+     (status, avatar, o campo do emblema). */
+  --radius-xs: 0px;
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-xl: 0px;
+  --radius-2xl: 0px;
+  --radius-3xl: 0px;
+  --radius-4xl: 0px;
 }
 
-* {
-  border-color: var(--border);
+/* Base em camada: CSS fora de camada venceria as utilitárias do Tailwind 4
+   (um `border-transparent` ou `border-foreground` não teria efeito). */
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  html {
+    color-scheme: dark;
+  }
+
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Foco de teclado: 2px do fundo e 2px de tinta. Nunca vermelho. */
+  :focus-visible {
+    outline: 2px solid transparent;
+    box-shadow:
+      0 0 0 2px var(--background),
+      0 0 0 4px var(--foreground);
+  }
+
+  /* Movimento é mecânico: corte seco. Quem pede menos movimento não vê nenhum. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      transition: none !important;
+      animation: none !important;
+    }
+  }
+
+  ::selection {
+    background: var(--foreground);
+    color: var(--background);
+  }
 }
 
-html {
-  color-scheme: light;
+/* ------------------------------------------------------------------ kit
+ * Elementos da linguagem gráfica. Cada um tem uma função; use só pra ela.
+ */
+
+/* Títulos display: Michroma em caixa alta, com tracking. */
+.display-1,
+.display-2,
+.display-3,
+.display-4 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  text-transform: uppercase;
+}
+.display-1 { font-size: 64px; line-height: 72px; letter-spacing: 0.1em; }
+.display-2 { font-size: 40px; line-height: 48px; letter-spacing: 0.12em; }
+.display-3 { font-size: 24px; line-height: 32px; letter-spacing: 0.14em; }
+.display-4 { font-size: 14px; line-height: 20px; letter-spacing: 0.2em; }
+@media (max-width: 640px) {
+  .display-1 { font-size: 34px; line-height: 42px; letter-spacing: 0.08em; }
+  .display-2 { font-size: 26px; line-height: 34px; letter-spacing: 0.1em; }
 }
 
-body {
-  background: var(--background);
+/* Rótulo técnico: mono, caixa alta. */
+.label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 16px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+/* Serial: DYS-H0001 / SETOR 04. */
+.serial {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+}
+
+/* Rótulo de classificação: RESTRITO (vermelho, um por tela), CLASSIFICADO
+   (tinta), AUTORIZADO (borda de tinta), AVISO (borda de régua). */
+.dys-label {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 2px 8px;
+  border: 2px solid var(--foreground);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 16px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  white-space: nowrap;
   color: var(--foreground);
-  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+}
+.dys-label--restricted { background: var(--signal); border-color: var(--signal); color: var(--on-signal); }
+.dys-label--classified { background: var(--foreground); color: var(--background); }
+.dys-label--notice { border-width: 1px; border-color: var(--border); color: var(--foreground-muted); }
+
+/* Moldura de cantoneiras: marca o que é controlado/inspecionado. Nunca caixa fechada. */
+.dys-frame {
+  position: relative;
+  --arm: 14px;
+  background:
+    linear-gradient(var(--border), var(--border)) top left / var(--arm) 2px no-repeat,
+    linear-gradient(var(--border), var(--border)) top left / 2px var(--arm) no-repeat,
+    linear-gradient(var(--border), var(--border)) top right / var(--arm) 2px no-repeat,
+    linear-gradient(var(--border), var(--border)) top right / 2px var(--arm) no-repeat,
+    linear-gradient(var(--border), var(--border)) bottom left / var(--arm) 2px no-repeat,
+    linear-gradient(var(--border), var(--border)) bottom left / 2px var(--arm) no-repeat,
+    linear-gradient(var(--border), var(--border)) bottom right / var(--arm) 2px no-repeat,
+    linear-gradient(var(--border), var(--border)) bottom right / 2px var(--arm) no-repeat;
 }
 
-/* Grid sutil de fundo — usado só em áreas de destaque (hero), não a app inteira */
+/* Faixa de perigo: só em borda/limiar físico, nunca como fundo. */
+.hazard {
+  height: 12px;
+  background: repeating-linear-gradient(
+    -45deg,
+    var(--signal) 0 9px,
+    var(--bone) 9px 18px
+  );
+}
+.hazard--mono {
+  background: repeating-linear-gradient(
+    -45deg,
+    var(--foreground) 0 9px,
+    var(--background) 9px 18px
+  );
+}
+
+/* Grade modular de fundo (rule-faint) — só onde a página mostra a estrutura. */
 .bg-grid {
   background-image:
-    linear-gradient(to right, color-mix(in srgb, var(--foreground) 6%, transparent) 1px, transparent 1px),
-    linear-gradient(to bottom, color-mix(in srgb, var(--foreground) 6%, transparent) 1px, transparent 1px);
-  background-size: 40px 40px;
+    linear-gradient(to right, var(--border-faint) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--border-faint) 1px, transparent 1px);
+  background-size: 64px 64px;
 }
 
-/* Background do hero — gradiente laranja→magenta→violeta + hexágonos (SVG gerado) */
-.hero-bg {
-  background-image: url("/backgrounds/hero.svg");
-  background-size: cover;
-  background-position: center;
+/* ------------------------------------------------------------ movimento
+ * Mecânico e curto: entra, para. Tudo some com prefers-reduced-motion (regra
+ * no topo do arquivo). O "revelar" só esconde conteúdo quando o script de
+ * <head> marcou `.js-reveal` — sem JS, nada fica invisível.
+ */
+:root {
+  --ease-out: cubic-bezier(0.2, 0, 0, 1);
 }
 
-/* Textura hexagonal sutil pra seções/bandas */
-.hex-texture {
-  background-image: url("/backgrounds/hex-pattern.svg");
-  background-size: 56px 96px;
+.js-reveal .reveal {
+  opacity: 0;
+  transform: translateY(18px);
+  transition:
+    opacity 600ms var(--ease-out),
+    transform 600ms var(--ease-out);
+  transition-delay: var(--delay, 0ms);
+}
+.js-reveal .reveal[data-visible="true"] {
+  opacity: 1;
+  transform: none;
 }
 
-/* Faixa/gradiente da marca pra CTAs e promo strip */
-.gradient-brand {
-  background-image: linear-gradient(100deg, var(--accent) 0%, var(--magenta) 55%, var(--violet) 100%);
+/* Linha vermelha que se estende no hover de cards e links de seção. */
+.sweep {
+  position: relative;
+}
+.sweep::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto auto 0;
+  width: 100%;
+  height: 2px;
+  background: var(--primary);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 360ms var(--ease-out);
+  z-index: 1;
+}
+.sweep:hover::before,
+.sweep:focus-within::before {
+  transform: scaleX(1);
 }
 
-/* Sombra discreta pra elementos de destaque (usar com moderação) */
-.glow-accent {
-  box-shadow: 0 8px 20px -6px color-mix(in srgb, var(--accent) 45%, transparent);
+/* Faixa contínua (serviços e tecnologias). O conteúdo vem duplicado. */
+@keyframes marquee {
+  to {
+    transform: translateX(-50%);
+  }
+}
+.marquee-track {
+  display: flex;
+  width: max-content;
+  animation: marquee 48s linear infinite;
+}
+.marquee:hover .marquee-track {
+  animation-play-state: paused;
 }
 
-/* Glow colorido pra cards/hero em destaque */
-.glow-brand {
-  box-shadow: 0 20px 45px -18px color-mix(in srgb, var(--violet) 55%, transparent);
+/* Vinheta do emblema (design system: MotionSting). Construção em steel
+   desenhada, corte seco pro emblema sólido. O portão nunca abre. */
+@keyframes sting-draw {
+  from {
+    stroke-dashoffset: var(--len);
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes sting-cut-in {
+  0%,
+  99% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+@keyframes sting-cut-out {
+  0%,
+  99% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+.sting-line {
+  stroke-dasharray: var(--len);
+  stroke-dashoffset: var(--len);
+  animation: sting-draw 720ms linear forwards;
+  animation-delay: var(--delay, 0ms);
+}
+.sting-construction {
+  animation: sting-cut-out 1680ms linear forwards;
+}
+.sting-solid {
+  opacity: 0;
+  animation: sting-cut-in 1680ms linear forwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sting-construction {
+    display: none;
+  }
+  .sting-solid {
+    opacity: 1;
+  }
 }
 
-::selection {
-  background: var(--accent);
-  color: var(--accent-foreground);
+/* Cursor de terminal no título da abertura. */
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}
+.caret {
+  animation: blink 1s steps(1) infinite;
 }

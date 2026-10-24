@@ -1,0 +1,17 @@
+# Deploy pela CLI (`vercel deploy`) sobe a pasta local: segredo e artefato
+# local nunca entram no upload. A Vercel instala e builda do zero.
+.env*
+!.env.example
+.neon
+.vercel
+node_modules
+.next
+coverage
+*.tsbuildinfo
+next-env.d.ts
+
+# Fora do app web: testes, worker em container, docs.
+tests
+docs
+Dockerfile.worker
+docker-compose.yml

@@ -15,8 +15,8 @@ export function HealthAlerts({ alerts }: { alerts: Alert[] }) {
           key={alert.id}
           className={`flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-lg border px-4 py-2.5 text-sm ${
             alert.level === "critical"
-              ? "border-danger/30 bg-danger/5 text-danger"
-              : "border-accent-secondary/30 bg-accent-secondary/5 text-accent-secondary"
+              ? "border-signal bg-background text-foreground"
+              : "border-foreground bg-background-elevated text-foreground-muted"
           }`}
         >
           <span className="min-w-0">

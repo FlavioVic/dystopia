@@ -1,105 +1,260 @@
-import Image from "next/image";
 import Link from "next/link";
+import { SectionHeading, buttonPrimary, buttonSecondary, gridCell, gridFrame } from "@/components/Kit";
+import { EmblemSting } from "@/components/Logo";
+import { Marquee } from "@/components/Marquee";
+import { CountUp, Reveal } from "@/components/Motion";
+import { PortfolioCard, ProjectImage, StackTags } from "@/components/PortfolioCard";
 import { ProductCard } from "@/components/ProductCard";
-import { getCategories, getFeaturedProducts } from "@/lib/data/products";
+import { getAllProducts, getFeaturedProducts } from "@/lib/data/products";
+import { PORTFOLIO, PROFILE } from "@/lib/portfolio";
+import { PROCESS, SERVICES, TICKER } from "@/lib/services-catalog";
+
+// Número de testes automatizados do próprio repositório (README › Testes).
+const TEST_COUNT = 254;
 
 export default async function Home() {
-  const [featured, categories] = await Promise.all([
-    getFeaturedProducts(8),
-    getCategories(),
-  ]);
+  const [featured, inventory] = await Promise.all([getFeaturedProducts(4), getAllProducts()]);
+  const [lead, ...others] = PORTFOLIO;
+
+  const stats = [
+    { value: PORTFOLIO.length, label: "Projetos publicados" },
+    { value: SERVICES.length, label: "Serviços" },
+    { value: inventory.length, label: "Itens no inventário" },
+    { value: TEST_COUNT, label: "Testes nesta loja", pad: 3 },
+  ];
 
   return (
     <div className="flex flex-col">
-      {/* Hero */}
-      <section className="hero-bg relative overflow-hidden">
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-black/45 via-black/10 to-transparent" />
-        <div className="relative mx-auto max-w-7xl px-4 py-20 sm:px-6 sm:py-28 lg:px-8">
-          <span className="font-mono text-xs font-semibold uppercase tracking-[0.22em] text-amber-bright">
-            Bem-vindo à megacidade
-          </span>
-          <h1 className="mt-4 max-w-3xl font-brand text-4xl font-bold uppercase leading-[1.05] tracking-tight text-white sm:text-6xl">
-            Cultura geek entre o analógico e o{" "}
-            <span className="text-amber-bright">neon</span>
-          </h1>
-          <p className="mt-5 max-w-xl text-base leading-relaxed text-white/85 sm:text-lg">
-            Colecionáveis, quadrinhos, games e moda de um futuro cyberpunk
-            fictício — feito por fãs, pra fãs.
-          </p>
-          <div className="mt-8 flex flex-wrap items-center gap-3">
-            <Link
-              href="/produtos"
-              className="inline-flex items-center gap-2 rounded-lg bg-white px-6 py-3 text-sm font-bold text-[#1a1410] transition-transform hover:scale-[1.02]"
-            >
-              Ver ofertas
-              <span aria-hidden>→</span>
-            </Link>
-            <Link
-              href="#categorias"
-              className="inline-flex items-center gap-2 rounded-lg border border-white/70 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/10"
-            >
-              Explorar categorias
-            </Link>
+      {/* ---------------------------------------------------------- abertura */}
+      <section className="bg-grid relative overflow-hidden border-b border-border">
+        <div className="mx-auto grid max-w-7xl items-center gap-12 px-4 py-16 sm:px-6 sm:py-20 lg:grid-cols-12 lg:px-8 lg:py-24">
+          <div className="lg:col-span-7">
+            <Reveal>
+              <p className="label text-foreground-muted">
+                <span className="text-signal-text">{PROFILE.name}</span> / Desenvolvimento e hardware
+              </p>
+            </Reveal>
+            <Reveal delay={80}>
+              <h1 className="display-1 mt-6">
+                A ordem é um <span className="text-primary">serviço.</span>
+                <span aria-hidden="true" className="caret ml-1 inline-block h-[0.8em] w-[0.35em] translate-y-[0.1em] bg-primary" />
+              </h1>
+            </Reveal>
+            <Reveal delay={160}>
+              <p className="mt-6 max-w-xl text-lg leading-[28px] text-foreground-muted">
+                Software construído sob medida. Computadores montados, mantidos e restaurados. Cada intervenção é
+                registrada do pedido à entrega.
+              </p>
+            </Reveal>
+            <Reveal delay={240}>
+              <div className="mt-10 flex flex-wrap gap-3">
+                <Link href="/servicos#orcamento" className={buttonPrimary}>
+                  Solicitar orçamento
+                </Link>
+                <Link href="/portfolio" className={buttonSecondary}>
+                  Ver portfólio
+                </Link>
+              </div>
+            </Reveal>
+            <Reveal delay={320}>
+              <dl className="mt-14 grid grid-cols-2 gap-px border border-border-faint bg-border-faint sm:grid-cols-4">
+                {stats.map((s) => (
+                  <div key={s.label} className="flex flex-col-reverse justify-end bg-background/95 p-4">
+                    <dt className="label mt-2 text-foreground-muted">{s.label}</dt>
+                    <dd className="font-mono text-3xl font-semibold text-foreground">
+                      <CountUp value={s.value} pad={s.pad ?? 2} />
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            </Reveal>
+          </div>
+
+          <div className="hidden lg:col-span-5 lg:flex lg:justify-end">
+            <div className="dys-frame flex flex-col items-center gap-8 bg-background px-14 py-12">
+              <EmblemSting size={248} className="text-primary" title="Emblema DYSTOPIA" />
+              <p className="serial text-foreground-muted">
+                EMISSÃO OFICIAL / <span className="text-signal-text">DYS-0001</span>
+              </p>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Categorias */}
-      {categories.length > 0 ? (
-        <section id="categorias" className="mx-auto w-full max-w-7xl scroll-mt-20 px-4 py-14 sm:px-6 lg:px-8">
-          <div className="flex items-end justify-between">
-            <h2 className="font-brand text-xl font-bold uppercase tracking-tight sm:text-2xl">
-              Categorias
-            </h2>
-          </div>
-          <div className="mt-5 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
-            {categories.map((c) => (
+      <Marquee items={TICKER} />
+
+      {/* ---------------------------------------------------------- serviços */}
+      <section id="servicos" className="mx-auto w-full max-w-7xl scroll-mt-24 px-4 pt-24 sm:px-6 lg:px-8">
+        <Reveal>
+          <SectionHeading
+            index="01 / 05"
+            label="Serviços"
+            title="Intervenção técnica"
+            action={
+              <Link href="/servicos" className="label shrink-0 text-signal-text hover:text-foreground">
+                Todos os serviços
+              </Link>
+            }
+          />
+        </Reveal>
+        <div className={`mt-8 grid-cols-1 md:grid-cols-2 ${gridFrame}`}>
+          {SERVICES.map((s, i) => (
+            <Reveal key={s.kind} delay={i * 90} className={`min-w-0 ${gridCell}`}>
               <Link
-                key={c.slug}
-                href={`/categoria/${c.slug}`}
-                className="group relative flex aspect-[4/3] items-end overflow-hidden rounded-xl border border-border bg-background-elevated transition-all hover:-translate-y-0.5 hover:border-violet/40"
+                href={`/servicos?servico=${s.kind}#orcamento`}
+                className="sweep group flex h-full flex-col gap-5 bg-background p-6 transition-colors hover:bg-background-elevated sm:p-8"
               >
-                {c.imageUrl ? (
-                  <Image
-                    src={c.imageUrl}
-                    alt={c.name}
-                    fill
-                    priority
-                    sizes="(min-width: 1024px) 16vw, 33vw"
-                    className="object-cover transition-transform duration-300 group-hover:scale-105"
-                  />
-                ) : null}
-                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-transparent" />
-                <span className="relative p-3 text-sm font-semibold leading-tight text-white">
-                  {c.name}
+                <div className="flex items-start justify-between gap-4">
+                  <span className="font-mono text-5xl font-semibold text-primary transition-transform duration-300 group-hover:-translate-y-1">
+                    {String(i + 1).padStart(2, "0")}
+                  </span>
+                  <span className="serial text-foreground-muted">{s.serial}</span>
+                </div>
+                <h3 className="display-3 break-words text-[15px] leading-[24px] tracking-[0.06em] sm:text-[20px] sm:leading-[28px] sm:tracking-[0.1em]">{s.name}</h3>
+                <p className="text-base leading-relaxed text-foreground-muted">{s.summary}</p>
+                <ul className="flex flex-col gap-2">
+                  {s.scope.slice(0, 3).map((item) => (
+                    <li key={item} className="flex items-center gap-3 text-sm text-foreground">
+                      <span aria-hidden="true" className="h-1.5 w-1.5 shrink-0 bg-primary" />
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+                <span className="label mt-auto flex items-center gap-2 pt-2 text-signal-text">
+                  Solicitar orçamento
+                  <span aria-hidden="true" className="transition-transform duration-300 group-hover:translate-x-1">
+                    →
+                  </span>
                 </span>
               </Link>
-            ))}
-          </div>
+            </Reveal>
+          ))}
+        </div>
+      </section>
+
+      {/* ---------------------------------------------------------- portfólio */}
+      <section id="portfolio" className="mx-auto w-full max-w-7xl scroll-mt-24 px-4 pt-24 sm:px-6 lg:px-8">
+        <Reveal>
+          <SectionHeading
+            index="02 / 05"
+            label="Portfólio"
+            title="Projetos entregues"
+            action={
+              <Link href="/portfolio" className="label shrink-0 text-signal-text hover:text-foreground">
+                Portfólio completo
+              </Link>
+            }
+          />
+        </Reveal>
+
+        <Reveal className="mt-8">
+          <article className="sweep group grid gap-8 border border-border-faint bg-background p-5 transition-colors hover:bg-background-elevated sm:p-8 lg:grid-cols-12">
+            <Link href={`/portfolio#${lead.slug}`} className="lg:col-span-7">
+              <ProjectImage project={lead} priority sizes="(min-width: 1024px) 55vw, 90vw" />
+            </Link>
+            <div className="flex flex-col gap-5 lg:col-span-5">
+              <div className="flex items-center justify-between">
+                <span className="serial text-signal-text">{lead.code}</span>
+                <span className="dys-label dys-label--restricted">Em destaque</span>
+              </div>
+              <h3 className="display-2 text-[26px] leading-[34px] sm:text-[32px] sm:leading-[40px]">{lead.name}</h3>
+              <p className="label text-foreground-muted">{lead.kind}</p>
+              <p className="text-base leading-relaxed text-foreground-muted">{lead.summary}</p>
+              <ul className="flex flex-col gap-2">
+                {lead.highlights.map((h) => (
+                  <li key={h} className="flex gap-3 text-sm text-foreground">
+                    <span aria-hidden="true" className="mt-2 h-1.5 w-1.5 shrink-0 bg-primary" />
+                    {h}
+                  </li>
+                ))}
+              </ul>
+              <StackTags stack={lead.stack} />
+              <div className="mt-auto flex flex-wrap gap-3 pt-2">
+                <Link href={`/portfolio#${lead.slug}`} className={buttonSecondary}>
+                  Ver projeto
+                </Link>
+                <a href={lead.repo} target="_blank" rel="noreferrer" className="label self-center text-foreground-muted hover:text-foreground">
+                  Código no GitHub
+                </a>
+              </div>
+            </div>
+          </article>
+        </Reveal>
+
+        <div className={`grid-cols-1 border-t-0 sm:grid-cols-2 ${gridFrame}`}>
+          {others.slice(0, 4).map((p, i) => (
+            <Reveal key={p.slug} delay={i * 90} className={gridCell}>
+              <PortfolioCard project={p} />
+            </Reveal>
+          ))}
+        </div>
+      </section>
+
+      {/* ---------------------------------------------------------- processo */}
+      <section className="mx-auto w-full max-w-7xl px-4 pt-24 sm:px-6 lg:px-8">
+        <Reveal>
+          <SectionHeading index="03 / 05" label="Procedimento" title="Como funciona" />
+        </Reveal>
+        <ol className={`mt-8 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 ${gridFrame}`}>
+          {PROCESS.map((p, i) => (
+            <Reveal as="li" key={p.step} delay={i * 90} className={`relative flex flex-col gap-3 p-6 ${gridCell}`}>
+              <span className="font-mono text-4xl font-semibold text-primary">{p.step}</span>
+              <span className="display-4 text-[13px]">{p.title}</span>
+              <p className="text-sm leading-relaxed text-foreground-muted">{p.text}</p>
+            </Reveal>
+          ))}
+        </ol>
+      </section>
+
+      {/* ---------------------------------------------------------- loja */}
+      {featured.length > 0 ? (
+        <section className="mx-auto w-full max-w-7xl px-4 pt-24 sm:px-6 lg:px-8">
+          <Reveal>
+            <SectionHeading
+              index="04 / 05"
+              label="Loja"
+              title="Hardware registrado"
+              action={
+                <Link href="/produtos" className="label shrink-0 text-signal-text hover:text-foreground">
+                  Inventário completo
+                </Link>
+              }
+            />
+          </Reveal>
+          <Reveal className="mt-8">
+            <div className={`grid-cols-2 lg:grid-cols-4 ${gridFrame}`}>
+              {featured.map((p) => (
+                <ProductCard key={p.slug} product={p} />
+              ))}
+            </div>
+          </Reveal>
         </section>
       ) : null}
 
-      {/* Destaques */}
-      {featured.length > 0 ? (
-        <section className="mx-auto w-full max-w-7xl px-4 pb-20 sm:px-6 lg:px-8">
-          <div className="flex items-end justify-between gap-4">
-            <div className="flex items-center gap-2.5">
-              <span className="h-6 w-1.5 rounded-full bg-accent" aria-hidden />
-              <h2 className="font-brand text-xl font-bold uppercase tracking-tight sm:text-2xl">
-                Ofertas em destaque
+      {/* ---------------------------------------------------------- chamado */}
+      <section className="mt-24">
+        <div className="hazard" aria-hidden="true" />
+        <div className="bg-primary text-primary-foreground">
+          <Reveal className="mx-auto flex max-w-7xl flex-col items-start gap-8 px-4 py-16 sm:px-6 lg:flex-row lg:items-end lg:justify-between lg:px-8">
+            <div>
+              <p className="label opacity-80">05 / 05 — Protocolo aberto</p>
+              <h2 className="display-2 mt-4 text-[26px] leading-[34px] sm:text-[40px] sm:leading-[48px]">
+                Registre sua solicitação.
               </h2>
+              <p className="mt-4 max-w-xl text-base leading-relaxed opacity-90">
+                Orçamento por escrito, sem custo. Nenhuma intervenção começa sem aprovação.
+              </p>
             </div>
-            <Link href="/produtos" className="shrink-0 text-sm font-medium text-accent hover:underline">
-              ver tudo →
+            <Link
+              href="/servicos#orcamento"
+              className="label inline-flex shrink-0 items-center gap-2 bg-bone px-6 py-4 text-obsidian transition-colors duration-150 hover:bg-obsidian hover:text-bone"
+            >
+              Solicitar orçamento
+              <span aria-hidden="true">→</span>
             </Link>
-          </div>
-          <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-            {featured.map((p, i) => (
-              <ProductCard key={p.slug} product={p} priority={i < 4} />
-            ))}
-          </div>
-        </section>
-      ) : null}
+          </Reveal>
+        </div>
+      </section>
     </div>
   );
 }

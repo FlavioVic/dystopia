@@ -24,9 +24,9 @@ export function ProductFlags({
   }
 
   const chip = (on: boolean) =>
-    `rounded-full px-2.5 py-1 text-[11px] font-semibold transition-colors disabled:opacity-50 ${
+    `label border px-2.5 py-1 disabled:opacity-50 ${
       on
-        ? "bg-deal-soft text-success"
+        ? "border border-foreground text-foreground"
         : "bg-background-elevated-hover text-foreground-muted hover:text-foreground"
     }`;
 

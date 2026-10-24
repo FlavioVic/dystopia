@@ -48,7 +48,7 @@ export async function submitReview(_prev: ReviewState, formData: FormData): Prom
   });
 
   refresh();
-  return { ok: true, message: "Avaliação publicada!" };
+  return { ok: true, message: "Relatório registrado." };
 }
 
 export async function deleteOwnReview(productId: string): Promise<{ ok: boolean; error?: string }> {

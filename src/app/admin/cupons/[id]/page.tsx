@@ -18,7 +18,7 @@ export default async function EditCouponPage(props: PageProps<"/admin/cupons/[id
 
   return (
     <div className="max-w-3xl">
-      <h2 className="font-brand text-xl font-bold uppercase tracking-tight">Editar cupom</h2>
+      <h2 className="display-3 text-[20px] leading-[28px]">Editar cupom</h2>
       <p className="mt-1 font-mono text-sm text-foreground-muted">{coupon.code}</p>
       <div className="mt-6">
         <CouponForm

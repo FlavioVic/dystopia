@@ -11,7 +11,7 @@ export default async function NewCouponPage() {
 
   return (
     <div className="max-w-3xl">
-      <h2 className="font-brand text-xl font-bold uppercase tracking-tight">Novo cupom</h2>
+      <h2 className="display-3 text-[20px] leading-[28px]">Novo cupom</h2>
       <div className="mt-6">
         <CouponForm
           mode="create"

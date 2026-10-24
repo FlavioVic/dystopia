@@ -1,4 +1,6 @@
-Copyright 2018 The Chakra Petch Project Authors (https://github.com/m4rc1e/Chakra-Petch.git)
+Michroma — Copyright 2011 The Michroma Project Authors (https://github.com/googlefonts/Michroma-font)
+Inter Tight — Copyright 2022 The Inter Project Authors (https://github.com/rsms/inter)
+IBM Plex Mono — Copyright 2017 IBM Corp.
 
 This Font Software is licensed under the SIL Open Font License, Version 1.1.
 This license is copied below, and is also available with a FAQ at:

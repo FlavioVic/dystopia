@@ -2,10 +2,8 @@
 
 import Link from "next/link";
 import { useActionState } from "react";
+import { FieldError, FormAlert, buttonPrimary, fieldLabelClass, inputClass } from "@/components/Kit";
 import { login, signup, type AuthState } from "@/lib/actions/auth";
-
-const inputClass =
-  "w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition-colors placeholder:text-foreground-muted focus:border-accent focus:ring-2 focus:ring-accent/30";
 
 export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   const action = mode === "signup" ? signup : login;
@@ -15,25 +13,24 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
 
   return (
     <div className="mx-auto w-full max-w-sm px-4 py-16 sm:py-20">
-      <h1 className="text-2xl font-bold tracking-tight">
-        {isSignup ? "Criar conta" : "Entrar"}
+      <p className="label text-foreground-muted">{isSignup ? "Registro / Nova ficha" : "Acesso / Identificação"}</p>
+      <h1 className="display-2 mt-4 text-[26px] leading-[34px] sm:text-[32px] sm:leading-[40px]">
+        {isSignup ? "Registro" : "Identificação"}
       </h1>
-      <p className="mt-1.5 text-sm text-foreground-muted">
+      <p className="mt-3 text-sm text-foreground-muted">
         {isSignup
-          ? "Crie sua conta pra acompanhar pedidos e finalizar compras."
-          : "Bem-vindo de volta à megacidade."}
+          ? "Abra sua ficha para registrar aquisições e acompanhar pedidos."
+          : "Apresente suas credenciais. Tentativas são registradas."}
       </p>
 
       <form action={formAction} className="mt-7 flex flex-col gap-4" noValidate>
         {state?.message ? (
-          <p className="rounded-md border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger">
-            {state.message}
-          </p>
+          <FormAlert>{state.message}</FormAlert>
         ) : null}
 
         {isSignup ? (
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="name" className="text-sm font-medium">
+            <label htmlFor="name" className={fieldLabelClass}>
               Nome
             </label>
             <input
@@ -45,14 +42,12 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
               className={inputClass}
               placeholder="Seu nome"
             />
-            {state?.errors?.name ? (
-              <p className="text-xs text-danger">{state.errors.name}</p>
-            ) : null}
+            <FieldError message={state?.errors?.name} />
           </div>
         ) : null}
 
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="email" className="text-sm font-medium">
+          <label htmlFor="email" className={fieldLabelClass}>
             E-mail
           </label>
           <input
@@ -64,13 +59,11 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
             className={inputClass}
             placeholder="voce@exemplo.com"
           />
-          {state?.errors?.email ? (
-            <p className="text-xs text-danger">{state.errors.email}</p>
-          ) : null}
+          <FieldError message={state?.errors?.email} />
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="password" className="text-sm font-medium">
+          <label htmlFor="password" className={fieldLabelClass}>
             Senha
           </label>
           <input
@@ -81,33 +74,31 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
             className={inputClass}
             placeholder={isSignup ? "Mín. 8 caracteres" : "Sua senha"}
           />
-          {state?.errors?.password ? (
-            <p className="text-xs text-danger">{state.errors.password}</p>
-          ) : null}
+          <FieldError message={state?.errors?.password} />
         </div>
 
         <button
           type="submit"
           disabled={pending}
-          className="mt-1 w-full rounded-md bg-accent px-5 py-2.5 text-sm font-semibold text-accent-foreground transition-transform enabled:hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-50"
+          className={`mt-2 w-full ${buttonPrimary}`}
         >
-          {pending ? (isSignup ? "Criando…" : "Entrando…") : isSignup ? "Criar conta" : "Entrar"}
+          {pending ? "Verificando…" : isSignup ? "Abrir ficha" : "Identificar-se"}
         </button>
       </form>
 
-      <p className="mt-6 text-center text-sm text-foreground-muted">
+      <p className="mt-6 text-sm text-foreground-muted">
         {isSignup ? (
           <>
-            Já tem conta?{" "}
-            <Link href="/entrar" className="text-accent hover:underline">
-              Entrar
+            Já possui ficha?{" "}
+            <Link href="/entrar" className="text-foreground underline underline-offset-4">
+              Identificar-se
             </Link>
           </>
         ) : (
           <>
-            Não tem conta?{" "}
-            <Link href="/cadastro" className="text-accent hover:underline">
-              Criar conta
+            Sem ficha?{" "}
+            <Link href="/cadastro" className="text-foreground underline underline-offset-4">
+              Abrir registro
             </Link>
           </>
         )}

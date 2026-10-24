@@ -131,6 +131,8 @@ export const categories = pgTable("categories", {
   uniqueIndex("categories_slug_unique_idx").on(table.slug),
 ]);
 
+export type ProductSpec = { label: string; value: string };
+
 export const products = pgTable("products", {
   id: uuid("id").primaryKey().defaultRandom(),
   categoryId: uuid("category_id")
@@ -145,6 +147,9 @@ export const products = pgTable("products", {
   compareAtPriceCents: integer("compare_at_price_cents"), // preço "de/por"
   stockQuantity: integer("stock_quantity").notNull().default(0),
   weightGrams: integer("weight_grams"),
+  // Ficha técnica, em ordem de exibição: [{ label: "VRAM", value: "12 GB GDDR7" }].
+  // Lista (não objeto) porque a ordem importa e o rótulo é texto livre por categoria.
+  specs: jsonb("specs").$type<ProductSpec[]>().notNull().default([]),
   isActive: boolean("is_active").notNull().default(true),
   isFeatured: boolean("is_featured").notNull().default(false),
   ratingAverage: decimal("rating_average", { precision: 2, scale: 1 })
@@ -478,8 +483,17 @@ export const jobs = pgTable("jobs", {
     .where(sql`status in ('queued', 'running', 'failed')`),
 ]);
 
+export const notificationStatusEnum = pgEnum("notification_status", [
+  "pending", // gravada pelo passo da saga; entrega na fila
+  "sent", // provedor aceitou (ou entrega simulada)
+  "failed", // recusada de vez pelo provedor (ex.: destinatário inválido)
+]);
+
 // Saída do serviço de notificações. `dedupeKey` existe pra provar (e testar)
 // que o passo é idempotente: reenviar a mesma notificação não duplica linha.
+// A entrega é um job separado (outbox): o e-mail nunca sai de dentro da
+// transação do passo — se ela desfizesse, o cliente receberia confirmação de
+// um pedido que não existe.
 export const notifications = pgTable("notifications", {
   id: uuid("id").primaryKey().defaultRandom(),
   channel: text("channel").notNull().default("email"),
@@ -488,6 +502,13 @@ export const notifications = pgTable("notifications", {
   body: text("body").notNull(),
   correlationId: text("correlation_id"), // orderNumber
   dedupeKey: text("dedupe_key").notNull(),
+  status: notificationStatusEnum("status").notNull().default("pending"),
+  provider: text("provider"), // "resend" | "simulado"
+  providerMessageId: text("provider_message_id"),
+  /** Pra onde foi de fato — difere do `recipient` no modo sandbox (EMAIL_REDIRECT_TO). */
+  deliveredTo: text("delivered_to"),
+  lastError: text("last_error"),
+  sentAt: timestamp("sent_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
   uniqueIndex("notifications_dedupe_key_unique_idx").on(table.dedupeKey),
@@ -628,6 +649,43 @@ export const wishlistItemsRelations = relations(wishlistItems, ({ one }) => ({
     references: [products.id],
   }),
 }));
+
+// ---------------------------------------------------------------------------
+// Serviços: pedidos de orçamento (desenvolvimento, montagem, manutenção,
+// formatação). Não passam pelo checkout — serviço sob medida começa por conversa.
+// ---------------------------------------------------------------------------
+
+export const serviceKindEnum = pgEnum("service_kind", [
+  "desenvolvimento",
+  "montagem",
+  "manutencao",
+  "formatacao",
+]);
+
+export const serviceRequestStatusEnum = pgEnum("service_request_status", [
+  "novo", // acabou de chegar
+  "em_contato", // conversa iniciada
+  "fechado", // virou trabalho
+  "arquivado", // não seguiu
+]);
+
+export const serviceRequests = pgTable("service_requests", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  // Protocolo legível (DYS-S0001): é o que a pessoa recebe e cita na conversa.
+  protocol: text("protocol").notNull(),
+  kind: serviceKindEnum("kind").notNull(),
+  name: text("name").notNull(),
+  email: text("email").notNull(),
+  phone: text("phone"),
+  details: text("details").notNull(),
+  status: serviceRequestStatusEnum("status").notNull().default("novo"),
+  userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("service_requests_protocol_unique_idx").on(table.protocol),
+  index("service_requests_status_idx").on(table.status),
+]);
 
 export const sagasRelations = relations(sagas, ({ many }) => ({
   steps: many(sagaSteps),

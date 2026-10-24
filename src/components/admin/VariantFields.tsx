@@ -3,7 +3,7 @@
 import { formatAttributes } from "@/lib/validation/variant";
 
 export const variantInput =
-  "w-full rounded-lg border border-border bg-background px-2.5 py-1.5 text-sm text-foreground outline-none transition-colors placeholder:text-foreground-muted focus:border-accent";
+  "w-full rounded-lg border border-border bg-background px-2.5 py-1.5 text-sm text-foreground outline-none transition-colors placeholder:text-foreground-muted focus:border-foreground";
 export const variantLabel = "text-[10px] font-medium uppercase tracking-wide text-foreground-muted";
 
 export type VariantDefaults = {
@@ -92,7 +92,7 @@ function Field({
         className={variantInput}
         {...rest}
       />
-      {error ? <span className="text-[11px] text-danger">{error}</span> : null}
+      {error ? <span className="text-[11px] text-foreground">{error}</span> : null}
     </div>
   );
 }

@@ -24,15 +24,15 @@ export function CouponActions({ couponId, isActive }: { couponId: string; isActi
             setError(result.error ?? "Erro.");
           })
         }
-        className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition-colors disabled:opacity-50 ${
+        className={`label border px-2.5 py-1 disabled:opacity-50 ${
           active
-            ? "bg-deal-soft text-success"
+            ? "border border-foreground text-foreground"
             : "bg-background-elevated-hover text-foreground-muted hover:text-foreground"
         }`}
       >
         {active ? "Ativo" : "Inativo"}
       </button>
-      {error ? <span className="text-[11px] text-danger">{error}</span> : null}
+      {error ? <span className="text-[11px] text-foreground">{error}</span> : null}
     </span>
   );
 }

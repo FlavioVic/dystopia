@@ -1,6 +1,6 @@
 <!-- BEGIN:nextjs-agent-rules -->
 
-# This is NOT the Next.js you know
+## This is NOT the Next.js you know
 
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
 
@@ -10,7 +10,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 # Dystopia — guia de engenharia
 
-E-commerce geek em Next.js 16 (App Router) + Postgres/Drizzle. O checkout é
+Loja de peças de PC + serviços técnicos (orçamento) em Next.js 16 (App Router) + Postgres/Drizzle, projeto de portfólio de Flávio Victor. O checkout é
 orquestrado por uma **SAGA** com fila durável. Leia este arquivo antes de
 mexer em qualquer coisa de pedido, estoque, pagamento ou fila.
 
@@ -38,7 +38,7 @@ saga/                     orquestração: ordem dos passos, retry, compensação
 services/*                regra de negócio, uma responsabilidade cada
                           (inventory, payments, orders, coupons, carts,
                            notifications, catalog, reviews, wishlist, addresses,
-                           rate-limit)
+                           rate-limit, service-requests)
 queue/                    fila genérica (jobs, claim, backoff, DLQ)
 db/                       schema Drizzle + pool
 ```
@@ -176,10 +176,34 @@ revise o SQL → `npm run db:migrate`. Nunca edite migration já aplicada.
   bcryptjs, dotenv). Fila, saga, logger e runner de teste são caseiros de
   propósito; o Stripe é chamado via `fetch` (sem SDK) e o Stripe.js vem de
   js.stripe.com, como o Stripe exige.
+- Efeito externo nunca sai de dentro da transação de um passo: e-mail é
+  gravado no passo e entregue por job (`notifications.deliver`), com
+  `Idempotency-Key`. Com `RESEND_API_KEY`, `EMAIL_REDIRECT_TO` é obrigatório
+  (sandbox) — demo pública não manda e-mail pra quem se cadastrou.
 - Chave secreta do Stripe só no processo de pagamentos; o app web usa só a
-  pública (`lib/stripe-public.ts`). Só chave de teste é aceita.
-- Tailwind com os tokens de `globals.css` (`--accent`, `--deal`, `border`,
-  `foreground-muted`…). Não chute hex novo.
+  pública (`lib/stripe-public.ts`). Só chave de teste é aceita. Exceção
+  consciente: com `INLINE_WORKER=1` (demo só-Vercel) pagamentos roda no
+  mesmo runtime do app, então a secreta de teste vai pra Vercel também.
+- **Worker embutido** (`INLINE_WORKER=1`, `src/lib/inline-worker.ts`): sem
+  worker de pé, checkout, página do pedido e painel de orquestração drenam a
+  fila no `after()`, e `/api/cron/fila` (cron da Vercel) é a rede de
+  segurança. Quem pluga os handlers é `src/composition/worker.ts`, o mesmo
+  que o `npm run worker` usa — a fila e a saga não mudam.
+- Identidade do design system "DYSTOPIA": tokens de `globals.css` por papel
+  (`background`, `foreground`, `border`, `signal`…) — não chute hex novo. Cantos
+  retos, sem sombra/gradiente/tinta. Vermelho é a cor de AÇÃO (pedido do dono):
+  `bg-primary` + `text-primary-foreground` em botões/faixas; texto vermelho
+  pequeno só com `text-signal-text` (o `signal`/`primary` puro só ≥24px). Kit em
+  `components/Kit.tsx`; marca só via `components/Logo.tsx` (geometria em
+  `lib/brand-geometry.ts`, nunca redesenhe). Voz declarativa, sem exclamação.
+- Michroma (`display-*`) nunca abaixo de 12px; no celular, nome longo vai em
+  `label` (mono). Grade sem coluna explícita no celular estoura a largura:
+  sempre `grid-cols-1` antes do `sm:` (e `min-w-0` na célula se tiver Michroma).
+- Foto de produto só do modelo exato e com licença livre (`lib/photo-credits.ts`,
+  teste em `tests/unit/media-assets.test.ts`). Em produção, mídia do catálogo
+  muda com `npm run catalog:media`, não com o seed (que apaga contas).
+- Animação: `Reveal`/`CountUp` (`components/Motion.tsx`) e classes em
+  `globals.css`; respeite `prefers-reduced-motion`.
 - Data layer em `src/lib/data/*` com `cache()` do React; mutação em
   `src/lib/actions/*`.
 

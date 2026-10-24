@@ -18,7 +18,7 @@ type Defaults = {
 };
 
 const input =
-  "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition-colors placeholder:text-foreground-muted focus:border-accent";
+  "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition-colors placeholder:text-foreground-muted focus:border-foreground";
 const label = "text-[11px] font-medium uppercase tracking-wide text-foreground-muted";
 
 export function CouponForm({
@@ -39,7 +39,7 @@ export function CouponForm({
   return (
     <form action={formAction} className="flex flex-col gap-5">
       {state?.message ? (
-        <p className="rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger">
+        <p className="rounded-lg border border-signal bg-signal px-3 py-2 text-sm text-on-signal">
           {state.message}
         </p>
       ) : null}
@@ -56,7 +56,7 @@ export function CouponForm({
             placeholder="BEMVINDO10"
             className={`${input} font-mono uppercase`}
           />
-          {errors.code ? <span className="text-[11px] text-danger">{errors.code}</span> : null}
+          {errors.code ? <span className="text-[11px] text-foreground">{errors.code}</span> : null}
         </div>
 
         <div className="flex flex-col gap-1">
@@ -87,7 +87,7 @@ export function CouponForm({
             className={input}
           />
           {errors.discountValue ? (
-            <span className="text-[11px] text-danger">{errors.discountValue}</span>
+            <span className="text-[11px] text-foreground">{errors.discountValue}</span>
           ) : null}
         </div>
 
@@ -96,7 +96,7 @@ export function CouponForm({
             Pedido mínimo (R$, opcional)
           </label>
           <input id="minOrder" name="minOrder" defaultValue={defaults.minOrder} placeholder="0" className={input} />
-          {errors.minOrder ? <span className="text-[11px] text-danger">{errors.minOrder}</span> : null}
+          {errors.minOrder ? <span className="text-[11px] text-foreground">{errors.minOrder}</span> : null}
         </div>
 
         <div className="flex flex-col gap-1">
@@ -104,7 +104,7 @@ export function CouponForm({
             Limite de usos (vazio = ilimitado)
           </label>
           <input id="maxUsage" name="maxUsage" defaultValue={defaults.maxUsage} className={input} />
-          {errors.maxUsage ? <span className="text-[11px] text-danger">{errors.maxUsage}</span> : null}
+          {errors.maxUsage ? <span className="text-[11px] text-foreground">{errors.maxUsage}</span> : null}
           {mode === "edit" && defaults.usageCount != null ? (
             <span className="text-[11px] text-foreground-muted">
               já usado {defaults.usageCount} vez(es)
@@ -123,7 +123,7 @@ export function CouponForm({
             defaultValue={defaults.validFrom}
             className={input}
           />
-          {errors.validFrom ? <span className="text-[11px] text-danger">{errors.validFrom}</span> : null}
+          {errors.validFrom ? <span className="text-[11px] text-foreground">{errors.validFrom}</span> : null}
         </div>
 
         <div className="flex flex-col gap-1">
@@ -137,7 +137,7 @@ export function CouponForm({
             defaultValue={defaults.validUntil}
             className={input}
           />
-          {errors.validUntil ? <span className="text-[11px] text-danger">{errors.validUntil}</span> : null}
+          {errors.validUntil ? <span className="text-[11px] text-foreground">{errors.validUntil}</span> : null}
         </div>
 
         <div className="flex flex-col gap-1 sm:col-span-2">
@@ -168,7 +168,7 @@ export function CouponForm({
         <button
           type="submit"
           disabled={pending}
-          className="rounded-lg bg-accent px-5 py-2.5 text-sm font-semibold text-accent-foreground disabled:opacity-50"
+          className="rounded-lg bg-primary px-5 py-2.5 label text-primary-foreground disabled:opacity-50"
         >
           {pending ? "Salvando…" : mode === "create" ? "Criar cupom" : "Salvar alterações"}
         </button>

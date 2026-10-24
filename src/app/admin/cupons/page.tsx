@@ -14,12 +14,12 @@ export default async function AdminCoupons() {
   return (
     <div>
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-foreground-muted">
+        <h2 className="label text-foreground-muted">
           Cupons ({coupons.length})
         </h2>
         <Link
           href="/admin/cupons/novo"
-          className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground"
+          className="rounded-lg bg-primary px-4 py-2 label text-primary-foreground"
         >
           + Novo cupom
         </Link>

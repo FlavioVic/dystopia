@@ -17,6 +17,7 @@ import { redirect } from "next/navigation";
 import { db } from "@/db";
 import { getCurrentUser } from "@/lib/data/auth";
 import { getCart } from "@/lib/data/cart";
+import { drainQueueAfterResponse } from "@/lib/inline-worker";
 import { shippingFor, type CouponResult } from "@/lib/shipping";
 import { parseAddressForm } from "@/lib/validation/address";
 import { CHECKOUT_SAGA_TYPE, type CheckoutSagaPayload } from "@/saga/definitions/checkout";
@@ -44,7 +45,7 @@ export async function validateCoupon(code: string, subtotalCents: number): Promi
     code: result.code,
     couponId: result.couponId,
     discountCents: result.discountCents,
-    message: "Cupom aplicado!",
+    message: "Diretiva aplicada.",
   };
 }
 
@@ -164,6 +165,9 @@ export async function placeOrder(_prev: CheckoutState, formData: FormData): Prom
   // cair na página do pedido com o resultado. Se não der, o job na fila
   // garante que o worker termina (ver src/saga/runner.ts).
   await tryRunSagaInline(sagaId);
+  // Sem worker de pé (deploy só-Vercel): pagamento, resposta e e-mail saem
+  // daqui, depois do redirect — esperando retries em backoff se precisar.
+  drainQueueAfterResponse({ budgetMs: 45_000, waitForScheduled: true });
 
   redirect(`/pedido/${orderNumber}`);
 }

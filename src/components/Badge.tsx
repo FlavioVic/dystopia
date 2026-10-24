@@ -1,10 +1,10 @@
 import { type ReactNode } from "react";
 
 const variants = {
-  accent: "bg-accent/10 text-accent border border-accent/30",
-  secondary: "bg-accent-secondary/10 text-accent-secondary border border-accent-secondary/30",
+  accent: "bg-background-elevated text-accent border border-foreground",
+  secondary: "bg-background-elevated text-foreground-muted border border-foreground",
   muted: "bg-background-elevated text-foreground-muted border border-border",
-  danger: "bg-danger/10 text-danger border border-danger/30",
+  danger: "bg-signal text-on-signal border border-signal",
 } as const;
 
 export function Badge({
@@ -18,7 +18,7 @@ export function Badge({
 }) {
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium tracking-wide ${variants[variant]} ${className}`}
+      className={`label inline-flex items-center gap-1 px-2 py-0.5 ${variants[variant]} ${className}`}
     >
       {children}
     </span>

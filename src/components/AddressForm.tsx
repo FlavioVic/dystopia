@@ -4,7 +4,7 @@ import { useActionState } from "react";
 import { saveAddress, type AddressState } from "@/lib/actions/addresses";
 
 const input =
-  "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition-colors placeholder:text-foreground-muted focus:border-accent";
+  "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition-colors placeholder:text-foreground-muted focus:border-foreground";
 const label = "text-[11px] font-medium uppercase tracking-wide text-foreground-muted";
 
 /** Cadastro de endereço na conta. Mesma validação do checkout (`validation/address`). */
@@ -14,7 +14,7 @@ export function AddressForm({ hasAddresses }: { hasAddresses: boolean }) {
 
   return (
     <form action={formAction} className="flex flex-col gap-4 rounded-xl border border-border bg-background-elevated p-4">
-      <h2 className="text-xs font-semibold uppercase tracking-wider text-foreground-muted">
+      <h2 className="label text-foreground-muted">
         Novo endereço
       </h2>
 
@@ -44,13 +44,13 @@ export function AddressForm({ hasAddresses }: { hasAddresses: boolean }) {
         <button
           type="submit"
           disabled={pending}
-          className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground disabled:opacity-50"
+          className="rounded-lg bg-primary px-4 py-2 label text-primary-foreground disabled:opacity-50"
         >
           {pending ? "Salvando…" : "Salvar endereço"}
         </button>
-        {state?.ok ? <span className="text-xs text-success">{state.message}</span> : null}
+        {state?.ok ? <span className="text-xs text-foreground">{state.message}</span> : null}
         {state?.message && !state.ok ? (
-          <span className="text-xs text-danger">{state.message}</span>
+          <span className="text-xs text-foreground">{state.message}</span>
         ) : null}
       </div>
     </form>
@@ -69,7 +69,7 @@ function Field({
         {labelText}
       </label>
       <input id={`address-${name}`} name={name} className={input} {...rest} />
-      {error ? <span className="text-[11px] text-danger">{error}</span> : null}
+      {error ? <span className="text-[11px] text-foreground">{error}</span> : null}
     </div>
   );
 }

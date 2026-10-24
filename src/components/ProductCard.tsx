@@ -1,19 +1,17 @@
 import Image from "next/image";
 import Link from "next/link";
-import { StarRating } from "@/components/StarRating";
 import { AddToCartButton } from "@/components/AddToCartButton";
+import { StarRating } from "@/components/StarRating";
+import { gridCell } from "@/components/Kit";
 import { WishlistHeart } from "@/components/WishlistHeart";
-import {
-  discountPercent,
-  formatPriceCents,
-  installmentText,
-  isFreeShipping,
-} from "@/lib/format";
+import { discountPercent, formatPriceCents, installmentText } from "@/lib/format";
 
 type ProductCardData = {
   id: string;
   slug: string;
   name: string;
+  brand?: string | null;
+  sku?: string;
   priceCents: number;
   compareAtPriceCents: number | null;
   stockQuantity: number;
@@ -23,27 +21,21 @@ type ProductCardData = {
   category?: { name: string } | null;
 };
 
-export function ProductCard({
-  product,
-  priority = false,
-}: {
-  product: ProductCardData;
-  priority?: boolean;
-}) {
+/**
+ * Card do inventário. Mora numa grade com régua (`gridFrame` + `gridCell`):
+ * a régua é a própria grade, sem sombra nem caixa arredondada.
+ * Estado (desconto, estoque) é palavra num rótulo, nunca cor sozinha.
+ */
+export function ProductCard({ product, priority = false }: { product: ProductCardData; priority?: boolean }) {
   const discount = discountPercent(product.priceCents, product.compareAtPriceCents);
   const image = product.images[0];
-  const rating = Number(product.ratingAverage);
   const outOfStock = product.stockQuantity <= 0;
   const lowStock = !outOfStock && product.stockQuantity <= 3;
-  const freeShip = isFreeShipping(product.priceCents);
   const installment = installmentText(product.priceCents);
 
   return (
-    <article className="group relative flex flex-col overflow-hidden rounded-xl border border-border bg-background-elevated transition-all duration-200 hover:-translate-y-0.5 hover:border-border-hover hover:shadow-[0_16px_36px_-20px_rgba(124,58,237,0.45)]">
-      <Link
-        href={`/produto/${product.slug}`}
-        className="relative block aspect-square overflow-hidden bg-background"
-      >
+    <article className={`sweep group relative flex flex-col bg-background transition-colors hover:bg-background-elevated ${gridCell}`}>
+      <Link href={`/produto/${product.slug}`} className="relative block aspect-square overflow-hidden">
         {image ? (
           <Image
             src={image.url}
@@ -51,74 +43,54 @@ export function ProductCard({
             fill
             priority={priority}
             sizes="(min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw"
-            className="object-cover transition-transform duration-300 group-hover:scale-105"
+            // Foto real: inteira, com respiro (cortar uma placa de vídeo no meio
+            // não mostra o produto). Placa técnica: preenche o quadro.
+            className={
+              image.url.startsWith("/images/photos/")
+                ? "object-contain p-5 transition-transform duration-500 group-hover:scale-[1.04]"
+                : "object-cover transition-transform duration-500 group-hover:scale-[1.02]"
+            }
           />
         ) : null}
-
-        <div className="absolute left-2 top-2 flex flex-col items-start gap-1.5">
-          {discount ? (
-            <span className="rounded-md bg-deal px-2 py-0.5 text-[11px] font-bold text-deal-foreground shadow-sm">
-              -{discount}%
-            </span>
-          ) : null}
+        <div className="absolute left-3 top-3 flex flex-col items-start gap-1.5">
+          {discount ? <span className="dys-label dys-label--classified">-{discount}%</span> : null}
           {outOfStock ? (
-            <span className="rounded-md bg-danger px-2 py-0.5 text-[11px] font-bold text-white shadow-sm">
-              Esgotado
-            </span>
+            <span className="dys-label dys-label--notice bg-background">Sem estoque</span>
           ) : lowStock ? (
-            <span className="rounded-md bg-amber-bright px-2 py-0.5 text-[11px] font-bold text-[#1a1410] shadow-sm">
-              Últimas unidades
-            </span>
+            <span className="dys-label bg-background">Últimas {String(product.stockQuantity).padStart(2, "0")}</span>
           ) : null}
         </div>
       </Link>
 
       {/* Fora do <Link>: botão dentro de âncora não é HTML válido (e o clique navegaria). */}
-      <div className="absolute right-2 top-2 z-10">
+      <div className="absolute right-3 top-3 z-10">
         <WishlistHeart productId={product.id} size="sm" />
       </div>
 
-      <div className="flex flex-1 flex-col gap-1.5 p-3.5">
-        {product.category ? (
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-violet">
-            {product.category.name}
-          </span>
-        ) : null}
+      <div className="flex flex-1 flex-col gap-2 border-t border-border-faint p-4">
+        <span className="label truncate text-foreground-muted">
+          {[product.brand, product.category?.name].filter(Boolean).join(" · ") || "Hardware"}
+        </span>
 
         <Link href={`/produto/${product.slug}`}>
-          <h3 className="line-clamp-2 text-sm font-medium text-foreground transition-colors group-hover:text-accent">
+          <h3 className="line-clamp-2 min-h-10 text-sm leading-5 text-foreground group-hover:underline group-hover:underline-offset-4">
             {product.name}
           </h3>
         </Link>
 
-        {product.ratingCount > 0 ? (
-          <StarRating rating={rating} count={product.ratingCount} />
-        ) : null}
+        {product.ratingCount > 0 ? <StarRating rating={Number(product.ratingAverage)} count={product.ratingCount} /> : null}
 
-        <div className="mt-1.5 flex flex-col gap-0.5">
+        <div className="mt-1 flex flex-col gap-1">
           {product.compareAtPriceCents ? (
             <span className="font-mono text-xs text-foreground-muted line-through">
               {formatPriceCents(product.compareAtPriceCents)}
             </span>
           ) : null}
-          <span className="font-mono text-lg font-bold leading-none text-accent">
+          <span className="font-mono text-xl font-semibold leading-none text-foreground">
             {formatPriceCents(product.priceCents)}
           </span>
-          {installment ? (
-            <span className="text-[11px] text-foreground-muted">{installment}</span>
-          ) : null}
+          {installment ? <span className="text-xs text-foreground-muted">{installment}</span> : null}
         </div>
-
-        {freeShip ? (
-          <span className="mt-0.5 inline-flex w-fit items-center gap-1 rounded-full bg-deal-soft px-2 py-0.5 text-[11px] font-semibold text-success">
-            <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M3 7h10v8H3zM13 10h4l3 3v2h-7z" strokeLinecap="round" strokeLinejoin="round" />
-              <circle cx="7" cy="17" r="1.6" />
-              <circle cx="17" cy="17" r="1.6" />
-            </svg>
-            Frete grátis
-          </span>
-        ) : null}
 
         <div className="mt-auto pt-3">
           <AddToCartButton productId={product.id} disabled={outOfStock} />

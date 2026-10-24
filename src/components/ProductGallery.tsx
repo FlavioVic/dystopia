@@ -7,7 +7,7 @@ export function ProductGallery({
   images,
   productName,
 }: {
-  images: { url: string; altText: string | null }[];
+  images: { url: string; altText: string | null; credit?: { author: string; license: string; source: string } }[];
   productName: string;
 }) {
   const [active, setActive] = useState(0);
@@ -15,7 +15,7 @@ export function ProductGallery({
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="relative aspect-square overflow-hidden rounded-lg border border-border bg-background-elevated">
+      <div className="relative aspect-square overflow-hidden border border-border-faint bg-background">
         {current ? (
           <Image
             src={current.url}
@@ -23,10 +23,18 @@ export function ProductGallery({
             fill
             priority
             sizes="(min-width: 1024px) 40vw, 90vw"
-            className="object-cover"
+            className={current.credit ? "object-contain p-4" : "object-cover"}
           />
         ) : null}
       </div>
+      {current?.credit ? (
+        <p className="label text-foreground-muted">
+          Foto: {current.credit.author} /{" "}
+          <a href={current.credit.source} target="_blank" rel="noreferrer" className="underline underline-offset-4 hover:text-foreground">
+            {current.credit.license}, Wikimedia Commons
+          </a>
+        </p>
+      ) : null}
 
       {images.length > 1 ? (
         <div className="flex gap-2">
@@ -35,8 +43,8 @@ export function ProductGallery({
               key={img.url + i}
               type="button"
               onClick={() => setActive(i)}
-              className={`relative h-16 w-16 shrink-0 overflow-hidden rounded-md border transition-colors ${
-                i === active ? "border-accent" : "border-border hover:border-border-hover"
+              className={`relative h-16 w-16 shrink-0 overflow-hidden border ${
+                i === active ? "border-foreground" : "border-border-faint hover:border-border"
               }`}
               aria-label={`Ver imagem ${i + 1}`}
             >

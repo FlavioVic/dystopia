@@ -18,7 +18,7 @@ export function VariantCreateForm({
       </p>
 
       {state?.message ? (
-        <p className="mt-2 rounded-lg border border-danger/30 bg-danger/10 px-2.5 py-1.5 text-xs text-danger">
+        <p className="mt-2 rounded-lg border border-signal bg-signal px-2.5 py-1.5 text-xs text-on-signal">
           {state.message}
         </p>
       ) : null}
@@ -30,7 +30,7 @@ export function VariantCreateForm({
       <button
         type="submit"
         disabled={pending}
-        className="mt-3 rounded-lg bg-accent px-4 py-2 text-xs font-semibold text-accent-foreground disabled:opacity-50"
+        className="mt-3 rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground disabled:opacity-50"
       >
         {pending ? "Adicionando…" : "Adicionar variante"}
       </button>

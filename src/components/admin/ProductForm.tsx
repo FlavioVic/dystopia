@@ -20,7 +20,7 @@ type Defaults = {
 };
 
 const input =
-  "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition-colors placeholder:text-foreground-muted focus:border-accent";
+  "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition-colors placeholder:text-foreground-muted focus:border-foreground";
 const label = "text-[11px] font-medium uppercase tracking-wide text-foreground-muted";
 
 export function ProductForm({
@@ -40,7 +40,7 @@ export function ProductForm({
   return (
     <form action={formAction} className="flex flex-col gap-5">
       {state?.message ? (
-        <p className="rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger">
+        <p className="rounded-lg border border-signal bg-signal px-3 py-2 text-sm text-on-signal">
           {state.message}
         </p>
       ) : null}
@@ -58,7 +58,7 @@ export function ProductForm({
               <option key={c.id} value={c.id}>{c.name}</option>
             ))}
           </select>
-          {e.categoryId ? <span className="text-[11px] text-danger">{e.categoryId}</span> : null}
+          {e.categoryId ? <span className="text-[11px] text-foreground">{e.categoryId}</span> : null}
         </div>
         <Field name="price" label="Preço (R$)" type="number" step="0.01" defaultValue={defaults.price} error={e.price} />
         <Field name="compareAt" label='Preço "de" (opcional)' type="number" step="0.01" defaultValue={defaults.compareAt} error={e.compareAt} />
@@ -69,7 +69,7 @@ export function ProductForm({
         <div className="flex flex-col gap-1 sm:col-span-2">
           <label htmlFor="description" className={label}>Descrição</label>
           <textarea id="description" name="description" rows={4} defaultValue={defaults.description} className={input} />
-          {e.description ? <span className="text-[11px] text-danger">{e.description}</span> : null}
+          {e.description ? <span className="text-[11px] text-foreground">{e.description}</span> : null}
         </div>
       </div>
 
@@ -88,7 +88,7 @@ export function ProductForm({
         <button
           type="submit"
           disabled={pending}
-          className="rounded-lg bg-accent px-5 py-2.5 text-sm font-semibold text-accent-foreground disabled:opacity-50"
+          className="rounded-lg bg-primary px-5 py-2.5 label text-primary-foreground disabled:opacity-50"
         >
           {pending ? "Salvando…" : mode === "create" ? "Criar produto" : "Salvar alterações"}
         </button>
@@ -116,7 +116,7 @@ function Field({
     <div className={`flex flex-col gap-1 ${className}`}>
       <label htmlFor={name} className={label}>{labelText}</label>
       <input id={name} name={name} className={input} {...rest} />
-      {error ? <span className="text-[11px] text-danger">{error}</span> : null}
+      {error ? <span className="text-[11px] text-foreground">{error}</span> : null}
     </div>
   );
 }

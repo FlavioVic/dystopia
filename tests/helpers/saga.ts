@@ -13,7 +13,14 @@ import { DEFAULT_QUEUE } from "@/queue";
 import { processOnce, type TickReport } from "@/queue/worker";
 import { runSagaInline } from "@/saga/runner";
 import { PAYMENTS_QUEUE } from "@/services/payments/contract";
+import { createNotificationHandlers } from "@/services/notifications/delivery";
 import { paymentHandlers } from "@/services/payments/consumer";
+
+// Entrega de e-mail sempre simulada nos testes — mesmo com RESEND_API_KEY no .env.
+const handlers = {
+  ...paymentHandlers,
+  ...createNotificationHandlers({ email: null, fetch: () => Promise.reject(new Error("rede proibida em teste")) }),
+};
 
 export type SagaRow = typeof sagas.$inferSelect;
 
@@ -22,7 +29,7 @@ const TERMINAL = ["completed", "compensated", "failed"];
 /** Um tick de worker numa fila (ou nas duas), com os handlers de pagamento. */
 export async function work(queue: "default" | "payments" | "all" = "all"): Promise<TickReport> {
   const queues = queue === "all" ? [DEFAULT_QUEUE, PAYMENTS_QUEUE] : [queue === "default" ? DEFAULT_QUEUE : PAYMENTS_QUEUE];
-  return processOnce({ workerId: "worker-de-teste", queues, handlers: paymentHandlers, batchSize: 10 });
+  return processOnce({ workerId: "worker-de-teste", queues, handlers, batchSize: 10 });
 }
 
 /** Faz os jobs agendados pro futuro (backoff) ficarem prontos agora. */

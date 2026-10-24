@@ -12,7 +12,7 @@ export default async function NewProductPage() {
 
   return (
     <div className="max-w-3xl">
-      <h2 className="font-brand text-xl font-bold uppercase tracking-tight">Novo produto</h2>
+      <h2 className="display-3 text-[20px] leading-[28px]">Novo produto</h2>
       <div className="mt-6">
         <ProductForm mode="create" action={createProduct} categories={categories} />
       </div>
