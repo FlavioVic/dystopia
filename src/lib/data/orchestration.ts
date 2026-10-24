@@ -1,8 +1,10 @@
 import { cache } from "react";
-import { asc, desc, eq, inArray } from "drizzle-orm";
+import { asc, desc, eq } from "drizzle-orm";
+import { ALL_QUEUES } from "@/composition/worker";
 import { db } from "@/db";
-import { jobs, notifications, sagaSteps, sagas } from "@/db/schema";
+import { notifications, sagaSteps, sagas } from "@/db/schema";
 import { computeAlerts, HEALTH_WINDOWS, type HealthWindow } from "@/lib/observability";
+import { peekDeadLetters, type DeadLetter } from "@/queue/dead-letters";
 import { getQueueMetrics } from "@/queue/metrics";
 import { getSagaMetrics } from "@/saga/metrics";
 
@@ -28,7 +30,7 @@ export const getOperationalHealth = cache(async (window: HealthWindow = "24h") =
   const now = new Date();
   const [sagaMetrics, queueMetrics] = await Promise.all([
     getSagaMetrics(db, { since: new Date(now.getTime() - HEALTH_WINDOWS[window].ms), now }),
-    getQueueMetrics(db, { now }),
+    getQueueMetrics(db, { queues: ALL_QUEUES, now }),
   ]);
   const alerts = computeAlerts(queueMetrics, {
     stuck: sagaMetrics.stuck,
@@ -37,19 +39,17 @@ export const getOperationalHealth = cache(async (window: HealthWindow = "24h") =
   return { window, sagas: sagaMetrics, queue: queueMetrics, alerts };
 });
 
-export const getJobsOverview = cache(async (limit = 25) => {
-  return db.query.jobs.findMany({
-    orderBy: [desc(jobs.createdAt)],
-    limit,
-  });
-});
-
-export const getActiveAndDeadJobs = cache(async (limit = 25) => {
-  return db.query.jobs.findMany({
-    where: inArray(jobs.status, ["queued", "running", "failed", "dead"]),
-    orderBy: [asc(jobs.runAt)],
-    limit,
-  });
+/**
+ * O que está na DLQ de cada fila (sem consumir). Só olha as filas que têm
+ * mensagem lá — `queues` vem das métricas, que já contaram.
+ */
+export const getDeadLetters = cache(async (queues: string[], limit = 20): Promise<DeadLetter[]> => {
+  const letters: DeadLetter[] = [];
+  for (const queue of queues) {
+    if (letters.length >= limit) break;
+    letters.push(...(await peekDeadLetters(queue, limit - letters.length)));
+  }
+  return letters;
 });
 
 export const getRecentNotifications = cache(async (limit = 10) => {

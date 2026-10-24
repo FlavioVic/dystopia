@@ -1,53 +1,37 @@
 /**
- * Cola entre a saga e a fila.
+ * Cola entre a saga e a fila: o resultado de `advanceSaga` vira a resposta do
+ * handler. `retry`/`busy` voltam pela fila de espera sem gastar tentativa da
+ * mensagem (quem conta tentativa é o passo); o resto é `ack`.
  *
- * O orquestrador (`advanceSaga`) não conhece a fila; aqui a gente traduz o
- * resultado dele em efeito na fila:
- *
- *   retry   → reagenda o MESMO job com backoff
- *   busy    → devolve o job sem gastar tentativa (outro executor está nela)
- *   waiting → fecha o job: passo remoto, quem acorda a saga é a resposta
- *   final   → fecha o job (e qualquer outro job ativo da mesma saga)
- *
- * São dois caminhos pro mesmo código:
- * - **inline** (`runSagaInline`): o próprio request do checkout avança a saga,
- *   então o cliente já cai na página do pedido com o resultado final;
- * - **worker** (`handleSagaAdvanceJob`): processa o job da fila. É o caminho
- *   durável — se o processo do Next morrer no meio, o worker termina.
- *
- * O lease da saga garante que os dois nunca avancem a mesma saga ao mesmo
- * tempo, então rodar os dois é seguro.
+ * Dois caminhos pro mesmo código — o request do checkout (`runSagaInline`,
+ * até o passo remoto) e o consumidor (`handleSagaAdvance`, o durável). O
+ * lease da saga deixa os dois, e mensagem repetida, rodarem ao mesmo tempo.
  */
 
-import type { Executor } from "@/db";
+import { db, type Executor } from "@/db";
 import { sagas } from "@/db/schema";
 import { createLogger } from "@/lib/logger";
 import * as queue from "@/queue";
-import type { ClaimedJob } from "@/queue";
+import type { HandlerResult, QueueMessage } from "@/queue";
 import { advanceSaga, applyStepReply, type AdvanceOptions, type AdvanceOutcome } from "./orchestrator";
-import { errorMessage } from "./errors";
-import { parseStepReply } from "./messaging";
+import { errorMessage, PermanentError } from "./errors";
+import { parseStepReply, SAGA_ADVANCE, SAGA_QUEUE } from "./messaging";
 
 const logger = createLogger("saga:runner");
 
-export const SAGA_ADVANCE_JOB = "saga.advance";
-export const SAGA_RECONCILE_JOB = "saga.reconcile";
-
-export function advanceDedupeKey(sagaId: string): string {
-  return `saga:${sagaId}:advance`;
-}
+/** Folga mínima pra reolhar uma saga ocupada. */
+const BUSY_RECHECK_MS = 1_000;
 
 export type StartSagaInput = {
   type: string;
   correlationId: string;
   payload: Record<string, unknown>;
-  queue?: string;
 };
 
 /**
- * Cria a saga e enfileira o primeiro avanço — chamar DENTRO da transação de
- * negócio. É o padrão outbox: pedido, saga e job commitam juntos, então não
- * existe pedido órfão sem orquestração.
+ * Cria a saga e grava a mensagem do primeiro avanço — chamar DENTRO da
+ * transação de negócio. É o padrão outbox: pedido, saga e mensagem commitam
+ * juntos, então não existe pedido órfão sem orquestração.
  */
 export async function startSaga(executor: Executor, input: StartSagaInput): Promise<{ sagaId: string }> {
   const [saga] = await executor
@@ -61,26 +45,31 @@ export async function startSaga(executor: Executor, input: StartSagaInput): Prom
     })
     .returning({ id: sagas.id });
 
-  await queue.enqueue(executor, {
-    type: SAGA_ADVANCE_JOB,
-    payload: { sagaId: saga.id },
-    queue: input.queue,
-    dedupeKey: advanceDedupeKey(saga.id),
-  });
-
+  await enqueueAdvance(executor, saga.id);
   return { sagaId: saga.id };
 }
 
-/** Avança a saga agora, no processo atual, e sincroniza a fila. */
+/** Mensagem de avanço (opcionalmente adiada) — usada também pela reconciliação. */
+export async function enqueueAdvance(executor: Executor, sagaId: string, delayMs = 0): Promise<void> {
+  await queue.enqueue(executor, { type: SAGA_ADVANCE, queue: SAGA_QUEUE, payload: { sagaId }, delayMs });
+}
+
+/**
+ * Avança a saga agora, no processo atual. Se o passo pediu retry, deixa um
+ * avanço adiado na outbox: a mensagem original pode já ter sido consumida.
+ * Duplicata não faz mal — o lease segura a saga até a hora do retry.
+ */
 export async function runSagaInline(sagaId: string, options: AdvanceOptions = {}): Promise<AdvanceOutcome> {
   const outcome = await advanceSaga(sagaId, { workerId: "inline", ...options });
-  await syncQueue(sagaId, outcome, { jobId: null });
+  if (outcome.status === "retry") {
+    await enqueueAdvance(db, sagaId, outcome.runAt.getTime() - Date.now());
+  }
   return outcome;
 }
 
 /**
  * Versão "nunca quebra o request": usada pelo checkout. Se qualquer coisa
- * explodir aqui, o pedido já está salvo e o job na fila — o worker assume.
+ * explodir aqui, o pedido já está salvo e a mensagem na outbox — o worker assume.
  */
 export async function tryRunSagaInline(sagaId: string, options: AdvanceOptions = {}): Promise<AdvanceOutcome | null> {
   try {
@@ -94,79 +83,41 @@ export async function tryRunSagaInline(sagaId: string, options: AdvanceOptions =
   }
 }
 
-/** Handler do job `saga.advance`. Ele mesmo resolve o destino do job. */
-export async function handleSagaAdvanceJob(job: ClaimedJob, options: AdvanceOptions = {}): Promise<void> {
-  const sagaId = typeof job.payload.sagaId === "string" ? job.payload.sagaId : null;
-  if (!sagaId) {
-    await queue.fail(job.id, "job sem sagaId no payload");
-    return;
-  }
-
-  const outcome = await advanceSaga(sagaId, { workerId: job.payload.workerId as string | undefined, ...options });
-  await syncQueue(sagaId, outcome, { jobId: job.id });
+/** Handler de `saga.advance`. */
+export async function handleSagaAdvance(message: QueueMessage, options: AdvanceOptions = {}): Promise<HandlerResult> {
+  const sagaId = typeof message.payload.sagaId === "string" ? message.payload.sagaId : null;
+  if (!sagaId) throw new PermanentError("invalid_message", "saga.advance sem sagaId no payload");
+  return toHandlerResult(await advanceSaga(sagaId, options));
 }
 
 /**
- * Handler do job `saga.reply`: a resposta de um passo remoto. Aplica (uma vez
- * só) e avança a saga. Se outro executor estiver com a saga, a resposta volta
- * pra fila em vez de se perder — ele pode já ter olhado o passo antes de a
- * resposta chegar e ido embora com `waiting`.
+ * Handler de `saga.reply`: a resposta de um passo remoto. Aplica (uma vez só)
+ * e avança a saga. Se outro executor estiver com a saga, a resposta volta pra
+ * espera em vez de se perder — ele pode já ter olhado o passo antes de a
+ * resposta chegar e ido embora com `waiting`. Reaplicar é no-op.
  */
-export async function handleSagaReplyJob(job: ClaimedJob, options: AdvanceOptions = {}): Promise<void> {
-  const reply = parseStepReply(job.payload);
-  if (!reply) {
-    await queue.fail(job.id, "resposta de passo remoto inválida");
-    return;
-  }
+export async function handleSagaReply(message: QueueMessage, options: AdvanceOptions = {}): Promise<HandlerResult> {
+  const reply = parseStepReply(message.payload);
+  if (!reply) throw new PermanentError("invalid_message", "resposta de passo remoto inválida");
 
   const applied = await applyStepReply(reply);
-  const outcome = await advanceSaga(reply.sagaId, { workerId: job.payload.workerId as string | undefined, ...options });
-
-  if (outcome.status === "busy") {
-    await queue.release(job.id, { delayMs: 1_000 });
-    return;
-  }
-
   logger.debug("resposta de passo remoto", { sagaId: reply.sagaId, step: reply.step, phase: reply.phase, applied });
-  await syncQueue(reply.sagaId, outcome, { jobId: null });
-  await queue.complete(job.id);
+  return toHandlerResult(await advanceSaga(reply.sagaId, options));
 }
 
-async function syncQueue(
-  sagaId: string,
-  outcome: AdvanceOutcome,
-  context: { jobId: string | null },
-): Promise<void> {
-  const dedupeKey = advanceDedupeKey(sagaId);
-
+function toHandlerResult(outcome: AdvanceOutcome): HandlerResult {
+  const now = Date.now();
   switch (outcome.status) {
-    case "retry": {
-      if (context.jobId) {
-        await queue.fail(context.jobId, `${outcome.step}: ${outcome.reason}`, { runAt: outcome.runAt });
-        return;
-      }
-      await queue.scheduleByDedupeKey(
-        dedupeKey,
-        { type: SAGA_ADVANCE_JOB, payload: { sagaId }, runAt: outcome.runAt },
-        { error: `${outcome.step}: ${outcome.reason}` },
-      );
-      return;
-    }
-
-    case "busy": {
-      if (context.jobId) await queue.release(context.jobId, { delayMs: 1_000 });
-      return;
-    }
-
+    case "retry":
+      return { retryInMs: Math.max(0, outcome.runAt.getTime() - now), countAttempt: false };
+    case "busy":
+      return { retryInMs: Math.max(BUSY_RECHECK_MS, outcome.retryAt.getTime() - now), countAttempt: false };
     case "waiting":
     case "completed":
     case "compensated":
     case "failed":
     case "settled":
-    case "not-found": {
-      await queue.settleByDedupeKey(dedupeKey);
-      if (context.jobId) await queue.complete(context.jobId);
+    case "not-found":
       return;
-    }
   }
 }

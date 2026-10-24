@@ -7,11 +7,16 @@
  */
 
 import type { Transaction } from "@/db";
-import { DEFAULT_QUEUE, enqueue } from "@/queue";
+import { enqueue } from "@/queue";
 import { readReplyResult, withReplyTo, type ReplyResult } from "@/queue/reply";
 import type { StepRequest } from "./types";
 
-export const SAGA_REPLY_JOB = "saga.reply";
+/** Fila da orquestração: avanços e respostas de passo remoto. */
+export const SAGA_QUEUE = "saga";
+/** Avança a saga a partir de onde ela parou. */
+export const SAGA_ADVANCE = "saga.advance";
+/** Resposta de um passo remoto (o `replyTo` dos comandos). */
+export const SAGA_REPLY = "saga.reply";
 
 /** Ida (`invoke`) ou volta (`compensate`) de um passo remoto. */
 export type StepPhase = "invoke" | "compensate";
@@ -23,10 +28,6 @@ export type StepReply = {
   result: ReplyResult;
 };
 
-export function stepCommandDedupeKey(sagaId: string, step: string, phase: StepPhase): string {
-  return `saga:${sagaId}:${step}:${phase}`;
-}
-
 /** Enfileira o comando do passo com o endereço de resposta da saga. */
 export async function dispatchStepRequest(
   tx: Transaction,
@@ -37,13 +38,7 @@ export async function dispatchStepRequest(
     type: input.request.type,
     queue: input.request.queue,
     maxAttempts: input.maxAttempts,
-    dedupeKey: stepCommandDedupeKey(input.sagaId, input.step, input.phase),
-    payload: withReplyTo(input.request.payload, {
-      type: SAGA_REPLY_JOB,
-      queue: DEFAULT_QUEUE,
-      payload: conversation,
-      dedupeKey: `${stepCommandDedupeKey(input.sagaId, input.step, input.phase)}:reply`,
-    }),
+    payload: withReplyTo(input.request.payload, { type: SAGA_REPLY, queue: SAGA_QUEUE, payload: conversation }),
   });
 }
 

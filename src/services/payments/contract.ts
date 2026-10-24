@@ -3,7 +3,7 @@
  * do sistema pode importar (tests/unit/architecture.test.ts garante).
  *
  * Pagamentos roda como processo próprio (`npm run worker:payments`),
- * consumindo a fila `payments`. Quem quer cobrar ou estornar manda um comando
+ * consumindo a fila `payments` no RabbitMQ. Quem quer cobrar ou estornar manda um comando
  * com endereço de resposta (`replyTo`, ver queue/reply.ts) e recebe o
  * resultado por mensagem — sem importar uma linha da implementação. Trocar a
  * fila por HTTP, ou o processo por outro deploy, não muda quem usa isto aqui.

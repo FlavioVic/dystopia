@@ -1,51 +1,80 @@
 /**
- * Métricas da fila — leitura agregada no banco, pro painel e pros alertas.
+ * Métricas da fila, pro painel e pros alertas. Genérico como o resto de
+ * `queue/`: não sabe o que as mensagens fazem.
  *
- * Genérico como o resto de `queue/`: não sabe o que os jobs fazem. Tudo é
- * contado com GROUP BY no Postgres; trazer as linhas pra contar em memória
- * fica mais lento a cada pedido.
+ * Duas fontes:
+ * - **outbox** (Postgres): o que ainda não chegou no broker. Crescendo sem
+ *   parar = relay parado ou broker fora;
+ * - **broker** (RabbitMQ): por fila, quanto está pronto, esperando retry e na
+ *   DLQ. Broker inacessível não derruba o painel: vira `broker: "down"`.
  */
 
 import { sql } from "drizzle-orm";
 import type { Executor } from "@/db";
-import { jobs } from "@/db/schema";
+import { outbox } from "@/db/schema";
+import { errorMessage } from "@/saga/errors";
+import { queueDepths, type QueueDepth } from "./broker";
 
-export type QueueMetrics = {
-  byStatus: Record<string, number>;
-  /** Jobs na dead-letter (esgotaram as tentativas). */
-  dead: number;
-  /** Jobs prontos pra rodar agora — o mesmo critério do `claim`. */
-  ready: number;
-  /**
-   * Quanto o job pronto mais antigo já esperou, em ms (0 se não há nenhum).
-   * Com o worker vivo fica perto do intervalo de polling; crescendo sem parar,
-   * ninguém está consumindo a fila.
-   */
-  oldestReadyAgeMs: number;
+export type OutboxMetrics = {
+  /** Mensagens gravadas e ainda não confirmadas pelo broker. */
+  pending: number;
+  /** Há quanto tempo a mais antiga espera publicação, em ms (0 = nenhuma). */
+  oldestPendingAgeMs: number;
+  /** Pendentes que já falharam ao publicar pelo menos uma vez. */
+  failing: number;
 };
 
-export async function getQueueMetrics(executor: Executor, options: { now?: Date } = {}): Promise<QueueMetrics> {
+export type QueueMetrics = {
+  outbox: OutboxMetrics;
+  broker: { status: "up" } | { status: "down"; error: string };
+  queues: QueueDepth[];
+  ready: number;
+  retrying: number;
+  /** Mensagens na DLQ (esgotaram as tentativas ou erro permanente). */
+  dead: number;
+};
+
+export async function getOutboxMetrics(executor: Executor, options: { now?: Date } = {}): Promise<OutboxMetrics> {
   const now = options.now ?? new Date();
-
-  const rows = await executor
-    .select({ status: jobs.status, count: sql<number>`count(*)::int` })
-    .from(jobs)
-    .groupBy(jobs.status);
-  const byStatus = Object.fromEntries(rows.map((row) => [row.status, row.count]));
-
-  const [ready] = await executor
+  const [row] = await executor
     .select({
-      count: sql<number>`count(*)::int`,
-      oldestMs: sql<number | null>`(extract(epoch from (${now.toISOString()}::timestamptz - min(${jobs.runAt}))) * 1000)::bigint`,
+      pending: sql<number>`count(*)::int`,
+      failing: sql<number>`count(*) filter (where ${outbox.publishAttempts} > 0)::int`,
+      oldestMs: sql<number | null>`(extract(epoch from (${now.toISOString()}::timestamptz - min(${outbox.createdAt}))) * 1000)::bigint`,
     })
-    .from(jobs)
-    // `failed` aqui é "aguardando retry": com run_at vencido, o claim pega igual
-    .where(sql`${jobs.status} in ('queued', 'failed') and ${jobs.runAt} <= ${now.toISOString()}::timestamptz`);
-
+    .from(outbox)
+    .where(sql`${outbox.publishedAt} is null`);
   return {
-    byStatus,
-    dead: byStatus.dead ?? 0,
-    ready: ready.count,
-    oldestReadyAgeMs: Math.max(0, Number(ready.oldestMs ?? 0)),
+    pending: row.pending,
+    failing: row.failing,
+    oldestPendingAgeMs: Math.max(0, Number(row.oldestMs ?? 0)),
   };
+}
+
+export async function getQueueMetrics(
+  executor: Executor,
+  options: { queues: string[]; now?: Date },
+): Promise<QueueMetrics> {
+  const outboxMetrics = await getOutboxMetrics(executor, options);
+  try {
+    const queues = await queueDepths(options.queues);
+    const sum = (key: "ready" | "retrying" | "dead") => queues.reduce((total, depth) => total + depth[key], 0);
+    return {
+      outbox: outboxMetrics,
+      broker: { status: "up" },
+      queues,
+      ready: sum("ready"),
+      retrying: sum("retrying"),
+      dead: sum("dead"),
+    };
+  } catch (error) {
+    return {
+      outbox: outboxMetrics,
+      broker: { status: "down", error: errorMessage(error) },
+      queues: [],
+      ready: 0,
+      retrying: 0,
+      dead: 0,
+    };
+  }
 }

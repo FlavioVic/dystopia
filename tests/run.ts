@@ -6,7 +6,10 @@
  * 1. calcula a URL do banco de teste (`dystopia_test`, derivado do
  *    DATABASE_URL de dev — ver tests/helpers/env.ts);
  * 2. cria o banco se não existir e aplica as migrations;
- * 3. aponta `DATABASE_URL` pro banco de teste e passa `--import tsx` pros
+ * 3. aponta `DATABASE_URL` pro banco de teste, isola as filas do RabbitMQ
+ *    num prefixo próprio (`dystopia_test.*`) com filas de espera curtas — o
+ *    retry é exercitado de verdade no broker, só que em milissegundos —, e
+ *    passa `--import tsx` pros
  *    processos filhos (o node:test roda cada arquivo num processo próprio, e
  *    eles precisam do loader pra entender TypeScript e o alias `@/`).
  *
@@ -25,6 +28,8 @@ import { adminDatabaseUrl, testDatabaseName, testDatabaseUrl } from "./helpers/e
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 const unitOnly = process.argv.includes("--unit");
+/** `npm test -- checkout reconcile`: só os arquivos cujo nome contém um dos termos. */
+const filters = process.argv.slice(2).filter((arg) => !arg.startsWith("--"));
 
 function testFiles(dir: string): string[] {
   const absolute = path.join(ROOT, "tests", dir);
@@ -60,13 +65,16 @@ async function ensureTestDatabase(): Promise<void> {
 }
 
 async function main(): Promise<void> {
-  const files = unitOnly ? testFiles("unit") : [...testFiles("unit"), ...testFiles("integration")];
+  const all = unitOnly ? testFiles("unit") : [...testFiles("unit"), ...testFiles("integration")];
+  const files = filters.length === 0 ? all : all.filter((file) => filters.some((term) => path.basename(file).includes(term)));
 
   if (!unitOnly) {
     await ensureTestDatabase();
   }
 
   process.env.DATABASE_URL = testDatabaseUrl();
+  process.env.RABBITMQ_PREFIX = "dystopia_test";
+  process.env.RABBITMQ_RETRY_TIERS_MS = "50,100,200,400";
   process.env.NODE_OPTIONS = ["--import", "tsx", process.env.NODE_OPTIONS ?? ""].join(" ").trim();
   process.env.LOG_LEVEL = process.env.LOG_LEVEL ?? "error";
 

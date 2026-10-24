@@ -62,27 +62,3 @@ export function sagaStepStatusClass(status: string): string {
       return "border-border bg-background-elevated-hover text-foreground-muted";
   }
 }
-
-export const JOB_STATUS_LABELS: Record<string, string> = {
-  queued: "Na fila",
-  running: "Executando",
-  done: "Concluído",
-  failed: "Vai tentar de novo",
-  dead: "Dead-letter",
-};
-
-export function jobStatusClass(status: string): string {
-  switch (status) {
-    case "done":
-      return "border border-foreground text-foreground";
-    case "running":
-    case "queued":
-      return "bg-foreground text-background";
-    case "failed":
-      return "border border-border text-foreground-muted";
-    case "dead":
-      return "bg-signal text-on-signal";
-    default:
-      return "border border-border-faint text-foreground-muted";
-  }
-}

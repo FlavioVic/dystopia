@@ -1,34 +1,16 @@
 /**
- * Registro de handlers da fila: tipo de job → função que executa.
+ * Registro de handlers da fila: tipo de mensagem → função que processa.
  *
- * Um handler pode cuidar do destino do próprio job (é o caso de
- * `saga.advance`, que precisa reagendar com backoff conforme o resultado da
- * saga). Nesse caso ele retorna `{ settled: true }` e o worker não mexe mais.
+ * Só os handlers da saga moram aqui. Os dos serviços (pagamentos, e-mail)
+ * entram por injeção na raiz de composição (`src/composition/worker.ts`) — a
+ * fila não importa serviço nenhum.
  */
 
-import { SAGA_REPLY_JOB } from "@/saga/messaging";
-import { reconcile } from "@/saga/reconcile";
-import { handleSagaAdvanceJob, handleSagaReplyJob, SAGA_ADVANCE_JOB, SAGA_RECONCILE_JOB } from "@/saga/runner";
-import type { ClaimedJob } from "./index";
+import { handleSagaAdvance, handleSagaReply } from "@/saga/runner";
+import { SAGA_ADVANCE, SAGA_REPLY } from "@/saga/messaging";
+import type { MessageHandler } from "./index";
 
-export type JobResult = { settled: boolean };
-export type JobHandler = (job: ClaimedJob) => Promise<JobResult>;
-
-export const handlers: Record<string, JobHandler> = {
-  [SAGA_ADVANCE_JOB]: async (job) => {
-    await handleSagaAdvanceJob(job);
-    return { settled: true };
-  },
-  [SAGA_REPLY_JOB]: async (job) => {
-    await handleSagaReplyJob(job);
-    return { settled: true };
-  },
-  [SAGA_RECONCILE_JOB]: async () => {
-    await reconcile();
-    return { settled: false };
-  },
+export const sagaHandlers: Record<string, MessageHandler> = {
+  [SAGA_ADVANCE]: handleSagaAdvance,
+  [SAGA_REPLY]: handleSagaReply,
 };
-
-export function getHandler(type: string): JobHandler | undefined {
-  return handlers[type];
-}

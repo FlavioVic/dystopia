@@ -3,9 +3,9 @@ import { runInlineWorker } from "@/composition/worker";
 
 /**
  * Cron de segurança do worker embutido (`vercel.json` › crons): reconcilia,
- * drena a fila e faz a faxina que o worker de pé faria. Pega o que nenhum
- * request empurrou — retry agendado pra depois do fim do request, job de um
- * executor que morreu.
+ * publica a outbox, drena o RabbitMQ e faz a faxina que o worker de pé faria.
+ * Pega o que nenhum request empurrou — retry que voltou da fila de espera
+ * depois do fim do request, mensagem de um executor que morreu.
  *
  * A Vercel manda `Authorization: Bearer $CRON_SECRET`. Sem o segredo
  * configurado a rota fica fechada: é endpoint público.

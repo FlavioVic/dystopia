@@ -25,6 +25,7 @@ import {
   primaryKey,
   text,
   timestamp,
+  unique,
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
@@ -133,6 +134,24 @@ export const categories = pgTable("categories", {
 
 export type ProductSpec = { label: string; value: string };
 
+/**
+ * Documento da busca full-text de um produto: nome, marca e SKU pesam mais
+ * (A) que a descrição (B); português (placas → plac) e sem acento
+ * (`f_unaccent`, criada na migration 0008 — a `unaccent` pura não é
+ * IMMUTABLE e índice exige). Uma definição só, usada pelo índice e pela
+ * consulta: é a expressão igual que deixa o Postgres usar o índice. Índice
+ * sobre expressão, e não coluna gerada, pra o vetor não vir junto em toda
+ * consulta de produto.
+ */
+export function productSearchDocument(t: {
+  name: AnyPgColumn;
+  brand: AnyPgColumn;
+  sku: AnyPgColumn;
+  description: AnyPgColumn;
+}) {
+  return sql`(setweight(to_tsvector('portuguese'::regconfig, f_unaccent(coalesce(${t.name}, '') || ' ' || coalesce(${t.brand}, '') || ' ' || coalesce(${t.sku}, ''))), 'A') || setweight(to_tsvector('portuguese'::regconfig, f_unaccent(coalesce(${t.description}, ''))), 'B'))`;
+}
+
 export const products = pgTable("products", {
   id: uuid("id").primaryKey().defaultRandom(),
   categoryId: uuid("category_id")
@@ -164,6 +183,7 @@ export const products = pgTable("products", {
     .defaultNow(),
 }, (table) => [
   uniqueIndex("products_slug_unique_idx").on(table.slug),
+  index("products_search_idx").using("gin", productSearchDocument(table)),
   uniqueIndex("products_sku_unique_idx").on(table.sku),
   index("products_category_id_idx").on(table.categoryId),
 ]);
@@ -235,11 +255,12 @@ export const cartItems = pgTable("cart_items", {
     .defaultNow(),
 }, (table) => [
   index("cart_items_cart_id_idx").on(table.cartId),
-  uniqueIndex("cart_items_cart_product_variant_unique_idx").on(
-    table.cartId,
-    table.productId,
-    table.variantId,
-  ),
+  // Uma linha por (carrinho, produto, variante). NULLS NOT DISTINCT faz
+  // produto sem variante (variant_id NULL) contar como repetido também — é o
+  // que deixa "adicionar" ser um INSERT ... ON CONFLICT atômico.
+  unique("cart_items_cart_product_variant_unique")
+    .on(table.cartId, table.productId, table.variantId)
+    .nullsNotDistinct(),
 ]);
 
 // ---------------------------------------------------------------------------
@@ -381,7 +402,7 @@ export const wishlistItems = pgTable("wishlist_items", {
 ]);
 
 // ---------------------------------------------------------------------------
-// Orquestração: SAGA + fila durável (ver AGENTS.md › Arquitetura)
+// Orquestração: SAGA + fila durável (ver docs/ARQUITETURA.md)
 //
 // O checkout não é mais uma transação gigante: é uma SAGA com passos atômicos,
 // cada um num serviço próprio (src/services/*), com compensação em ordem
@@ -390,7 +411,9 @@ export const wishlistItems = pgTable("wishlist_items", {
 // - `sagas`      → uma instância em execução (qual passo, payload, contexto)
 // - `saga_steps` → log por passo (tentativas, saída, erro) = registro de
 //                  idempotência: passo `completed` nunca roda de novo
-// - `jobs`       → fila (outbox transacional + retry com backoff + DLQ)
+// - `outbox`     → caixa de saída transacional: a mensagem nasce na mesma
+//                  transação do fato de negócio e o relay publica no RabbitMQ.
+//                  A fila mesmo (entrega, retry, DLQ) é do broker.
 // ---------------------------------------------------------------------------
 
 export const sagaStatusEnum = pgEnum("saga_status", [
@@ -407,14 +430,6 @@ export const sagaStepStatusEnum = pgEnum("saga_step_status", [
   "completed",
   "compensated",
   "failed",
-]);
-
-export const jobStatusEnum = pgEnum("job_status", [
-  "queued",
-  "running",
-  "done",
-  "failed", // falhou, mas ainda tem tentativa sobrando (volta pra queued)
-  "dead", // esgotou as tentativas (dead-letter queue)
 ]);
 
 export const sagas = pgTable("sagas", {
@@ -456,31 +471,32 @@ export const sagaSteps = pgTable("saga_steps", {
   uniqueIndex("saga_steps_saga_name_unique_idx").on(table.sagaId, table.name),
 ]);
 
-export const jobs = pgTable("jobs", {
+/**
+ * Transactional outbox: a mensagem é gravada na MESMA transação do fato de
+ * negócio e o relay (`src/queue/relay.ts`) publica no RabbitMQ depois do
+ * commit, com publisher confirm. Só marca `published_at` quando o broker
+ * confirmou; publicação que falha fica aqui e é tentada de novo com backoff.
+ * Entrega é "pelo menos uma vez": o consumidor tem que ser idempotente.
+ */
+export const outbox = pgTable("outbox", {
+  // Vira o `messageId` no broker: é a chave de idempotência da mensagem.
   id: uuid("id").primaryKey().defaultRandom(),
-  queue: text("queue").notNull().default("default"),
-  type: text("type").notNull(), // "saga.advance", "saga.reconcile"...
+  queue: text("queue").notNull(), // fila lógica de destino: "saga", "payments"...
+  type: text("type").notNull(), // "saga.advance", "payments.authorize"...
   payload: jsonb("payload").notNull().default({}),
-  status: jobStatusEnum("status").notNull().default("queued"),
-  attempts: integer("attempts").notNull().default(0),
+  // Tentativas de PROCESSAMENTO que o consumidor pode gastar antes da DLQ.
   maxAttempts: integer("max_attempts").notNull().default(5),
-  runAt: timestamp("run_at", { withTimezone: true }).notNull().defaultNow(),
-  lockedBy: text("locked_by"),
-  lockedAt: timestamp("locked_at", { withTimezone: true }),
-  leaseUntil: timestamp("lease_until", { withTimezone: true }),
+  // Entrega adiada (ex.: retry de passo da saga): sai pela fila de espera.
+  delayMs: integer("delay_ms").notNull().default(0),
+  // Tentativas de PUBLICAÇÃO (broker fora do ar), com backoff.
+  publishAttempts: integer("publish_attempts").notNull().default(0),
+  nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true }).notNull().defaultNow(),
   lastError: text("last_error"),
-  // Chave de deduplicação: no máximo UM job ativo por chave (índice parcial
-  // abaixo). É o que impede fila de "saga.advance" duplicado pra mesma saga.
-  dedupeKey: text("dedupe_key"),
+  publishedAt: timestamp("published_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-  finishedAt: timestamp("finished_at", { withTimezone: true }),
 }, (table) => [
-  index("jobs_poll_idx").on(table.status, table.runAt),
-  index("jobs_queue_idx").on(table.queue),
-  uniqueIndex("jobs_dedupe_key_active_unique_idx")
-    .on(table.dedupeKey)
-    .where(sql`status in ('queued', 'running', 'failed')`),
+  // O relay só olha o que falta publicar: índice parcial, fica pequeno.
+  index("outbox_unpublished_idx").on(table.nextAttemptAt).where(sql`published_at is null`),
 ]);
 
 export const notificationStatusEnum = pgEnum("notification_status", [
@@ -491,7 +507,7 @@ export const notificationStatusEnum = pgEnum("notification_status", [
 
 // Saída do serviço de notificações. `dedupeKey` existe pra provar (e testar)
 // que o passo é idempotente: reenviar a mesma notificação não duplica linha.
-// A entrega é um job separado (outbox): o e-mail nunca sai de dentro da
+// A entrega é uma mensagem separada (outbox): o e-mail nunca sai de dentro da
 // transação do passo — se ela desfizesse, o cliente receberia confirmação de
 // um pedido que não existe.
 export const notifications = pgTable("notifications", {

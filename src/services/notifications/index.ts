@@ -7,7 +7,7 @@
  * 1. aqui, dentro da transação do passo da saga: grava a notificação
  *    (`pending`) e enfileira a entrega — idempotente por `dedupe_key`,
  *    reexecutar o passo não cria outra;
- * 2. `delivery.ts`, num job à parte: manda pelo provedor (Resend) e marca
+ * 2. `delivery.ts`, numa mensagem à parte: manda pelo provedor (Resend) e marca
  *    o resultado. O e-mail nunca sai de dentro da transação do passo.
  */
 
@@ -17,8 +17,10 @@ import { notifications } from "@/db/schema";
 import { formatPriceCents } from "@/lib/format";
 import { enqueue } from "@/queue";
 
-export const NOTIFICATION_DELIVER_JOB = "notifications.deliver";
-/** Tentativas de entrega antes da dead-letter (que tem alerta no admin). */
+/** Fila das entregas de e-mail. */
+export const NOTIFICATIONS_QUEUE = "notifications";
+export const NOTIFICATION_DELIVER = "notifications.deliver";
+/** Tentativas de entrega antes da DLQ (que tem alerta no admin). */
 export const DELIVERY_MAX_ATTEMPTS = 5;
 
 export type OrderConfirmationInput = {
@@ -107,10 +109,10 @@ async function record(
 
   if (inserted[0]) {
     await enqueue(executor, {
-      type: NOTIFICATION_DELIVER_JOB,
+      type: NOTIFICATION_DELIVER,
+      queue: NOTIFICATIONS_QUEUE,
       payload: { notificationId: inserted[0].id },
       maxAttempts: DELIVERY_MAX_ATTEMPTS,
-      dedupeKey: `notification:${inserted[0].id}:deliver`,
     });
     return { notificationId: inserted[0].id, duplicate: false };
   }

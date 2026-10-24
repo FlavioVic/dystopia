@@ -31,11 +31,11 @@ const HIGHLIGHTS = [
   },
   {
     title: "Pagamentos em processo próprio",
-    body: "A saga fala com o serviço de pagamentos só por mensagem: comando com endereço de resposta, outbox dos dois lados e resposta aplicada uma vez. Fila durável no Postgres, sem broker.",
+    body: "A saga fala com o serviço de pagamentos só por mensagem: comando com endereço de resposta, outbox dos dois lados e resposta aplicada uma vez. Fila no RabbitMQ, com retry por fila de espera e DLQ.",
   },
   {
-    title: "Testado contra banco real",
-    body: "Testes de integração no Postgres cobrindo compensação, retry, crash no meio do passo e concorrência. Um teste de arquitetura impede serviço de importar serviço.",
+    title: "Testado contra infraestrutura real",
+    body: "Testes de integração no Postgres e no RabbitMQ cobrindo compensação, retry, DLQ, broker fora do ar, crash no meio do passo e concorrência. Um teste de arquitetura impede serviço de importar serviço.",
   },
   {
     title: "Pronto pra ficar exposto",

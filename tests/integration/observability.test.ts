@@ -5,15 +5,16 @@
 
 import assert from "node:assert/strict";
 import { after, beforeEach, describe, it } from "node:test";
-import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { jobs, sagaSteps, sagas } from "@/db/schema";
+import { outbox, sagaSteps, sagas } from "@/db/schema";
 import * as queue from "@/queue";
+import { relayOutbox } from "@/queue/relay";
 import { getQueueMetrics } from "@/queue/metrics";
 import { getSagaMetrics } from "@/saga/metrics";
 import { runSagaInline } from "@/saga/runner";
-import { PAYMENT_AUTHORIZE } from "@/services/payments/contract";
+import { PAYMENTS_QUEUE } from "@/services/payments/contract";
 import { startCheckout } from "../helpers/checkout";
+import { closeBroker, purgeQueues } from "@/queue/broker";
 import { closeDatabase, resetDatabase, seedCheckoutFixture } from "../helpers/db";
 import { settleSaga, work } from "../helpers/saga";
 
@@ -113,29 +114,52 @@ describe("métricas da saga", () => {
 });
 
 describe("métricas da fila", () => {
-  beforeEach(resetDatabase);
-
-  it("conta por status e mede o job pronto mais antigo com o critério do claim", async () => {
-    await queue.enqueue(db, { type: "x", runAt: ago(90_000) });
-    await queue.enqueue(db, { type: "x", runAt: ago(5_000) });
-    await queue.enqueue(db, { type: "x", runAt: new Date(NOW.getTime() + 60_000) }); // agendado pro futuro
-    const [retry] = await db.insert(jobs).values({ type: "x", status: "failed", runAt: ago(120_000) }).returning();
-    await db.insert(jobs).values({ type: "x", status: "dead", runAt: ago(DAY) });
-
-    const metrics = await getQueueMetrics(db, { now: NOW });
-
-    assert.deepEqual(metrics.byStatus, { queued: 3, failed: 1, dead: 1 });
-    assert.equal(metrics.dead, 1);
-    assert.equal(metrics.ready, 3, "2 queued vencidos + 1 aguardando retry vencido");
-    assert.equal(metrics.oldestReadyAgeMs, 120_000, "o retry vencido é o mais antigo");
-
-    await db.delete(jobs).where(eq(jobs.id, retry.id));
-    assert.equal((await getQueueMetrics(db, { now: NOW })).oldestReadyAgeMs, 90_000);
+  beforeEach(async () => {
+    await resetDatabase();
+    await purgeQueues(["metricas"]);
   });
 
-  it("fila vazia: sem atraso", async () => {
-    const metrics = await getQueueMetrics(db, { now: NOW });
-    assert.deepEqual(metrics, { byStatus: {}, dead: 0, ready: 0, oldestReadyAgeMs: 0 });
+  it("outbox: conta o que falta publicar e mede o mais antigo", async () => {
+    await queue.enqueue(db, { type: "x", queue: "metricas" });
+    await db.insert(outbox).values({ type: "x", queue: "metricas", createdAt: ago(90_000) });
+    await db
+      .insert(outbox)
+      .values({ type: "x", queue: "metricas", createdAt: ago(120_000), publishAttempts: 2, lastError: "broker fora" });
+    await db.insert(outbox).values({ type: "x", queue: "metricas", createdAt: ago(DAY), publishedAt: ago(DAY) });
+
+    const metrics = await getQueueMetrics(db, { queues: ["metricas"], now: NOW });
+    assert.equal(metrics.outbox.pending, 3, "publicada não conta");
+    assert.equal(metrics.outbox.failing, 1);
+    assert.equal(metrics.outbox.oldestPendingAgeMs, 120_000);
+  });
+
+  it("broker: pronta, em espera e DLQ, por fila", async () => {
+    await queue.enqueue(db, { type: "x", queue: "metricas" });
+    await queue.enqueue(db, { type: "x", queue: "metricas", delayMs: 400 });
+    await relayOutbox();
+
+    const metrics = await getQueueMetrics(db, { queues: ["metricas"], now: NOW });
+    assert.equal(metrics.broker.status, "up");
+    assert.deepEqual(
+      metrics.queues.map(({ queue: name, ready, retrying, dead }) => ({ name, ready, retrying, dead })),
+      [{ name: "metricas", ready: 1, retrying: 1, dead: 0 }],
+    );
+    assert.deepEqual([metrics.ready, metrics.retrying, metrics.dead, metrics.outbox.pending], [1, 1, 0, 0]);
+  });
+
+  it("broker inacessível não derruba a leitura: vira status", async () => {
+    const realUrl = process.env.RABBITMQ_URL;
+    await closeBroker();
+    process.env.RABBITMQ_URL = "amqp://ninguem:nada@127.0.0.1:1";
+    try {
+      const metrics = await getQueueMetrics(db, { queues: ["metricas"], now: NOW });
+      assert.equal(metrics.broker.status, "down");
+      assert.deepEqual(metrics.queues, []);
+    } finally {
+      await closeBroker();
+      if (realUrl === undefined) delete process.env.RABBITMQ_URL;
+      else process.env.RABBITMQ_URL = realUrl;
+    }
   });
 });
 
@@ -151,14 +175,10 @@ describe("métricas refletem checkouts de verdade", () => {
 
     const flaky = await startCheckout(await seedCheckoutFixture(), { simulate: "flaky_once" });
     assert.equal((await runSagaInline(flaky.sagaId)).status, "waiting");
-    await work("payments"); // 1ª tentativa falha: o comando volta pra fila com backoff
+    await work("payments"); // 1ª tentativa falha: o comando vai pra fila de espera
 
-    const command = await db.query.jobs.findFirst({
-      where: and(eq(jobs.type, PAYMENT_AUTHORIZE), eq(jobs.status, "failed")),
-    });
-    assert.ok(command, "o comando do pedido instável aguarda nova tentativa");
-    const during = await getQueueMetrics(db, { now: new Date(command!.runAt.getTime() + 1) });
-    assert.equal(during.ready, 1, "o retry vencido do comando conta como pronto");
+    const during = await getQueueMetrics(db, { queues: [PAYMENTS_QUEUE] });
+    assert.equal(during.retrying, 1, "o comando do pedido instável aguarda nova tentativa");
 
     await settleSaga(flaky.sagaId, { inline: false });
 

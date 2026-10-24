@@ -1,5 +1,6 @@
 /**
- * Backoff exponencial com jitter — usado pelos retries da fila.
+ * Backoff exponencial com jitter — usado pelos retries da fila (o atraso
+ * escolhe a fila de espera, ver `retryTierFor`), da saga e da publicação.
  *
  * `random` é injetável de propósito: com `() => 0.5` o jitter é zero e o
  * cálculo fica determinístico (é assim que os testes verificam a curva).

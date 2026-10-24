@@ -1,5 +1,5 @@
 /**
- * Entrega de e-mail: outbox (gravada no passo, entregue por job), modo
+ * Entrega de e-mail: outbox (gravada no passo, entregue por mensagem), modo
  * sandbox, idempotência, recusa definitiva e retry até a última tentativa.
  */
 
@@ -7,8 +7,8 @@ import assert from "node:assert/strict";
 import { after, beforeEach, describe, it } from "node:test";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { jobs, notifications } from "@/db/schema";
-import { NOTIFICATION_DELIVER_JOB, sendOrderConfirmation } from "@/services/notifications";
+import { notifications, outbox } from "@/db/schema";
+import { NOTIFICATION_DELIVER, NOTIFICATIONS_QUEUE, sendOrderConfirmation } from "@/services/notifications";
 import { deliverNotification, type DeliveryDeps } from "@/services/notifications/delivery";
 import type { FetchLike } from "@/services/notifications/resend";
 import { closeDatabase, resetDatabase } from "../helpers/db";
@@ -46,8 +46,9 @@ describe("notificação — outbox", () => {
     assert.equal(again.notificationId, first.notificationId);
     assert.equal((await notification(first.notificationId))?.status, "pending");
 
-    const deliveries = await db.query.jobs.findMany({ where: eq(jobs.type, NOTIFICATION_DELIVER_JOB) });
+    const deliveries = await db.query.outbox.findMany({ where: eq(outbox.type, NOTIFICATION_DELIVER) });
     assert.equal(deliveries.length, 1, "uma entrega só");
+    assert.equal(deliveries[0].queue, NOTIFICATIONS_QUEUE);
     assert.deepEqual(deliveries[0].payload, { notificationId: first.notificationId });
   });
 });
@@ -72,7 +73,7 @@ describe("notificação — entrega", () => {
     assert.equal(row?.recipient, "comprador@exemplo.dev", "o destinatário original fica registrado");
   });
 
-  it("já enviada não sai de novo (job reprocessado depois de um crash)", async () => {
+  it("já enviada não sai de novo (mensagem reentregue depois de um crash)", async () => {
     const { notificationId } = await sendOrderConfirmation(db, order);
     await deliverNotification(db, notificationId, { deps: sandbox({ status: 200, body: { id: "msg_1" } }) });
 

@@ -9,15 +9,17 @@ import assert from "node:assert/strict";
 import { after, beforeEach, describe, it } from "node:test";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { jobs, orders, payments, products, sagas } from "@/db/schema";
+import { orders, outbox, payments, products, sagas } from "@/db/schema";
+import { enqueue } from "@/queue";
+import { purgeQueues, queueDepths } from "@/queue/broker";
 import { sendReply, readReplyTo } from "@/queue/reply";
-import { SAGA_REPLY_JOB } from "@/saga/messaging";
+import { SAGA_QUEUE, SAGA_REPLY } from "@/saga/messaging";
 import { advanceSaga, getSagaWithSteps } from "@/saga/orchestrator";
 import { runSagaInline } from "@/saga/runner";
 import { PAYMENT_AUTHORIZE, PAYMENT_REFUND, PAYMENTS_QUEUE } from "@/services/payments/contract";
 import { startCheckout } from "../helpers/checkout";
 import { closeDatabase, resetDatabase, seedCheckoutFixture } from "../helpers/db";
-import { fastForwardJobs, settleSaga, work } from "../helpers/saga";
+import { settleSaga, waitForRetries, work } from "../helpers/saga";
 
 beforeEach(resetDatabase);
 after(closeDatabase);
@@ -31,8 +33,9 @@ async function step(sagaId: string, name: string) {
   return (await getSagaWithSteps(sagaId))?.steps.find((row) => row.name === name);
 }
 
+/** Comandos gravados pra fila de pagamentos (outbox). */
 async function commands(type: string) {
-  return db.query.jobs.findMany({ where: and(eq(jobs.queue, PAYMENTS_QUEUE), eq(jobs.type, type)) });
+  return db.query.outbox.findMany({ where: and(eq(outbox.queue, PAYMENTS_QUEUE), eq(outbox.type, type)) });
 }
 
 /** Leva o checkout com cupom esgotado até a saga estar esperando o estorno. */
@@ -46,7 +49,7 @@ async function untilRefundRequested() {
   const checkout = await startCheckout(fixture, { useCoupon: true });
   assert.equal((await runSagaInline(checkout.sagaId)).status, "waiting");
   await work("payments"); // cobra e responde
-  await work("default"); // aplica a resposta; o cupom falha; pede o estorno
+  await work("saga"); // aplica a resposta; o cupom falha; pede o estorno
   return { fixture, checkout };
 }
 
@@ -59,9 +62,10 @@ describe("passo remoto — envio", () => {
     assert.equal((await step(checkout.sagaId, "authorize-payment"))?.status, "waiting");
 
     const [command] = await commands(PAYMENT_AUTHORIZE);
-    assert.ok(command, "comando na fila de pagamentos");
+    assert.ok(command, "comando gravado pra fila de pagamentos, na transação do passo");
     const replyTo = readReplyTo(command.payload as Record<string, unknown>);
-    assert.equal(replyTo?.type, SAGA_REPLY_JOB);
+    assert.equal(replyTo?.type, SAGA_REPLY);
+    assert.equal(replyTo?.queue, SAGA_QUEUE);
     assert.deepEqual(replyTo?.payload, { sagaId: checkout.sagaId, step: "authorize-payment", phase: "invoke" });
 
     // Avançar de novo enquanto espera não reenvia nada.
@@ -78,13 +82,13 @@ describe("passo remoto — resposta", () => {
     const fixture = await seedCheckoutFixture({ stock: 5, quantity: 1 });
     const checkout = await startCheckout(fixture);
     assert.equal((await settleSaga(checkout.sagaId)).status, "completed");
-    await work("all"); // entrega da confirmação, pra só sobrar a resposta repetida
 
-    const original = await db.query.jobs.findFirst({ where: eq(jobs.type, SAGA_REPLY_JOB) });
+    // Reentrega da mesma resposta (broker reentrega o que ficou sem ack).
+    const original = await db.query.outbox.findFirst({ where: eq(outbox.type, SAGA_REPLY) });
     assert.ok(original);
-    await db.insert(jobs).values({ type: SAGA_REPLY_JOB, payload: original.payload });
+    await enqueue(db, { type: SAGA_REPLY, queue: SAGA_QUEUE, payload: original.payload as Record<string, unknown> });
 
-    assert.equal((await work("default")).claimed, 1);
+    assert.deepEqual(await work("saga"), { received: 1, acked: 1, retried: 0, dead: 0 });
     const saga = await db.query.sagas.findFirst({ where: eq(sagas.id, checkout.sagaId) });
     assert.equal(saga?.status, "completed");
     assert.equal((await db.query.payments.findMany({ where: eq(payments.orderId, checkout.orderId) })).length, 1);
@@ -96,8 +100,13 @@ describe("passo remoto — resposta", () => {
     const checkout = await startCheckout(fixture);
     assert.equal((await runSagaInline(checkout.sagaId)).status, "waiting");
 
-    // Só o worker da saga está de pé: não há o que ele fazer.
-    for (let i = 0; i < 3; i += 1) assert.equal((await work("default")).claimed, 0);
+    // Só o consumidor da saga está de pé: ele pega o avanço original (que só
+    // confirma o `waiting`) e depois não há o que fazer — o comando fica
+    // parado na fila `payments`, sem consumidor, sem se perder.
+    assert.equal((await work("saga")).received, 1);
+    for (let i = 0; i < 3; i += 1) assert.equal((await work("saga")).received, 0);
+    const [paymentsQueue] = await queueDepths([PAYMENTS_QUEUE]);
+    assert.equal(paymentsQueue.ready, 1, "comando esperando o processo de pagamentos");
     const order = await db.query.orders.findFirst({ where: eq(orders.id, checkout.orderId) });
     assert.equal(order?.status, "pending");
     assert.equal(await stockOf(fixture.product.id), 4, "estoque segue reservado enquanto espera");
@@ -117,14 +126,16 @@ describe("passo remoto — resposta", () => {
       .set({ lockedBy: "outro-executor", leaseUntil: new Date(Date.now() + 60_000) })
       .where(eq(sagas.id, checkout.sagaId));
 
-    assert.equal((await work("default")).claimed, 1);
-    const reply = await db.query.jobs.findFirst({ where: eq(jobs.type, SAGA_REPLY_JOB) });
-    assert.equal(reply?.status, "queued", "a resposta volta pra fila");
+    const report = await work("saga");
+    assert.equal(report.dead, 0);
+    assert.ok(report.retried >= 1, "a resposta volta pra fila de espera em vez de ser descartada");
+    const [sagaQueue] = await queueDepths([SAGA_QUEUE]);
+    assert.ok(sagaQueue.retrying >= 1);
     assert.equal((await step(checkout.sagaId, "authorize-payment"))?.status, "completed", "mas já foi aplicada");
 
     // O outro executor sai; a resposta reprocessada acorda a saga.
     await db.update(sagas).set({ lockedBy: null, leaseUntil: null }).where(eq(sagas.id, checkout.sagaId));
-    await fastForwardJobs();
+    await waitForRetries();
     assert.equal((await settleSaga(checkout.sagaId, { inline: false })).status, "completed");
   });
 });
@@ -156,10 +167,10 @@ describe("passo remoto — compensação", () => {
     const [refund] = await commands(PAYMENT_REFUND);
     const replyTo = readReplyTo(refund.payload as Record<string, unknown>);
     assert.ok(replyTo);
-    await db.delete(jobs).where(eq(jobs.id, refund.id));
+    await purgeQueues([PAYMENTS_QUEUE]);
     await sendReply(db, replyTo, { ok: false, code: "gateway_unavailable", message: "Provedor fora.", attempts: 3 });
 
-    await work("default");
+    await work("saga");
     const saga = await db.query.sagas.findFirst({ where: eq(sagas.id, checkout.sagaId) });
     assert.equal(saga?.status, "failed");
     assert.match(saga?.lastError ?? "", /compensação de authorize-payment falhou/);

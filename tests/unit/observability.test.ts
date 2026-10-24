@@ -2,7 +2,11 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { computeAlerts, formatDuration } from "@/lib/observability";
 
-const healthyQueue = { dead: 0, ready: 0, oldestReadyAgeMs: 0 };
+const healthyQueue = {
+  dead: 0,
+  broker: { status: "up" as const },
+  outbox: { pending: 0, oldestPendingAgeMs: 0, failing: 0 },
+};
 const healthySagas = { stuck: 0, failed: 0 };
 
 describe("alertas da operação", () => {
@@ -10,7 +14,7 @@ describe("alertas da operação", () => {
     assert.deepEqual(computeAlerts(healthyQueue, healthySagas), []);
   });
 
-  it("dead-letter e compensação falha são críticos", () => {
+  it("DLQ e compensação falha são críticos", () => {
     const alerts = computeAlerts({ ...healthyQueue, dead: 2 }, { ...healthySagas, failed: 1 });
     assert.deepEqual(
       alerts.map((a) => [a.id, a.level]),
@@ -19,22 +23,30 @@ describe("alertas da operação", () => {
         ["dead-letter", "critical"],
       ],
     );
-    assert.match(alerts[1].title, /2 jobs/);
+    assert.match(alerts[1].title, /2 mensagens na DLQ/);
     assert.match(alerts[0].title, /1 saga com/);
   });
 
-  it("fila só é atrasada se o job pronto mais velho passou do limite", () => {
-    const within = computeAlerts({ dead: 0, ready: 3, oldestReadyAgeMs: 1_500 }, healthySagas);
-    assert.deepEqual(within, [], "polling normal do worker não é atraso");
+  it("broker fora é crítico (e diz que nada se perdeu)", () => {
+    const [alert] = computeAlerts({ ...healthyQueue, broker: { status: "down", error: "ECONNREFUSED" } }, healthySagas);
+    assert.equal(alert.id, "broker-down");
+    assert.equal(alert.level, "critical");
+    assert.match(alert.detail, /outbox/);
+  });
 
-    const late = computeAlerts({ dead: 0, ready: 3, oldestReadyAgeMs: 90_000 }, healthySagas);
-    assert.deepEqual(late.map((a) => a.id), ["queue-lag"]);
+  it("outbox só é atrasada se a mensagem mais velha passou do limite", () => {
+    const outbox = (oldestPendingAgeMs: number) => ({ pending: 3, oldestPendingAgeMs, failing: 0 });
+    assert.deepEqual(computeAlerts({ ...healthyQueue, outbox: outbox(400) }, healthySagas), [], "ciclo normal do relay");
+
+    const late = computeAlerts({ ...healthyQueue, outbox: outbox(90_000) }, healthySagas);
+    assert.deepEqual(late.map((a) => a.id), ["outbox-lag"]);
     assert.match(late[0].title, /1 min/);
   });
 
   it("o limite de atraso é configurável", () => {
-    const alerts = computeAlerts({ dead: 0, ready: 1, oldestReadyAgeMs: 5_000 }, healthySagas, { queueLagMs: 2_000 });
-    assert.deepEqual(alerts.map((a) => a.id), ["queue-lag"]);
+    const outbox = { pending: 1, oldestPendingAgeMs: 5_000, failing: 0 };
+    const alerts = computeAlerts({ ...healthyQueue, outbox }, healthySagas, { outboxLagMs: 2_000 });
+    assert.deepEqual(alerts.map((a) => a.id), ["outbox-lag"]);
   });
 
   it("saga parada é aviso, não crítico (a reconciliação ainda pode resolver)", () => {
