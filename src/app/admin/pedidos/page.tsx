@@ -1,20 +1,25 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { notFound } from "next/navigation";
+import { Pagination } from "@/components/Pagination";
 import { requireAdmin } from "@/lib/data/auth";
-import { getAllOrders } from "@/lib/data/admin";
+import { listOrders } from "@/lib/data/admin";
+import { ADMIN_PAGE_SIZE, isPastLastPage, parsePage } from "@/lib/pagination";
 import { formatPriceCents } from "@/lib/format";
 import { ORDER_STATUS_LABELS, orderStatusClass, type OrderStatus } from "@/lib/order-status";
 
 export const metadata: Metadata = { title: "Pedidos · Admin" };
 
-export default async function AdminOrders() {
+export default async function AdminOrders(props: PageProps<"/admin/pedidos">) {
   await requireAdmin();
-  const orders = await getAllOrders();
+  const page = parsePage((await props.searchParams).pagina, ADMIN_PAGE_SIZE);
+  const { items: orders, total } = await listOrders(page);
+  if (isPastLastPage(page.page, total, ADMIN_PAGE_SIZE)) notFound();
 
   return (
     <div>
       <h2 className="label text-foreground-muted">
-        Pedidos ({orders.length})
+        Pedidos ({total})
       </h2>
 
       {orders.length === 0 ? (
@@ -60,6 +65,7 @@ export default async function AdminOrders() {
           </table>
         </div>
       )}
+      <Pagination basePath="/admin/pedidos" page={page.page} total={total} pageSize={ADMIN_PAGE_SIZE} />
     </div>
   );
 }

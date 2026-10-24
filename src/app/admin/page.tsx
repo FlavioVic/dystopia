@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { requireAdmin } from "@/lib/data/auth";
-import { getAdminStats, getAllOrders } from "@/lib/data/admin";
+import { getAdminStats, getRecentOrders } from "@/lib/data/admin";
 import { formatPriceCents } from "@/lib/format";
 import { ORDER_STATUS_LABELS, orderStatusClass, type OrderStatus } from "@/lib/order-status";
 
@@ -9,7 +9,7 @@ export const metadata: Metadata = { title: "Admin" };
 
 export default async function AdminDashboard() {
   await requireAdmin();
-  const [stats, recent] = await Promise.all([getAdminStats(), getAllOrders(6)]);
+  const [stats, recent] = await Promise.all([getAdminStats(), getRecentOrders(6)]);
 
   const cards = [
     { label: "Receita total", value: formatPriceCents(stats.revenueCents) },
