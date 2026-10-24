@@ -40,7 +40,7 @@ export default async function AdminDashboard() {
         {recent.length === 0 ? (
           <p className="mt-4 text-sm text-foreground-muted">Nenhum pedido ainda.</p>
         ) : (
-          <div className="mt-4 overflow-x-auto rounded-xl border border-border">
+          <div tabIndex={0} role="region" aria-label="Últimos pedidos" className="mt-4 overflow-x-auto rounded-xl border border-border">
             <table className="w-full min-w-[560px] text-sm">
               <thead className="border-b border-border bg-background-elevated text-left text-xs text-foreground-muted">
                 <tr>

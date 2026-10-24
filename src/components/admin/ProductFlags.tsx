@@ -27,7 +27,8 @@ export function ProductFlags({
     `label border px-2.5 py-1 disabled:opacity-50 ${
       on
         ? "border border-foreground text-foreground"
-        : "bg-background-elevated-hover text-foreground-muted hover:text-foreground"
+        : // Fundo da página, não o elevado: cinza sobre cinza dava 4,46:1 (< 4,5).
+          "border-border text-foreground-muted hover:text-foreground"
     }`;
 
   return (

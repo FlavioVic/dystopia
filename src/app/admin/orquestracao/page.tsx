@@ -114,7 +114,7 @@ export default async function OrchestrationPage(props: PageProps<"/admin/orquest
         </div>
 
         {sagaMetrics.steps.length > 0 ? (
-          <div className="mt-4 overflow-x-auto rounded-xl border border-border">
+          <div tabIndex={0} role="region" aria-label="Passos da saga" className="mt-4 overflow-x-auto rounded-xl border border-border">
             <table className="w-full min-w-[640px] text-sm">
               <thead className="border-b border-border bg-background-elevated text-left text-xs text-foreground-muted">
                 <tr>
@@ -162,7 +162,7 @@ export default async function OrchestrationPage(props: PageProps<"/admin/orquest
             Broker inacessível: {queueMetrics.broker.status === "down" ? queueMetrics.broker.error : ""}
           </p>
         ) : (
-          <div className="mt-4 overflow-x-auto rounded-xl border border-border">
+          <div tabIndex={0} role="region" aria-label="Filas do RabbitMQ" className="mt-4 overflow-x-auto rounded-xl border border-border">
             <table className="w-full min-w-[560px] text-sm">
               <thead className="border-b border-border bg-background-elevated text-left text-xs text-foreground-muted">
                 <tr>
@@ -205,7 +205,7 @@ export default async function OrchestrationPage(props: PageProps<"/admin/orquest
         </p>
 
         {deadLetters.length > 0 ? (
-          <div className="mt-4 overflow-x-auto rounded-xl border border-border">
+          <div tabIndex={0} role="region" aria-label="Mensagens na DLQ" className="mt-4 overflow-x-auto rounded-xl border border-border">
             <table className="w-full min-w-[720px] text-sm">
               <thead className="border-b border-border bg-background-elevated text-left text-xs text-foreground-muted">
                 <tr>
