@@ -6,6 +6,8 @@ import { getAllProducts, searchProducts } from "@/lib/data/products";
 
 export const metadata: Metadata = {
   title: "Inventário",
+  description:
+    "Peças de PC com ficha técnica: placas de vídeo, processadores, placas-mãe, memória, SSD, fontes, gabinetes, refrigeração, monitores e periféricos.",
 };
 
 export default async function ProductsPage(props: PageProps<"/produtos">) {

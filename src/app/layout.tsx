@@ -6,6 +6,7 @@ import { getCategories } from "@/lib/data/products";
 import { getCartCount } from "@/lib/data/cart";
 import { getCurrentUser } from "@/lib/data/auth";
 import { getWishlistProductIds } from "@/lib/data/wishlist";
+import { SITE_URL } from "@/lib/site";
 import { interTight, michroma, plexMono } from "./fonts";
 import "./globals.css";
 
@@ -16,16 +17,27 @@ export const metadata: Metadata = {
   },
   description:
     "Peças de PC e serviços técnicos: montagem, manutenção, formatação e desenvolvimento de software, por Flávio Victor.",
+  // URLs absolutas (Open Graph, canonical) a partir do domínio de produção.
+  metadataBase: new URL(SITE_URL),
+  keywords: [
+    "montagem de computador",
+    "manutenção de computador",
+    "formatação de computador",
+    "desenvolvimento de software",
+    "peças de PC",
+    "placa de vídeo",
+    "Flávio Victor",
+  ],
+  authors: [{ name: "Flávio Victor", url: "https://github.com/FlavioVic" }],
   // Quem recebe o link compartilhado (LinkedIn, WhatsApp) vê o projeto, não só
-  // a loja. A imagem vem de app/opengraph-image.tsx; na Vercel o Next monta a
-  // URL absoluta com o domínio de produção (sem metadataBase fixo).
+  // a loja. A imagem vem de app/opengraph-image.tsx.
   openGraph: {
     type: "website",
     locale: "pt_BR",
     siteName: "DYSTOPIA",
-    title: "DYSTOPIA — loja de hardware com checkout orquestrado por SAGA",
+    title: "DYSTOPIA — software e hardware sob controle, por Flávio Victor",
     description:
-      "Projeto de portfólio de Flávio Victor: e-commerce de peças de PC em Next.js + Postgres, com fila durável, compensação, observabilidade e serviços técnicos.",
+      "Desenvolvimento de software, montagem, manutenção e formatação de computadores. Orçamento sem custo. Portfólio e loja de peças de PC.",
   },
   twitter: { card: "summary_large_image" },
 };
@@ -48,6 +60,18 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
         {/* Liga a animação de "revelar" só quando há JS: sem isso, o conteúdo
             nunca fica escondido esperando um script que não vai rodar. */}
         <script dangerouslySetInnerHTML={{ __html: "document.documentElement.classList.add('js-reveal')" }} />
+        {/* Vercel Web Analytics (grátis no Hobby) pela integração por script, sem
+            dependência nova. Só na Vercel: fora dela o endpoint não existe. */}
+        {process.env.VERCEL === "1" ? (
+          <>
+            <script
+              dangerouslySetInnerHTML={{
+                __html: "window.va=window.va||function(){(window.vaq=window.vaq||[]).push(arguments)};",
+              }}
+            />
+            <script defer src="/_vercel/insights/script.js" />
+          </>
+        ) : null}
       </head>
       <body className="flex min-h-full flex-col bg-background text-foreground">
         <PromoBar />

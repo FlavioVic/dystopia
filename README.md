@@ -503,6 +503,11 @@ handlers pros dois executores. Com tráfego de verdade, o caminho é subir o
      - `SERVICE_ALERT_TO` — quem recebe o aviso de cada pedido de orçamento
        (gravado na mesma transação do pedido e entregue pela fila).
 3. Deploy. O `vercel.json` fixa as funções em `iad1` e registra o cron.
+4. Com o repositório conectado (Settings → Git, ou `vercel git connect`), cada
+   push na `main` publica sozinho. Migration nova continua manual: rode
+   `npm run db:migrate` contra o Neon **antes** do push que depende dela.
+5. **Analytics**: aba *Analytics* do projeto → *Enable* (grátis no Hobby). O
+   script já está no layout e só carrega na Vercel.
 
 Nunca reaproveite o `.env` local nem a senha `dystopia_dev_pw` do compose.
 
