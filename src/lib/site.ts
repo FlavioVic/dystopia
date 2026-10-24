@@ -15,4 +15,4 @@ export const SITE_URL = (
  * `tests/unit/test-count.test.ts` conta os casos de verdade e falha se este
  * número ficar desatualizado.
  */
-export const TEST_COUNT = 301;
+export const TEST_COUNT = 345;

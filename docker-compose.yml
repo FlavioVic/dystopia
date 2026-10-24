@@ -72,8 +72,9 @@ services:
       TRUST_PROXY_HEADERS: "1"
       # Stack local/CI: os testes de navegador criam várias contas do mesmo IP.
       # Em produção fica o padrão (5 cadastros/h e 10 logins/15 min por IP).
-      SIGNUP_LIMIT_PER_HOUR: ${SIGNUP_LIMIT_PER_HOUR:-200}
-      LOGIN_LIMIT_PER_15MIN: ${LOGIN_LIMIT_PER_15MIN:-200}
+      SIGNUP_LIMIT_PER_HOUR: ${SIGNUP_LIMIT_PER_HOUR:-1000}
+      LOGIN_LIMIT_PER_15MIN: ${LOGIN_LIMIT_PER_15MIN:-1000}
+      SERVICE_REQUEST_LIMIT_PER_HOUR: ${SERVICE_REQUEST_LIMIT_PER_HOUR:-1000}
     depends_on:
       db: { condition: service_healthy }
     restart: "no"

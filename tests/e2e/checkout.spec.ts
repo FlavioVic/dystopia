@@ -1,19 +1,13 @@
 import type { Page } from "@playwright/test";
-import { expect, newCustomer, test } from "./fixtures";
+import { addFirstProductToCart, expect, signUp, test } from "./fixtures";
 
-/** Cadastro → um produto no carrinho → checkout com o resultado escolhido no modo demonstração. */
-async function buy(page: Page, outcome: "approve" | "decline") {
-  const customer = newCustomer();
-  await page.goto("/cadastro");
-  await page.locator('input[name="name"]').fill(customer.name);
-  await page.locator('input[name="email"]').fill(customer.email);
-  await page.locator('input[name="password"]').fill(customer.password);
-  await page.getByRole("button", { name: "Abrir ficha" }).click();
-  await expect(page).toHaveURL(/\/conta/);
+type Outcome = "approve" | "decline" | "flaky_once";
 
-  await page.goto("/produtos");
-  await page.getByRole("button", { name: "Adicionar ao carrinho" }).first().click();
-  await expect(page.getByRole("button", { name: "Registrado no carrinho" }).first()).toBeVisible();
+/** Conta nova → um produto no carrinho → checkout com o resultado do modo demonstração. */
+async function buy(page: Page, outcome: Outcome, options: { coupon?: string } = {}) {
+  await signUp(page);
+  // Processadores do seed custam bem acima do mínimo do cupom (R$ 50).
+  await addFirstProductToCart(page, options.coupon ? "/produtos?q=processador" : "/produtos");
 
   await page.goto("/carrinho");
   await page.locator('a[href="/checkout"]').click();
@@ -26,6 +20,11 @@ async function buy(page: Page, outcome: "approve" | "decline") {
   await page.locator('input[name="city"]').fill("Fortaleza");
   await page.locator('input[name="state"]').fill("CE");
   await page.locator('input[name="paymentMethod"][value="pix"]').check();
+  if (options.coupon) {
+    await page.locator('input[name="couponCode"]').fill(options.coupon);
+    await page.getByRole("button", { name: "Aplicar" }).click();
+    await expect(page.getByText("Desconto", { exact: true })).toBeVisible();
+  }
   await page.locator(`input[name="simulate"][value="${outcome}"]`).check();
   await page.getByRole("button", { name: "Confirmar aquisição" }).click();
 
@@ -46,4 +45,37 @@ test.describe("checkout", () => {
     await expect(page.getByRole("heading", { name: "Aquisição não concluída." })).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText(/foi desfeito/)).toBeVisible();
   });
+
+  test("gateway instável: o retry passa pela fila e o pedido conclui", async ({ page }) => {
+    await buy(page, "flaky_once");
+    await expect(page.getByRole("heading", { name: "Aquisição registrada." })).toBeVisible({ timeout: 45_000 });
+    await expect(page.getByText(/2 tentativas/i)).toBeVisible();
+  });
+
+  test("cupom aplicado no checkout entra no pedido", async ({ page }) => {
+    await buy(page, "approve", { coupon: "BEMVINDO10" });
+    await expect(page.getByRole("heading", { name: "Aquisição registrada." })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText(/desconto/i).first()).toBeVisible();
+  });
+
+  test("pedido de uma pessoa não abre pra outra", async ({ page, browser }) => {
+    await buy(page, "approve");
+    const orderUrl = page.url();
+
+    const other = await browser.newContext();
+    const otherPage = await other.newPage();
+    await signUp(otherPage);
+    const response = await otherPage.goto(orderUrl);
+    expect(response?.status()).toBe(404);
+    await expect(otherPage.getByRole("heading", { name: "Registro inexistente" })).toBeVisible();
+    await other.close();
+  });
 });
+
+test.describe("rota do cron", () => {
+  test("sem o segredo, ou com o errado, recusa", async ({ request }) => {
+    expect((await request.get("/api/cron/fila")).status()).toBe(401);
+    expect((await request.get("/api/cron/fila", { headers: { authorization: "Bearer chute" } })).status()).toBe(401);
+  });
+});
+

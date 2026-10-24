@@ -293,6 +293,30 @@ describe("DLQ: inspeção e reprocessamento", () => {
 });
 
 describe("worker de longa duração (push)", () => {
+  it("conexão com o broker cai no meio: o worker reconecta sozinho e volta a consumir", async () => {
+    const { seen, handlers } = recorder();
+    const worker = startWorker({ workerId: "teste-reconexao", queues: [Q], handlers, relayEveryMs: 50 });
+    const until = async (cond: () => boolean) => {
+      const deadline = Date.now() + 8_000;
+      while (!cond() && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 25));
+    };
+
+    await enqueue(db, { type: "teste.job", queue: Q, payload: { n: 1 } });
+    await until(() => seen.length >= 1);
+
+    // Derruba a conexão por baixo do worker (o que acontece num restart do broker).
+    const broker = await getBroker();
+    await broker.connection.close();
+
+    await enqueue(db, { type: "teste.job", queue: Q, payload: { n: 2 } });
+    await until(() => seen.length >= 2);
+    worker.stop();
+    await worker.done;
+
+    assert.deepEqual(seen.map((message) => message.payload.n), [1, 2]);
+    assert.deepEqual(await depth(), { ready: 0, retrying: 0, dead: 0 });
+  });
+
   it("consome o que o relay publica e encerra limpo, sem largar mensagem pela metade", async () => {
     const { seen, handlers } = recorder(async () => {
       await new Promise((resolve) => setTimeout(resolve, 100));

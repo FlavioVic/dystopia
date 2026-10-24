@@ -200,7 +200,13 @@ revise o SQL → `npm run db:migrate`. Nunca edite migration já aplicada.
   testes): espere com `waitForRetries()`, não adiante relógio.
 - `tests/e2e/` — navegador (Playwright, `npm run test:e2e`) contra a loja
   rodando — por padrão a stack do `docker compose --profile app`. A fixture
-  falha o teste em qualquer erro de console ou violação de CSP.
+  falha o teste em qualquer erro de console ou violação de CSP; o
+  `acessibilidade.spec.ts` roda o axe (WCAG 2.1 AA) nas páginas públicas,
+  da conta e do admin. Os testes compram de verdade e rodam em paralelo:
+  não dependa do "primeiro produto da lista" nem de estoque fixo.
+- `tests/integration/migrations.test.ts` — migration que transforma DADO
+  ganha teste: banco descartável, aplica até a anterior, insere dados no
+  formato antigo, aplica e confere.
 - `tests/helpers/` — fixtures (`seedCheckoutFixture`), o atalho `startCheckout`,
   que monta o pedido igual à Server Action, e `work()`/`settleSaga()`/
   `pendingWork()` pra consumir e inspecionar as filas.

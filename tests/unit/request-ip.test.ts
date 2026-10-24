@@ -23,3 +23,16 @@ describe("IP do cliente (limite de tentativas)", () => {
     assert.equal(resolveClientIp(spoofed, { NODE_ENV: "development" }), "6.6.6.6");
   });
 });
+
+describe("limite configurável por ambiente", () => {
+  it("usa o valor da variável só se for inteiro positivo; senão, o de produção", async () => {
+    const { limitFromEnv } = await import("@/lib/rate-limit-config");
+    const name = "LIMITE_DE_TESTE";
+    for (const [raw, expected] of [["200", 200], ["0", 5], ["-3", 5], ["2.5", 5], ["abc", 5], [undefined, 5]] as const) {
+      if (raw === undefined) delete process.env[name];
+      else process.env[name] = raw;
+      assert.equal(limitFromEnv(name, 5), expected, String(raw));
+    }
+    delete process.env[name];
+  });
+});

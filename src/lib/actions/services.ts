@@ -2,6 +2,7 @@
 
 import { db } from "@/db";
 import { getCurrentUser } from "@/lib/data/auth";
+import { limitFromEnv } from "@/lib/rate-limit-config";
 import { getRequestIp } from "@/lib/request-ip";
 import { serviceName } from "@/lib/services-catalog";
 import { parseServiceRequestForm } from "@/lib/validation/service-request";
@@ -21,7 +22,7 @@ export type ServiceRequestState =
 
 // Formulário público sem login: limite por IP pra ninguém encher a caixa do
 // admin com pedido falso em loop.
-const REQUEST_RULE: RateLimitRule = { limit: 5, windowSeconds: 60 * 60 };
+const REQUEST_RULE: RateLimitRule = { limit: limitFromEnv("SERVICE_REQUEST_LIMIT_PER_HOUR", 5), windowSeconds: 60 * 60 };
 
 /** Registra um pedido de orçamento e devolve o protocolo. */
 export async function requestService(_prev: ServiceRequestState, formData: FormData): Promise<ServiceRequestState> {

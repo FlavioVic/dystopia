@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { db } from "@/db";
 import { createSession, deleteSession } from "@/lib/session";
 import { CART_COOKIE } from "@/lib/data/cart";
+import { limitFromEnv } from "@/lib/rate-limit-config";
 import { getRequestIp } from "@/lib/request-ip";
 import { parseLoginForm, parseSignupForm } from "@/lib/validation/account";
 import { PermanentError } from "@/saga/errors";
@@ -24,11 +25,6 @@ export type AuthState = {
 // padrão é o de produção.
 const LOGIN_RULE: RateLimitRule = { limit: limitFromEnv("LOGIN_LIMIT_PER_15MIN", 10), windowSeconds: 15 * 60 };
 const SIGNUP_RULE: RateLimitRule = { limit: limitFromEnv("SIGNUP_LIMIT_PER_HOUR", 5), windowSeconds: 60 * 60 };
-
-function limitFromEnv(name: string, fallback: number): number {
-  const value = Number(process.env[name]);
-  return Number.isInteger(value) && value > 0 ? value : fallback;
-}
 
 async function rateLimited(action: string, rule: RateLimitRule): Promise<string | null> {
   const { allowed, retryAfterSeconds } = await consumeRateLimit(db, `${action}:ip:${await getRequestIp()}`, rule);

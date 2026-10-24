@@ -143,6 +143,19 @@ describe("fronteiras da arquitetura", () => {
     }
   });
 
+  it("toda Server Action do admin começa checando o papel", () => {
+    // Server Action é endpoint público: o layout protegido não cobre quem
+    // chama a action direto. A checagem tem que ser a primeira coisa.
+    const content = readFileSync(path.join(ROOT, "src", "lib", "actions", "admin.ts"), "utf-8");
+    // O corpo começa na `{` que fecha a linha da assinatura (o tipo de retorno
+    // pode ter `{ … }` no meio da linha).
+    const actions = [...content.matchAll(/export async function (\w+)[\s\S]*?\{\n\s*([^\n]*)/g)];
+    assert.ok(actions.length > 0);
+    for (const [, name, firstLine] of actions) {
+      assert.equal(firstLine.trim(), "await ensureAdmin();", `${name} não começa com ensureAdmin()`);
+    }
+  });
+
   it("o orquestrador não conhece a definição concreta (só o registry)", () => {
     for (const specifier of importsOf("src/saga/orchestrator.ts")) {
       assert.ok(

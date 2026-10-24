@@ -124,7 +124,8 @@ confia nesses headers com `TRUST_PROXY_HEADERS=1`. Sem proxy, o cliente forja
 o IP e o limite de tentativas do login deixa de valer.
 
 Antes de usar em produção: troque as senhas e o `SESSION_SECRET` (os do
-compose são de desenvolvimento), remova `SIGNUP_LIMIT_PER_HOUR` /
-`LOGIN_LIMIT_PER_15MIN` (o compose aumenta para os testes) e desligue
+compose são de desenvolvimento), remova `SIGNUP_LIMIT_PER_HOUR`,
+`LOGIN_LIMIT_PER_15MIN` e `SERVICE_REQUEST_LIMIT_PER_HOUR` (o compose aumenta
+para os testes) e desligue
 `ALLOW_CHECKOUT_SIMULATION` se houver cobrança real.
 
