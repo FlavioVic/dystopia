@@ -22,4 +22,4 @@ export const CONTACT_EMAIL = "contato.dystopia23@gmail.com";
  * `tests/unit/test-count.test.ts` conta os casos de verdade e falha se este
  * número ficar desatualizado.
  */
-export const TEST_COUNT = 401;
+export const TEST_COUNT = 409;

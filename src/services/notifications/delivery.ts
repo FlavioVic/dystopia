@@ -58,7 +58,7 @@ export async function deliverNotification(
   try {
     const messageId = await resendSend(
       deps.email,
-      { to, subject, text: row.body, html: renderHtml(row.subject, row.body), idempotencyKey: row.dedupeKey },
+      { to, subject, text: row.body, html: row.html ?? renderHtml(row.subject, row.body), idempotencyKey: row.dedupeKey },
       deps.fetch,
     );
     await markSent(executor, row.id, { provider: RESEND_PROVIDER, deliveredTo: to, messageId });
@@ -113,7 +113,8 @@ const escapeHtml = (value: string) =>
   value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
 /**
- * HTML simples, com estilo inline (cliente de e-mail ignora <style>, CSS vars
+ * Layout genérico — só para notificação gravada antes dos templates
+ * (`templates.ts`), que não tem `html` próprio. HTML simples, com estilo inline (cliente de e-mail ignora <style>, CSS vars
  * e webfont). As cores repetem a paleta da marca em globals.css: obsidian,
  * graphite, steel, bone. O nome vai em texto espaçado — o wordmark desenhado
  * não sobrevive a cliente de e-mail que bloqueia imagem.
