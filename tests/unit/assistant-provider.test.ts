@@ -9,7 +9,7 @@ import {
   DEFAULT_CHAT_MODEL,
 } from "@/lib/assistant/provider";
 
-const config = { url: "https://llm.exemplo/v1", apiKey: "chave-teste", model: "modelo-x" };
+const config = { url: "https://llm.exemplo/v1", apiKey: "chave-teste", model: "modelo-x", reasoningEffort: null };
 
 /** `fetch` falso que grava a chamada e responde o que o caso mandar. */
 function fakeFetch(respond: () => Response) {
@@ -35,11 +35,18 @@ describe("configuração do assistente", () => {
       url: DEFAULT_CHAT_API_URL,
       apiKey: "k",
       model: DEFAULT_CHAT_MODEL,
+      reasoningEffort: "low",
     });
     assert.deepEqual(
       chatConfigFromEnv({ CHAT_API_KEY: "k", CHAT_API_URL: "https://ai-gateway.vercel.sh/v1/", CHAT_MODEL: "x/y" }),
-      { url: "https://ai-gateway.vercel.sh/v1", apiKey: "k", model: "x/y" },
+      { url: "https://ai-gateway.vercel.sh/v1", apiKey: "k", model: "x/y", reasoningEffort: null },
     );
+  });
+
+  it("raciocínio baixo só para a família gpt-oss; variável manda em qualquer modelo", () => {
+    assert.equal(chatConfigFromEnv({ CHAT_API_KEY: "k", CHAT_MODEL: "openai/gpt-oss-20b" })?.reasoningEffort, "low");
+    assert.equal(chatConfigFromEnv({ CHAT_API_KEY: "k", CHAT_MODEL: "qwen/qwen3.8-27b" })?.reasoningEffort, null);
+    assert.equal(chatConfigFromEnv({ CHAT_API_KEY: "k", CHAT_REASONING_EFFORT: "medium" })?.reasoningEffort, "medium");
   });
 });
 
@@ -56,6 +63,13 @@ describe("chamada ao provedor", () => {
     assert.equal(body.model, "modelo-x");
     assert.deepEqual(body.messages, [{ role: "user", content: "oi" }]);
     assert.deepEqual(body.tools, tools);
+    assert.equal("reasoning_effort" in body, false, "modelo sem raciocínio não recebe o campo");
+  });
+
+  it("modelo que raciocina recebe o esforço configurado", async () => {
+    const { impl, calls } = fakeFetch(() => json({ choices: [{ message: { content: "ok" } }] }));
+    await createChatCompletion({ ...config, reasoningEffort: "low" }, impl)([{ role: "user", content: "oi" }], []);
+    assert.equal(JSON.parse(String(calls[0].init.body)).reasoning_effort, "low");
   });
 
   it("devolve as ferramentas que o modelo pediu", async () => {
