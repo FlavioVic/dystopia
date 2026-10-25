@@ -28,7 +28,7 @@ export function ProductGallery({
         ) : null}
       </div>
       {current?.credit ? (
-        <p className="label text-foreground-muted">
+        <p className="label break-words text-foreground-muted">
           Foto: {current.credit.author} /{" "}
           <a href={current.credit.source} target="_blank" rel="noreferrer" className="underline underline-offset-4 hover:text-foreground">
             {current.credit.license}, Wikimedia Commons
