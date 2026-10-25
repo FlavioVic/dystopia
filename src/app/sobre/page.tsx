@@ -38,7 +38,7 @@ const HIGHLIGHTS = [
     body: "Testes de integração no Postgres e no RabbitMQ cobrindo compensação, retry, DLQ, broker fora do ar, crash no meio do passo e concorrência. Um teste de arquitetura impede serviço de importar serviço.",
   },
   {
-    title: "Pronto pra ficar exposto",
+    title: "Pronto para ficar exposto",
     body: "Limite de tentativas no login contado no banco, login que não revela quais e-mails existem, proteção de CSRF e headers de segurança.",
   },
 ];
@@ -55,7 +55,7 @@ export default function AboutPage() {
         <p className="label text-foreground-muted">Projeto de portfólio / Flávio Victor</p>
         <h1 className="display-2 mt-4 text-[26px] leading-[34px] sm:text-[40px] sm:leading-[48px]">Sobre o projeto</h1>
         <p className="mt-6 max-w-2xl text-lg leading-relaxed text-foreground-muted">
-          Uma loja de hardware e serviços técnicos, projetada e construída por Flávio Victor pra mostrar o que
+          Uma loja de hardware e serviços técnicos, projetada e construída por Flávio Victor para mostrar o que
           acontece por trás de um botão de &ldquo;Confirmar aquisição&rdquo;. A vitrine é o que você vê; o projeto
           de verdade é o checkout que não deixa pedido pela metade, mesmo quando o pagamento falha ou o servidor
           cai no meio.
@@ -87,8 +87,8 @@ export default function AboutPage() {
               {stripeEnabled ? (
                 <>
                   {" "}No cartão (Stripe em modo de teste), use{" "}
-                  <span className="font-mono text-foreground">4242 4242 4242 4242</span> pra aprovar ou{" "}
-                  <span className="font-mono text-foreground">4000 0000 0000 0002</span> pra ver a recusa.
+                  <span className="font-mono text-foreground">4242 4242 4242 4242</span> para aprovar ou{" "}
+                  <span className="font-mono text-foreground">4000 0000 0000 0002</span> para ver a recusa.
                 </>
               ) : null}
             </li>
@@ -96,7 +96,7 @@ export default function AboutPage() {
               <li>
                 No checkout, o <strong className="text-foreground">modo demonstração</strong> deixa você
                 escolher o que o gateway responde. Tente &ldquo;Recusar pagamento&rdquo; ou &ldquo;Gateway fora
-                do ar&rdquo; pra ver a compensação.
+                do ar&rdquo; para ver a compensação.
               </li>
             ) : null}
             <li>Na página do pedido, acompanhe a saga passo a passo.</li>

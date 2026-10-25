@@ -44,7 +44,7 @@ export async function work(queue: keyof typeof QUEUES | "all" = "all"): Promise<
   return drainQueues({ queues, handlers: testHandlers, budgetMs: 5_000 });
 }
 
-/** Espera as mensagens das filas de espera (retry) voltarem pra fila de trabalho. */
+/** Espera as mensagens das filas de espera (retry) voltarem para a fila de trabalho. */
 export async function waitForRetries(timeoutMs = 3_000): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
@@ -68,7 +68,7 @@ export async function settleSaga(sagaId: string, options: { inline?: boolean; ti
     if (report.received === 0) await new Promise((resolve) => setTimeout(resolve, 50));
   }
 
-  throw new Error(`saga ${sagaId} não terminou — consumidores parados ou passo esperando pra sempre`);
+  throw new Error(`saga ${sagaId} não terminou — consumidores parados ou passo esperando para sempre`);
 }
 
 /** Código de erro gravado em `lastError` ("payment_declined: ..."). */

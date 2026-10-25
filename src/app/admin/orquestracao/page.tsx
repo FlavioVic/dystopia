@@ -246,7 +246,7 @@ export default async function OrchestrationPage(props: PageProps<"/admin/orquest
         <h2 className="label text-foreground-muted">Sagas recentes</h2>
 
         {sagasList.length === 0 ? (
-          <p className="mt-4 text-sm text-foreground-muted">Nenhuma saga ainda — faça um pedido pra ver.</p>
+          <p className="mt-4 text-sm text-foreground-muted">Nenhuma saga ainda — faça um pedido para ver.</p>
         ) : (
           <div className="mt-4 grid gap-4 lg:grid-cols-2">
             {sagasList.map((saga) => (
@@ -314,7 +314,7 @@ export default async function OrchestrationPage(props: PageProps<"/admin/orquest
                   <span className="line-clamp-1 font-medium">{notification.subject}</span>
                   <span className="block text-xs text-foreground-muted">
                     {notification.recipient}
-                    {/* Sandbox: o e-mail foi pra outro endereço — mostra pra onde. */}
+                    {/* Sandbox: o e-mail foi para outro endereço — mostra para onde. */}
                     {notification.deliveredTo && notification.deliveredTo !== notification.recipient
                       ? ` → entregue em ${notification.deliveredTo}`
                       : ""}

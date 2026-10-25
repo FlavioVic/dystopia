@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 /**
  * Recarrega os dados do Server Component em intervalos — usado enquanto a
  * saga do pedido está em andamento (o worker pode terminar a qualquer
- * momento). Para sozinho depois de `maxTicks` pra não ficar girando pra
+ * momento). Para sozinho depois de `maxTicks` para não ficar girando para
  * sempre numa aba esquecida aberta.
  */
 export function AutoRefresh({ intervalMs = 3_000, maxTicks = 20 }: { intervalMs?: number; maxTicks?: number }) {

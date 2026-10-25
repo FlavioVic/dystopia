@@ -1,7 +1,7 @@
 /**
- * Métricas das sagas — agregadas no Postgres, pro painel e pros alertas.
+ * Métricas das sagas — agregadas no Postgres, para o painel e para os alertas.
  *
- * Genérico: vale pra qualquer `sagas.type`, sem conhecer a definição concreta.
+ * Genérico: vale para qualquer `sagas.type`, sem conhecer a definição concreta.
  * As durações são percentis (p50/p95), não média: uma saga que esperou o
  * backoff três vezes puxaria a média e esconderia o caso típico.
  */
@@ -16,7 +16,7 @@ export type StepMetrics = {
   /** Chegou a concluir (inclui os que depois foram desfeitos pela compensação). */
   succeeded: number;
   failed: number;
-  /** Precisou de mais de uma tentativa pra sair do lugar. */
+  /** Precisou de mais de uma tentativa para sair do lugar. */
   retried: number;
   /** Do primeiro início à conclusão — inclui a espera de backoff entre tentativas. */
   p50Ms: number | null;

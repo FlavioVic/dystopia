@@ -3,12 +3,12 @@
  * como processo próprio (`npm run worker:payments`, fila `payments`).
  *
  * Cada comando roda numa transação que grava o efeito E a resposta (outbox):
- * não existe cobrança sem aviso pra quem pediu, nem aviso sem cobrança.
+ * não existe cobrança sem aviso para quem pediu, nem aviso sem cobrança.
  *
  * Retry é daqui: falha transitória (gateway fora, timeout) é relançada e a
  * fila devolve o comando pela fila de espera com backoff, contando a
  * tentativa. Na ÚLTIMA tentativa não relança: responde com falha — quem pediu
- * não pode ficar esperando pra sempre por um comando que morreu na DLQ.
+ * não pode ficar esperando para sempre por um comando que morreu na DLQ.
  * Reentrega do mesmo comando é segura: `idempotency_key` no banco e no Stripe.
  */
 
@@ -50,7 +50,7 @@ async function handle<TCommand, TReply extends Record<string, unknown>>(
 ): Promise<void> {
   const replyTo = readReplyTo(message.payload);
   // Sem endereço não há a quem responder: erro de quem montou o comando, que
-  // retry não conserta — direto pra DLQ (alerta no painel).
+  // retry não conserta — direto para DLQ (alerta no painel).
   if (!replyTo) throw new PermanentError("invalid_command", `comando ${message.type} sem replyTo`);
 
   try {

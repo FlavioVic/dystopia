@@ -1,5 +1,5 @@
 /**
- * Fluxo de sincronização: o que garante que nenhuma saga fica parada pra
+ * Fluxo de sincronização: o que garante que nenhuma saga fica parada para
  * sempre depois de um crash — mesmo que a mensagem dela tenha sumido do
  * caminho normal (DLQ, fila apagada).
  */

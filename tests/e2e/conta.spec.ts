@@ -15,8 +15,8 @@ test.describe("acesso", () => {
     await page.goto("/conta");
     await expect(page).toHaveURL(/\/entrar/);
 
-    // Cliente logado: o admin manda pra /entrar, que manda quem já tem sessão
-    // pra /conta. O que importa é não ficar no admin.
+    // Cliente logado: o admin manda para /entrar, que manda quem já tem sessão
+    // para /conta. O que importa é não ficar no admin.
     await signUp(page);
     await page.goto("/admin");
     await expect(page).not.toHaveURL(/\/admin/);

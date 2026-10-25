@@ -10,7 +10,7 @@
  *
  * O commit inicial grava, numa única transação: endereço + pedido (`pending`)
  * + itens + saga + mensagem na outbox. Depois disso o avanço é tentado
- * inline (pro cliente já ver o resultado) e, se falhar, o worker termina.
+ * inline (para o cliente já ver o resultado) e, se falhar, o worker termina.
  */
 
 import { redirect } from "next/navigation";
@@ -36,7 +36,7 @@ import { isCheckoutSimulationEnabled } from "@/lib/checkout-simulation";
 
 const PAYMENT_METHODS = ["pix", "credit_card", "boleto"] as const satisfies readonly PaymentMethod[];
 
-/** Server Action pública pro preview do cupom no checkout. */
+/** Server Action pública para o preview do cupom no checkout. */
 export async function validateCoupon(code: string, subtotalCents: number): Promise<CouponResult> {
   const result = await resolveCoupon(db, code, subtotalCents);
   if (!result.ok) return { ok: false, message: result.message };
@@ -160,7 +160,7 @@ export async function placeOrder(_prev: CheckoutState, formData: FormData): Prom
     });
   });
 
-  // Caminho rápido: tenta terminar a saga no próprio request pro cliente já
+  // Caminho rápido: tenta terminar a saga no próprio request para o cliente já
   // cair na página do pedido com o resultado. Se não der, a mensagem na
   // outbox garante que o worker termina (ver src/saga/runner.ts).
   await tryRunSagaInline(sagaId);
@@ -173,7 +173,7 @@ export async function placeOrder(_prev: CheckoutState, formData: FormData): Prom
 
 /**
  * Permite forçar um caminho do gateway simulado (`decline`, `flaky_once`…)
- * pra demonstrar a compensação. Com o modo demonstração desligado, o campo do
+ * para demonstrar a compensação. Com o modo demonstração desligado, o campo do
  * formulário é ignorado (ver `lib/checkout-simulation`).
  */
 function simulationFromForm(formData: FormData) {

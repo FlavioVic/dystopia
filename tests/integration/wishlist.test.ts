@@ -64,7 +64,7 @@ describe("favoritos", () => {
     assert.deepEqual(await wishlistProductIds(db, bruno.userId), [bruno.product.id]);
   });
 
-  it("a lista vem com produto e imagens, do mais novo pro mais antigo", async () => {
+  it("a lista vem com produto e imagens, do mais novo para o mais antigo", async () => {
     const fixture = await seedCheckoutFixture();
     const outro = await seedCheckoutFixture();
 

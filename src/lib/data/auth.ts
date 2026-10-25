@@ -26,7 +26,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
   return user ?? null;
 });
 
-/** Exige um admin logado — redireciona pra /entrar caso contrário. */
+/** Exige um admin logado — redireciona para /entrar caso contrário. */
 export async function requireAdmin(): Promise<CurrentUser> {
   const user = await getCurrentUser();
   if (!user || user.role !== "admin") redirect("/entrar");

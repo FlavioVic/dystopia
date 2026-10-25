@@ -2,7 +2,7 @@
  * Sincroniza só a MÍDIA do catálogo (imagens e vitrine) com o código:
  * `npm run catalog:media`.
  *
- * Existe pra produção: o seed faz TRUNCATE em tudo (contas, pedidos, senha de
+ * Existe para produção: o seed faz TRUNCATE em tudo (contas, pedidos, senha de
  * admin); isto só reescreve `product_images` e `is_featured` dos produtos do
  * catálogo, casando por slug. Idempotente.
  */

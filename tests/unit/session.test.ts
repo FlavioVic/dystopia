@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 import { before, describe, it } from "node:test";
 import { SignJWT, UnsecuredJWT } from "jose";
 
-// O módulo lê o segredo ao carregar; import dinâmico (tsx compila pra CJS,
+// O módulo lê o segredo ao carregar; import dinâmico (tsx compila para CJS,
 // sem await no topo) depois de garantir que ele existe.
 process.env.SESSION_SECRET ??= "segredo-de-teste-da-sessao-com-tamanho";
 let signSessionToken: typeof import("@/lib/session").signSessionToken;

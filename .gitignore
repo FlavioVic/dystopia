@@ -42,7 +42,7 @@ yarn-error.log*
 next-env.d.ts
 .neon
 
-# notas locais pra agentes de IA (o guia do projeto é docs/ARQUITETURA.md)
+# notas locais para agentes de IA (o guia do projeto é docs/ARQUITETURA.md)
 CLAUDE.md
 AGENTS.md
 

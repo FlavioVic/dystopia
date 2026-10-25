@@ -1,5 +1,5 @@
 /**
- * URL pública do site, pra metadados absolutos (sitemap, robots, Open Graph).
+ * URL pública do site, para metadados absolutos (sitemap, robots, Open Graph).
  * Na Vercel vem da variável de sistema do domínio de produção; SITE_URL
  * sobrescreve (domínio próprio); em dev, localhost.
  */

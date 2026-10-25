@@ -21,7 +21,7 @@ if (!secret) {
 }
 const encodedKey = new TextEncoder().encode(secret);
 
-/** Token assinado da sessão. Puro (sem cookie) — exportado pros testes. */
+/** Token assinado da sessão. Puro (sem cookie) — exportado para os testes. */
 export async function signSessionToken(payload: SessionPayload): Promise<string> {
   return new SignJWT(payload)
     .setProtectedHeader({ alg: "HS256" })

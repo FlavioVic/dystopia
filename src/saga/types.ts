@@ -1,6 +1,6 @@
 import type { Transaction } from "@/db";
 
-/** Saída de um passo — vai pro `context` da saga e fica disponível pros próximos. */
+/** Saída de um passo — vai para o `context` da saga e fica disponível para os próximos. */
 export type StepOutput = Record<string, unknown> | void;
 
 export type StepContext<TPayload> = {
@@ -14,7 +14,7 @@ export type StepContext<TPayload> = {
   attempt: number;
 };
 
-/** Comando pra outro serviço, entregue pela fila (ver queue/reply.ts). */
+/** Comando para outro serviço, entregue pela fila (ver queue/reply.ts). */
 export type StepRequest = {
   type: string;
   queue: string;

@@ -30,7 +30,7 @@ describe("CSP", () => {
     assert.deepEqual(directive(csp, "base-uri"), ["'self'"]);
   });
 
-  it("libera só o necessário pro Stripe Elements", () => {
+  it("libera só o necessário para o Stripe Elements", () => {
     const csp = buildCsp("n");
     assert.deepEqual(directive(csp, "frame-src"), ["https://js.stripe.com", "https://hooks.stripe.com"]);
     assert.ok(directive(csp, "connect-src").includes("https://api.stripe.com"));

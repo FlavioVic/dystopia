@@ -1,4 +1,4 @@
-# App web (Next.js) — imagem de produção, pra subir a stack inteira com
+# App web (Next.js) — imagem de produção, para subir a stack inteira com
 # `docker compose up`. A demo pública roda na Vercel e não usa esta imagem.
 #
 #   docker build -f Dockerfile.web -t dystopia-web .

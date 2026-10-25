@@ -7,9 +7,9 @@
  * Cinco cores, sem gradiente, brilho, neon nem transparência. Camadas se
  * separam por régua de 1px, nunca por sombra; cantos são retos. Seções de
  * página se separam por SETOR (`.sector-*`, mais abaixo): faixas em tons de
- * vermelho, grafite ou bone, pra que nem tudo pareça o mesmo fundo preto.
+ * vermelho, grafite ou bone, para que nem tudo pareça o mesmo fundo preto.
  *
- * Os nomes abaixo são PAPÉIS (o que os componentes usam), apontando pra paleta:
+ * Os nomes abaixo são PAPÉIS (o que os componentes usam), apontando para a paleta:
  * - accent = ink (bone): botão principal é preenchimento em bone, texto obsidian.
  * - signal/danger = signal-red: só alerta, valor crítico e o RESTRITO. Texto
  *   vermelho pequeno sobre obsidian não passa contraste (3,3:1) — em texto, o
@@ -20,7 +20,7 @@
  *
  * Contraste (WCAG): bone/obsidian 15,4:1 · bone/graphite 12,7:1 ·
  * ink-muted/obsidian 6,2:1 · ink-muted/graphite 5,1:1 · bone/signal 4,6:1.
- * steel (#6e7176) só pra régua, tique e texto ≥ 24px (4,0:1).
+ * steel (#6e7176) só para régua, tique e texto ≥ 24px (4,0:1).
  */
 
 :root {
@@ -63,7 +63,7 @@
   --deal-soft: var(--graphite);
 
   /* Tons do vermelho (feedback de design: "tudo no fundo preto parece do
-     mesmo setor"). Derivados do signal-red, só pra SUPERFÍCIE e régua de um
+     mesmo setor"). Derivados do signal-red, só para SUPERFÍCIE e régua de um
      setor — o vermelho de ação continua sendo o signal-red puro. */
   --crimson-950: #22050a; /* superfície do setor */
   --crimson-900: #330811; /* superfície elevada / hover */
@@ -74,7 +74,7 @@
 }
 
 /*
- * Setores: faixas de largura total que redefinem os PAPÉIS dentro delas, pra
+ * Setores: faixas de largura total que redefinem os PAPÉIS dentro delas, para
  * que cada seção tenha superfície própria sem o componente saber disso
  * (ProductCard, PortfolioCard e o kit continuam usando bg-background etc.).
  */
@@ -98,7 +98,7 @@
   background: var(--background);
 }
 /* Setor claro: tinta e fundo invertidos. Vermelho como texto só em ≥24px
-   (4,6:1); texto vermelho pequeno escurece pro hover do primário (6,2:1). */
+   (4,6:1); texto vermelho pequeno escurece para o hover do primário (6,2:1). */
 .sector-bone {
   --background: var(--bone);
   --background-elevated: #dcd7cc;
@@ -150,7 +150,7 @@
   --font-display: var(--font-michroma), Arial, sans-serif;
   --font-brand: var(--font-display);
 
-  /* Cantos retos em tudo. `rounded-full` continua: só pra círculo de verdade
+  /* Cantos retos em tudo. `rounded-full` continua: só para círculo de verdade
      (status, avatar, o campo do emblema). */
   --radius-xs: 0px;
   --radius-sm: 0px;
@@ -205,7 +205,7 @@
 }
 
 /* ------------------------------------------------------------------ kit
- * Elementos da linguagem gráfica. Cada um tem uma função; use só pra ela.
+ * Elementos da linguagem gráfica. Cada um tem uma função; use só para ela.
  */
 
 /* Títulos display: Michroma em caixa alta, com tracking. */
@@ -366,7 +366,7 @@
 }
 
 /* Vinheta do emblema (design system: MotionSting). Construção em steel
-   desenhada, corte seco pro emblema sólido. O portão nunca abre. */
+   desenhada, corte seco para o emblema sólido. O portão nunca abre. */
 @keyframes sting-draw {
   from {
     stroke-dashoffset: var(--len);

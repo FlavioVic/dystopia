@@ -17,7 +17,7 @@ const DEFAULT_FROM = "Dystopia <onboarding@resend.dev>";
 export type EmailConfig = {
   apiKey: string;
   from: string;
-  /** Modo sandbox: todo e-mail vai pra cá, com o destinatário original no assunto. */
+  /** Modo sandbox: todo e-mail vai para cá, com o destinatário original no assunto. */
   redirectTo: string | null;
 };
 
@@ -30,7 +30,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
  *
  * Com chave, exige `EMAIL_REDIRECT_TO` — a não ser que `EMAIL_DELIVER_TO_RECIPIENTS=1`
  * libere de propósito. Numa demo pública, qualquer um se cadastra com o
- * e-mail de outra pessoa; entregar pro comprador por descuido vira spam com o
+ * e-mail de outra pessoa; entregar para o comprador por descuido vira spam com o
  * nome do projeto.
  */
 export function emailConfigFromEnv(env: Record<string, string | undefined> = process.env): EmailConfig | null {
@@ -44,7 +44,7 @@ export function emailConfigFromEnv(env: Record<string, string | undefined> = pro
   if (!redirectTo && env.EMAIL_DELIVER_TO_RECIPIENTS !== "1") {
     throw new Error(
       "RESEND_API_KEY definida sem EMAIL_REDIRECT_TO: defina o e-mail que recebe tudo (modo sandbox) " +
-        "ou EMAIL_DELIVER_TO_RECIPIENTS=1 pra entregar ao comprador de verdade.",
+        "ou EMAIL_DELIVER_TO_RECIPIENTS=1 para entregar ao comprador de verdade.",
     );
   }
   return { apiKey, from: env.EMAIL_FROM?.trim() || DEFAULT_FROM, redirectTo };

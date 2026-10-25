@@ -33,7 +33,7 @@ describe("datas do formulário de cupom", () => {
     }
   });
 
-  it("formata de volta pro input sem escorregar de dia", () => {
+  it("formata de volta para o input sem escorregar de dia", () => {
     const date = new Date(2026, 0, 5);
     assert.equal(formatDateInput(date), "2026-01-05");
     assert.equal(formatDateInput(parseDateInput("2026-12-31")!), "2026-12-31");
@@ -52,7 +52,7 @@ describe("validação do cupom", () => {
     assert.equal(values.validUntil, null);
   });
 
-  it("aceita valor fixo em reais e converte pra centavos", () => {
+  it("aceita valor fixo em reais e converte para centavos", () => {
     const values = valuesOf(parseCouponForm(
       form({ discountType: "fixed", discountValue: "25,50", minOrder: "150,00" }),
     ));

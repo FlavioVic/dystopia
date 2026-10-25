@@ -25,7 +25,7 @@ export function isPaymentMethod(value: unknown): value is PaymentMethod {
 }
 
 /**
- * Caminhos do gateway simulado, pra demonstrar/testar os caminhos tristes de
+ * Caminhos do gateway simulado, para demonstrar/testar os caminhos tristes de
  * forma determinística. O padrão é aprovar.
  */
 export const SIMULATION_MODES = ["approve", "decline", "flaky_once", "unavailable"] as const;

@@ -1,7 +1,7 @@
 /**
  * Diagramas do portfólio: `npm run art:portfolio`.
  *
- * Projeto sem tela pública (ou que depende de chave paga pra mostrar
+ * Projeto sem tela pública (ou que depende de chave paga para mostrar
  * resultado) ganha um diagrama da arquitetura REAL dele, no idioma da marca —
  * caixas, setas e rótulos em mono. Projeto com tela usa captura de verdade
  * (public/portfolio/*.webp), não isto.

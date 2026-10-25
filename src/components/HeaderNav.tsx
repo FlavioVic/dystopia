@@ -45,7 +45,7 @@ export function HeaderNav({ categories }: { categories: Category[] }) {
   const storeActive = ["/produtos", "/produto", "/categoria"].some((p) => path.startsWith(p));
 
   // Fecha os menus ao navegar (ajuste durante a renderização, não em efeito:
-  // é o padrão do React pra estado que depende de prop/rota).
+  // é o padrão do React para estado que depende de prop/rota).
   const [lastPath, setLastPath] = useState(path);
   if (path !== lastPath) {
     setLastPath(path);

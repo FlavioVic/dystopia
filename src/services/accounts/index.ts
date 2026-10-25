@@ -1,7 +1,7 @@
 /**
  * Serviço de contas — cadastro e verificação de credenciais.
  *
- * Duas regras de segurança moram aqui (e não na borda) pra valerem pra quem
+ * Duas regras de segurança moram aqui (e não na borda) para valerem para quem
  * chamar:
  * - cadastro sem corrida: quem decide se o e-mail já existe é o índice único,
  *   no próprio INSERT — "consulta e depois insere" deixava dois cadastros

@@ -7,7 +7,7 @@
  * - o resto (Pix, boleto, cartão sem Stripe) → provedor SIMULADO.
  *
  * `mode` é o modo demonstração: injeta a falha ANTES de qualquer provedor,
- * pra mostrar os caminhos tristes de forma determinística (o Stripe não tem
+ * para mostrar os caminhos tristes de forma determinística (o Stripe não tem
  * como simular "fora do ar"). Recusa de verdade no Stripe vem do cartão
  * 4000 0000 0000 0002.
  */
@@ -115,7 +115,7 @@ export async function reverse(
 
   if (input.provider === STRIPE_PROVIDER) {
     if (!deps.stripe) {
-      // Cobrado no Stripe e sem chave pra estornar: não dá pra fingir.
+      // Cobrado no Stripe e sem chave para estornar: não dá para fingir.
       throw new RetryableError("gateway_misconfigured", "Stripe não configurado para estornar.");
     }
     return stripeRefund(
@@ -125,7 +125,7 @@ export async function reverse(
     );
   }
 
-  // Simulado: o estorno sempre funciona — o que importa pro exemplo é a saga
+  // Simulado: o estorno sempre funciona — o que importa para o exemplo é a saga
   // marcar o pagamento como estornado.
   return { reversed: true };
 }

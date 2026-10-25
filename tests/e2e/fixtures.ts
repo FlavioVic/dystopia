@@ -70,7 +70,7 @@ export async function addFirstProductToCart(page: Page, listing = "/produtos"): 
     if (href) hrefs.push(href);
   }
   // O card fica preso ao link (estável): o botão muda de nome depois do clique,
-  // e um localizador por "i-ésimo botão Adicionar" passaria a apontar pro próximo.
+  // e um localizador por "i-ésimo botão Adicionar" passaria a apontar para o próximo.
   for (const href of hrefs) {
     const card = page.locator("article").filter({ has: page.locator(`a[href="${href}"]`) }).first();
     await card.getByRole("button", { name: "Adicionar ao carrinho" }).click();

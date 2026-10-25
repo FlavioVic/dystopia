@@ -6,7 +6,7 @@
  *   exchange <p>         (direct) ──rk=<fila>──▶ <p>.<fila>              trabalho
  *   exchange <p>.retry   (direct) ──rk=<fila>.<ms>──▶ <p>.<fila>.retry.<ms>
  *        fila de espera com x-message-ttl=<ms>; quando o TTL vence, o
- *        dead-letter-exchange dela devolve a mensagem pra <p>.<fila>
+ *        dead-letter-exchange dela devolve a mensagem para <p>.<fila>
  *   exchange <p>.dead    (direct) ──rk=<fila>──▶ <p>.<fila>.dlq          parking lot
  *
  * É o padrão "retry com dead-letter exchange + TTL": uma fila de espera POR
@@ -60,7 +60,7 @@ export function names(queue: string, config: BrokerConfig = brokerConfig()) {
 
 /**
  * Menor fila de espera que cobre o atraso pedido (ou a maior que existe).
- * Atraso arredonda PRA CIMA: retry nunca sai antes da hora.
+ * Atraso arredonda PARA CIMA: retry nunca sai antes da hora.
  */
 export function retryTierFor(delayMs: number, tiers: number[] = brokerConfig().retryTiersMs): number {
   return tiers.find((tier) => tier >= delayMs) ?? tiers[tiers.length - 1];
@@ -99,7 +99,7 @@ async function open(): Promise<Broker> {
   const publisher = await connection.createConfirmChannel();
   const broker: Broker = { connection, publisher, declared: new Map(), config };
 
-  // `open()` só roda dentro de `getBroker()`, depois de `current` apontar pra
+  // `open()` só roda dentro de `getBroker()`, depois de `current` apontar para
   // ela: é essa a promessa a esquecer quando ESTA conexão cair.
   const mine = current;
   const forget = () => {
@@ -228,7 +228,7 @@ export async function publishEnvelope(broker: Broker, envelope: Envelope, route:
   });
 }
 
-/** Lê uma mensagem crua do broker de volta pro formato da fila. */
+/** Lê uma mensagem crua do broker de volta para o formato da fila. */
 export function readEnvelope(
   queue: string,
   message: { content: Buffer; properties: { messageId?: string; type?: string; headers?: Record<string, unknown> } },
@@ -289,7 +289,7 @@ export async function queueDepths(queues: string[]): Promise<QueueDepth[]> {
   return depths;
 }
 
-/** Esvazia todas as filas (trabalho, espera e DLQ). Só pra teste. */
+/** Esvazia todas as filas (trabalho, espera e DLQ). Só para teste. */
 export async function purgeQueues(queues: string[]): Promise<void> {
   const broker = await getBroker();
   for (const queue of queues) {

@@ -1,5 +1,5 @@
 /**
- * Métricas da fila, pro painel e pros alertas. Genérico como o resto de
+ * Métricas da fila, para o painel e para os alertas. Genérico como o resto de
  * `queue/`: não sabe o que as mensagens fazem.
  *
  * Duas fontes:

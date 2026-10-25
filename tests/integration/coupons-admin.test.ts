@@ -51,7 +51,7 @@ describe("cupom no admin", () => {
     );
   });
 
-  it("editar troca as regras e mantém o código livre pra ele mesmo", async () => {
+  it("editar troca as regras e mantém o código livre para ele mesmo", async () => {
     const { couponId } = await createCoupon(db, input);
 
     await updateCoupon(db, couponId, {

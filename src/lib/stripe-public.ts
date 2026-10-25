@@ -7,7 +7,7 @@ const logger = createLogger("stripe");
  * no processo de pagamentos. Sem ela, cartão segue no provedor simulado.
  *
  * Lida em runtime (não `NEXT_PUBLIC_*`): trocar a chave não exige rebuild, e
- * a página do checkout passa o valor pro formulário.
+ * a página do checkout passa o valor para o formulário.
  */
 export function getStripePublishableKey(): string | null {
   const key = process.env.STRIPE_PUBLISHABLE_KEY?.trim();

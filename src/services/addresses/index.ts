@@ -4,7 +4,7 @@
  *
  * Detalhe que importa: `orders.shipping_address_id` tem FK com
  * `ON DELETE RESTRICT`, de propósito — endereço usado em pedido não pode
- * desaparecer, senão o histórico perde pra onde a compra foi. Então
+ * desaparecer, senão o histórico perde para onde a compra foi. Então
  * `deleteAddress` checa o uso antes e devolve um "não" explicável em vez de
  * estourar erro de FK na cara do usuário.
  */
@@ -81,7 +81,7 @@ export async function setDefaultAddress(
   return { changed: !address.isDefault };
 }
 
-/** Quantos pedidos apontam pra este endereço (entrega ou cobrança). */
+/** Quantos pedidos apontam para este endereço (entrega ou cobrança). */
 export async function addressUsageCount(executor: Executor, addressId: string): Promise<number> {
   const [row] = await executor
     .select({ total: sql<number>`count(*)::int` })

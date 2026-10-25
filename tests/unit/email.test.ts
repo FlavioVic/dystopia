@@ -63,7 +63,7 @@ describe("envio pelo Resend", () => {
       [{ status: 429, body: { name: "rate_limit_exceeded" } }, RetryableError, "email_unavailable"],
       [new TypeError("fetch failed"), RetryableError, "email_unavailable"],
       [{ status: 401, body: { name: "validation_error" } }, PermanentError, "email_misconfigured"],
-      [{ status: 403, body: { name: "validation_error", message: "só pro seu e-mail" } }, PermanentError, "email_rejected"],
+      [{ status: 403, body: { name: "validation_error", message: "só para o seu e-mail" } }, PermanentError, "email_rejected"],
     ];
     for (const [response, type, code] of cases) {
       await assert.rejects(resendSend(config, email, fakeFetch(response)), (error: unknown) => {

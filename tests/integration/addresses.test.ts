@@ -101,7 +101,7 @@ describe("agenda de endereços", () => {
     const checkout = await startCheckout(fixture);
 
     const [address] = await listAddresses(db, fixture.userId);
-    assert.equal(await addressUsageCount(db, address.id), 1, "entrega e cobrança apontam pro mesmo");
+    assert.equal(await addressUsageCount(db, address.id), 1, "entrega e cobrança apontam para o mesmo");
 
     await assert.rejects(
       () => deleteAddress(db, fixture.userId, address.id),

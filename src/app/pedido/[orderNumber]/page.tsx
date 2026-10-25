@@ -35,7 +35,7 @@ const providerLabel: Record<string, string> = {
 };
 
 /**
- * Página do pedido. O pedido nasce `pending` e a SAGA o leva pra `paid` (ou
+ * Página do pedido. O pedido nasce `pending` e a SAGA o leva para `paid` (ou
  * `cancelled`, compensando tudo). Então esta página tem três estados — e,
  * enquanto a saga roda, ela se atualiza sozinha.
  */
@@ -81,7 +81,7 @@ export default async function OrderPage(props: PageProps<"/pedido/[orderNumber]"
   return (
     <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
       {/* Todo pedido passa por aqui: o pagamento é remoto e responde em ~1–2 s.
-          Intervalo curto pra não somar 3 s de espera a cada compra; 60 ticks
+          Intervalo curto para não somar 3 s de espera a cada compra; 60 ticks
           mantém a mesma janela de 1 min antes de parar. */}
       {state === "processing" ? <AutoRefresh intervalMs={1_000} maxTicks={60} /> : null}
 

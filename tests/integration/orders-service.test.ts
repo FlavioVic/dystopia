@@ -139,7 +139,7 @@ describe("transições de status", () => {
     assert.equal(order?.status, "delivered");
   });
 
-  it("transição pro mesmo status é no-op (a saga pode ser reexecutada)", async () => {
+  it("transição para o mesmo status é no-op (a saga pode ser reexecutada)", async () => {
     const fixture = await seedCheckoutFixture();
     const { orderId } = await novoPedido(fixture);
 

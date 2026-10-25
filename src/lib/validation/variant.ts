@@ -1,6 +1,6 @@
 /**
  * Variante de produto (tamanho/cor…). Os atributos chegam como texto livre
- * ("Tamanho: M" por linha) e saem como objeto pro `jsonb`.
+ * ("Tamanho: M" por linha) e saem como objeto para o `jsonb`.
  */
 
 import { z } from "zod";

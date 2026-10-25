@@ -5,7 +5,7 @@
  * e não reconcilia saga nenhuma — ele não sabe que saga existe. Recebe
  * comandos (`payments.authorize`, `payments.refund`) e responde no endereço
  * que veio em cada um, pela outbox (o relay deste processo publica). É o mesmo
- * código-base, mas outro processo: dá pra escalar, reiniciar ou derrubar
+ * código-base, mas outro processo: dá para escalar, reiniciar ou derrubar
  * pagamentos sem tocar no resto.
  */
 

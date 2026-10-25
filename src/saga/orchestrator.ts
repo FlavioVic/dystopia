@@ -123,7 +123,7 @@ export async function advanceSaga(sagaId: string, options: AdvanceOptions = {}):
   try {
     return await execute(saga, definition, payload, { ...options, workerId, now });
   } catch (error) {
-    // Falha fora do fluxo previsto (bug, banco fora): solta o lease pra não
+    // Falha fora do fluxo previsto (bug, banco fora): solta o lease para não
     // travar a saga e deixa o retry da fila cuidar.
     await releaseLease(saga.id, now);
     logger.error("falha inesperada ao avançar saga", {

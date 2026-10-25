@@ -1,8 +1,8 @@
 /**
  * Reconciliação manual: `npm run reconcile`.
  *
- * O worker já roda isso periodicamente; o script existe pra operação (depois
- * de um deploy que matou processos no meio, por exemplo) e pra inspeção.
+ * O worker já roda isso periodicamente; o script existe para operação (depois
+ * de um deploy que matou processos no meio, por exemplo) e para inspeção.
  */
 
 import "dotenv/config";

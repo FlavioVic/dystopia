@@ -9,7 +9,7 @@
 
 export const GATE_PATH = "M0 12A12 12 0 1 1 24 12A12 12 0 1 1 0 12ZM3 12A9 9 0 1 0 21 12A9 9 0 1 0 3 12ZM10.5 5.16A7 7 0 0 0 10.5 18.84ZM13.5 5.16A7 7 0 0 1 13.5 18.84Z";
 
-/** Corte estêncil: só pra aplicação pintada/recortada (Tier 1). */
+/** Corte estêncil: só para aplicação pintada/recortada (Tier 1). */
 export const GATE_STENCIL_PATH = "M10.5 0.09A12 12 0 0 0 10.5 23.91L10.5 20.87A9 9 0 0 1 10.5 3.13ZM13.5 0.09A12 12 0 0 1 13.5 23.91L13.5 20.87A9 9 0 0 0 13.5 3.13ZM10.5 5.16A7 7 0 0 0 10.5 18.84ZM13.5 5.16A7 7 0 0 1 13.5 18.84Z";
 
 export const WORDMARK_PATH =

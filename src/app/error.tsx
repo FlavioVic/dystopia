@@ -6,7 +6,7 @@ import { errorDigest } from "@/lib/error-digest";
 
 /**
  * Falha inesperada ao renderizar uma página (banco fora, bug). Em produção o
- * Next não manda a mensagem original pro navegador — só o `digest`, que é o
+ * Next não manda a mensagem original para o navegador — só o `digest`, que é o
  * que cruza esta tela com a linha do log no servidor.
  */
 export default function Error({ error, retry }: { error: unknown; retry: () => void }) {

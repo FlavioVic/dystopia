@@ -2,7 +2,7 @@
 
 /**
  * Server Actions de avaliação. Borda HTTP: exige sessão, valida o formulário
- * e delega pro serviço. A regra (uma avaliação por pessoa, compra verificada,
+ * e delega para o serviço. A regra (uma avaliação por pessoa, compra verificada,
  * agregado do produto) mora em `@/services/reviews`.
  */
 
@@ -25,7 +25,7 @@ export type ReviewState =
 
 export async function submitReview(_prev: ReviewState, formData: FormData): Promise<ReviewState> {
   const user = await getCurrentUser();
-  if (!user) return { requiresAuth: true, message: "Entre na sua conta pra avaliar." };
+  if (!user) return { requiresAuth: true, message: "Entre na sua conta para avaliar." };
 
   const productId = String(formData.get("productId") ?? "");
   const product = await db.query.products.findFirst({

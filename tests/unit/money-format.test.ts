@@ -9,7 +9,7 @@ describe("dinheiro digitado → centavos", () => {
     assert.equal(toCents("19,90"), 1_990);
     assert.equal(toCents("19.90"), 1_990);
     assert.equal(toCents("0,1"), 10);
-    assert.equal(toCents("10,005"), 1_001, "meio centavo arredonda pra cima");
+    assert.equal(toCents("10,005"), 1_001, "meio centavo arredonda para cima");
     assert.equal(toCents("  7 "), 700);
   });
 

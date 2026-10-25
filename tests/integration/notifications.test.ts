@@ -54,7 +54,7 @@ describe("notificação — outbox", () => {
 });
 
 describe("notificação — entrega", () => {
-  it("sandbox: vai pro dono do projeto, com o destinatário original no assunto", async () => {
+  it("sandbox: vai para o dono do projeto, com o destinatário original no assunto", async () => {
     const { notificationId } = await sendOrderConfirmation(db, order);
     const deps = sandbox({ status: 200, body: { id: "msg_42" } });
 
@@ -82,7 +82,7 @@ describe("notificação — entrega", () => {
     assert.equal(second.calls.length, 0);
   });
 
-  it("recusa definitiva marca `failed` sem jogar pra fila tentar de novo", async () => {
+  it("recusa definitiva marca `failed` sem jogar para a fila tentar de novo", async () => {
     const { notificationId } = await sendOrderConfirmation(db, order);
     const deps = sandbox({ status: 422, body: { name: "validation_error", message: "Endereço inválido" } });
 
@@ -92,7 +92,7 @@ describe("notificação — entrega", () => {
     assert.equal(row?.lastError, "Endereço inválido");
   });
 
-  it("indisponível: segue pendente pro retry; na última tentativa vira `failed`", async () => {
+  it("indisponível: segue pendente para o retry; na última tentativa vira `failed`", async () => {
     const { notificationId } = await sendOrderConfirmation(db, order);
     const deps = sandbox({ status: 503, body: {} });
 

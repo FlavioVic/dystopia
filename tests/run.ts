@@ -6,12 +6,12 @@
  * 1. calcula a URL do banco de teste (`dystopia_test`, derivado do
  *    DATABASE_URL de dev — ver tests/helpers/env.ts);
  * 2. cria o banco se não existir e aplica as migrations;
- * 3. aponta `DATABASE_URL` pro banco de teste, isola as filas do RabbitMQ
+ * 3. aponta `DATABASE_URL` para o banco de teste, isola as filas do RabbitMQ
  *    num prefixo próprio (`dystopia_test.*`) com filas de espera curtas — o
  *    retry é exercitado de verdade no broker, só que em milissegundos —, e
- *    passa `--import tsx` pros
+ *    passa `--import tsx` para os
  *    processos filhos (o node:test roda cada arquivo num processo próprio, e
- *    eles precisam do loader pra entender TypeScript e o alias `@/`).
+ *    eles precisam do loader para entender TypeScript e o alias `@/`).
  *
  * Os arquivos de integração rodam em série (`concurrency: 1`): eles
  * compartilham o mesmo banco e limpam as tabelas entre os casos.

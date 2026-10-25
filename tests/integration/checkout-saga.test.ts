@@ -68,7 +68,7 @@ describe("saga de checkout — caminho feliz", () => {
     const command = await db.query.outbox.findFirst({
       where: and(eq(outbox.queue, PAYMENTS_QUEUE), eq(outbox.type, PAYMENT_AUTHORIZE)),
     });
-    assert.ok(command, "o comando de cobrança foi gravado pra fila de pagamentos, junto do passo");
+    assert.ok(command, "o comando de cobrança foi gravado para a fila de pagamentos, junto do passo");
 
     const saga0 = await settleSaga(checkout.sagaId, { inline: false });
     assert.equal(saga0.status, "completed");
@@ -124,7 +124,7 @@ describe("saga de checkout — caminho feliz", () => {
     assert.equal(delivered?.status, "sent");
     assert.equal(delivered?.provider, "simulado", "sem RESEND_API_KEY a entrega é simulada");
 
-    // Nada sobra pra consumidor nenhum: avanço, comando, resposta e entrega com ack.
+    // Nada sobra para consumidor nenhum: avanço, comando, resposta e entrega com ack.
     assert.deepEqual(await pendingWork(), IDLE);
     assert.equal((await work("all")).received, 0);
   });
@@ -248,7 +248,7 @@ describe("saga de checkout — retry e worker", () => {
 
     assert.equal((await runSagaInline(checkout.sagaId)).status, "waiting");
 
-    // 1ª tentativa no processo de pagamentos: gateway fora → o COMANDO vai pra
+    // 1ª tentativa no processo de pagamentos: gateway fora → o COMANDO vai para
     // fila de espera dele no broker (o retry é de quem executa).
     const first = await work("payments");
     assert.deepEqual(first, { received: 1, acked: 0, retried: 1, dead: 0 });
@@ -261,7 +261,7 @@ describe("saga de checkout — retry e worker", () => {
     assert.equal(waiting?.lockedBy, null, "a saga não segura lease enquanto espera");
     assert.equal((await stepStatuses(checkout.sagaId))["authorize-payment"], "waiting");
 
-    // O TTL vence, o comando volta pra fila: 2ª tentativa aprova e a resposta acorda a saga.
+    // O TTL vence, o comando volta para a fila: 2ª tentativa aprova e a resposta acorda a saga.
     await waitForRetries();
     const saga = await settleSaga(checkout.sagaId, { inline: false });
     assert.equal(saga.status, "completed");
@@ -291,9 +291,9 @@ describe("saga de checkout — retry e worker", () => {
       (candidate) => candidate.name === "authorize-payment",
     );
     assert.equal(step?.status, "failed");
-    assert.equal(step?.attempts, 3, "maxAttemptsPerStep = 3 vale pro comando remoto");
+    assert.equal(step?.attempts, 3, "maxAttemptsPerStep = 3 vale para o comando remoto");
 
-    assert.equal((await pendingWork()).dead, 0, "ninguém foi pra DLQ: a falha virou resposta");
+    assert.equal((await pendingWork()).dead, 0, "ninguém foi para DLQ: a falha virou resposta");
   });
 });
 
@@ -322,7 +322,7 @@ describe("saga de checkout — idempotência e concorrência", () => {
     assert.equal((await settleSaga(checkout.sagaId)).status, "completed");
 
     // Simula um processo que morreu ANTES de marcar a saga como concluída:
-    // o estado volta pra "running" no passo 0, mas os passos já têm log.
+    // o estado volta para "running" no passo 0, mas os passos já têm log.
     await db
       .update(sagas)
       .set({ status: "running", currentStep: 0, finishedAt: null })

@@ -58,7 +58,7 @@ test.describe("checkout", () => {
     await expect(page.getByText(/desconto/i).first()).toBeVisible();
   });
 
-  test("pedido de uma pessoa não abre pra outra", async ({ page, browser }) => {
+  test("pedido de uma pessoa não abre para outra", async ({ page, browser }) => {
     await buy(page, "approve");
     const orderUrl = page.url();
 

@@ -54,7 +54,7 @@ describe("validação da avaliação", () => {
 });
 
 describe("média de avaliações", () => {
-  it("arredonda pra uma casa decimal", () => {
+  it("arredonda para uma casa decimal", () => {
     assert.equal(averageRating([5, 4]), "4.5");
     assert.equal(averageRating([5, 4, 4]), "4.3");
     assert.equal(averageRating([1, 2]), "1.5");

@@ -3,7 +3,7 @@
  *
  * Roda com: npm run db:seed
  *
- * Idempotente o suficiente pra dev local: limpa as tabelas relevantes antes
+ * Idempotente o suficiente para dev local: limpa as tabelas relevantes antes
  * de inserir de novo (TRUNCATE ... CASCADE), então pode rodar quantas vezes
  * quiser sem duplicar.
  *
@@ -60,7 +60,7 @@ function resolveSeedCredentials(): { adminPassword: string; customerPassword: st
 
   if (process.env.SEED_ALLOW_REMOTE !== "1") {
     throw new Error(
-      `DATABASE_URL aponta pra um banco remoto (${host}) e o seed faz TRUNCATE em tudo. ` +
+      `DATABASE_URL aponta para um banco remoto (${host}) e o seed faz TRUNCATE em tudo. ` +
         "Se é isso mesmo, rode com SEED_ALLOW_REMOTE=1.",
     );
   }
@@ -105,7 +105,7 @@ async function main() {
     const categoryId = categoryIdByKey.get(p.category);
     if (!categoryId) throw new Error(`Categoria desconhecida no catálogo: ${p.category}`);
     // Produto com variante: o estoque que vale é o de cada variante; o do
-    // produto é a soma, pra listagem e busca mostrarem disponibilidade certa.
+    // produto é a soma, para a listagem e a busca mostrarem disponibilidade certa.
     const stockQuantity = p.variants?.length
       ? p.variants.reduce((total, v) => total + v.stockQuantity, 0)
       : p.stockQuantity;
@@ -220,7 +220,7 @@ async function main() {
 
   console.log("✅ Seed concluído!");
   console.log(`   ${SEED_PRODUCTS.length} produtos em ${SEED_CATEGORIES.length} categorias`);
-  // Em banco remoto a senha de admin não vai pro log (log de CI/terminal vaza).
+  // Em banco remoto a senha de admin não vai para o log (log de CI/terminal vaza).
   const adminShown = credentials.remote ? "(SEED_ADMIN_PASSWORD)" : credentials.adminPassword;
   console.log(`   Login admin: admin@dystopia.dev / ${adminShown}`);
   console.log(`   Login cliente: cliente@dystopia.dev / ${credentials.customerPassword}`);

@@ -38,7 +38,7 @@ describe("estoque concorrente", () => {
     assert.equal(row.stockQuantity, 0);
   });
 
-  it("o mesmo vale pro estoque da variante", async () => {
+  it("o mesmo vale para o estoque da variante", async () => {
     const fixture = await seedCheckoutFixture({ stock: 50, quantity: 1, withVariant: true, variantStock: 2 });
     const results = await race(fixture.product.id, fixture.variantId, 6);
 

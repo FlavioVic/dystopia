@@ -33,7 +33,7 @@ async function step(sagaId: string, name: string) {
   return (await getSagaWithSteps(sagaId))?.steps.find((row) => row.name === name);
 }
 
-/** Comandos gravados pra fila de pagamentos (outbox). */
+/** Comandos gravados para a fila de pagamentos (outbox). */
 async function commands(type: string) {
   return db.query.outbox.findMany({ where: and(eq(outbox.queue, PAYMENTS_QUEUE), eq(outbox.type, type)) });
 }
@@ -62,7 +62,7 @@ describe("passo remoto — envio", () => {
     assert.equal((await step(checkout.sagaId, "authorize-payment"))?.status, "waiting");
 
     const [command] = await commands(PAYMENT_AUTHORIZE);
-    assert.ok(command, "comando gravado pra fila de pagamentos, na transação do passo");
+    assert.ok(command, "comando gravado para a fila de pagamentos, na transação do passo");
     const replyTo = readReplyTo(command.payload as Record<string, unknown>);
     assert.equal(replyTo?.type, SAGA_REPLY);
     assert.equal(replyTo?.queue, SAGA_QUEUE);
@@ -115,7 +115,7 @@ describe("passo remoto — resposta", () => {
     assert.equal((await settleSaga(checkout.sagaId, { inline: false })).status, "completed");
   });
 
-  it("resposta que chega com a saga ocupada volta pra fila em vez de se perder", async () => {
+  it("resposta que chega com a saga ocupada volta para a fila em vez de se perder", async () => {
     const fixture = await seedCheckoutFixture({ stock: 5, quantity: 1 });
     const checkout = await startCheckout(fixture);
     assert.equal((await runSagaInline(checkout.sagaId)).status, "waiting");
@@ -128,7 +128,7 @@ describe("passo remoto — resposta", () => {
 
     const report = await work("saga");
     assert.equal(report.dead, 0);
-    assert.ok(report.retried >= 1, "a resposta volta pra fila de espera em vez de ser descartada");
+    assert.ok(report.retried >= 1, "a resposta volta para a fila de espera em vez de ser descartada");
     const [sagaQueue] = await queueDepths([SAGA_QUEUE]);
     assert.ok(sagaQueue.retrying >= 1);
     assert.equal((await step(checkout.sagaId, "authorize-payment"))?.status, "completed", "mas já foi aplicada");

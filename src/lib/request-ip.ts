@@ -3,13 +3,13 @@ import { createLogger } from "@/lib/logger";
 
 const logger = createLogger("request-ip");
 
-/** Chave usada quando não dá pra saber o IP com segurança: todos dividem o limite. */
+/** Chave usada quando não dá para saber o IP com segurança: todos dividem o limite. */
 export const UNTRUSTED_IP = "ip-nao-confiavel";
 
 type Env = { VERCEL?: string; TRUST_PROXY_HEADERS?: string; NODE_ENV?: string };
 
 /**
- * IP do cliente pra chave do limite de tentativas. `X-Real-IP` e
+ * IP do cliente para a chave do limite de tentativas. `X-Real-IP` e
  * `X-Forwarded-For` são escritos por quem está na frente do app — e, sem
  * proxy confiável, pelo próprio cliente, que forjaria um contador novo a cada
  * tentativa (força bruta sem limite). Só confia neles:

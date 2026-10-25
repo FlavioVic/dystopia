@@ -2,7 +2,7 @@
 
 /**
  * Server Action da lista de desejos. Visitante não logado recebe
- * `requiresAuth` em vez de erro — o botão usa isso pra mandar pro /entrar.
+ * `requiresAuth` em vez de erro — o botão usa isso para mandar para o /entrar.
  */
 
 import { refresh } from "next/cache";

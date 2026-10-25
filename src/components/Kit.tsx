@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 
 /**
  * Kit da linguagem gráfica (design system DYSTOPIA). Cada peça tem um
- * trabalho; use só pra ele:
+ * trabalho; use só para ele:
  * - Rule: divide e indexa ("02 / 04").
  * - SectionHeading: abre uma seção (índice + título display).
  * - ClassLabel: declara acesso/estado por PALAVRA. Só `restricted` é vermelho,

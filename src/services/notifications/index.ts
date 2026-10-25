@@ -67,7 +67,7 @@ export type ServiceRequestAlertInput = {
 };
 
 /**
- * Alerta de orçamento novo pro responsável técnico. Chamado na MESMA
+ * Alerta de orçamento novo para o responsável técnico. Chamado na MESMA
  * transação que grava o pedido (outbox): pedido gravado ⇔ alerta na fila.
  */
 export async function sendServiceRequestAlert(

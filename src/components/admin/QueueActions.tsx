@@ -21,7 +21,7 @@ export function QueueActions({ queue, messageId }: { queue?: string; messageId?:
       setMsg({
         ok: true,
         text: queue
-          ? "Devolvido pra fila."
+          ? "Devolvido para a fila."
           : `Reconciliado: ${Object.entries("report" in result && result.report ? result.report : {})
               .map(([key, value]) => `${key}=${value}`)
               .join(" ")}`,

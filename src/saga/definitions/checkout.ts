@@ -11,13 +11,13 @@
  *   5. clear-cart         → carts       | comp: restaura os itens
  *   6. notify-customer    → notifications (sem compensação: só avisa)
  *
- * Ordem pensada pro caminho triste: pagamento vem ANTES do cupom, então
+ * Ordem pensada para o caminho triste: pagamento vem ANTES do cupom, então
  * pagamento recusado (o caso mais comum) compensa só o estoque.
  *
  * O pagamento é um passo REMOTO: o serviço de pagamentos roda em outro
  * processo (`npm run worker:payments`) e a saga fala com ele só por mensagem,
  * pelo contrato em services/payments/contract — cobrar e estornar são
- * comandos na fila `payments`, com a resposta voltando pra saga.
+ * comandos na fila `payments`, com a resposta voltando para a saga.
  */
 
 import { PermanentError } from "@/saga/errors";
@@ -61,7 +61,7 @@ export type CheckoutSagaPayload = {
   totalCents: number;
   couponId: string | null;
   lines: CheckoutSagaLine[];
-  /** Só pra demonstrar/testar os caminhos tristes do gateway simulado. */
+  /** Só para demonstrar/testar os caminhos tristes do gateway simulado. */
   simulate?: SimulationMode;
   /** Cartão via Stripe Elements (`pm_…`). Não é dado de cartão: é um token do Stripe. */
   cardPaymentMethodId?: string;

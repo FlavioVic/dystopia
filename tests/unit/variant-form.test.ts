@@ -25,7 +25,7 @@ describe("atributos da variante", () => {
     assert.deepEqual(parseAttributes("  Edição :  Limitada: 2026  "), { Edição: "Limitada: 2026" });
   });
 
-  it("formata de volta pro textarea", () => {
+  it("formata de volta para o textarea", () => {
     assert.equal(formatAttributes({ Tamanho: "M", Cor: "Preto" }), "Tamanho: M\nCor: Preto");
     assert.equal(formatAttributes(null), "");
     assert.equal(formatAttributes([1, 2]), "", "array não é mapa de atributos");
@@ -41,11 +41,11 @@ describe("validação da variante", () => {
   it("aceita variante sem preço (herda do produto)", () => {
     const values = valuesOf(parseVariantForm(form({ price: "" })));
     assert.equal(values.priceCents, null);
-    assert.equal(values.sku, "SKU-M-PRETO", "SKU vai pra maiúscula");
+    assert.equal(values.sku, "SKU-M-PRETO", "SKU vai para maiúscula");
     assert.equal(values.stockQuantity, 4);
   });
 
-  it("converte preço informado pra centavos", () => {
+  it("converte preço informado para centavos", () => {
     assert.equal(valuesOf(parseVariantForm(form({ price: "99,90" }))).priceCents, 9_990);
     assert.ok(parseVariantForm(form({ price: "abc" })).errors.price);
   });

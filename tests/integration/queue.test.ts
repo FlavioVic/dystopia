@@ -188,14 +188,14 @@ describe("política de retentativa", () => {
     assert.equal(seen.length, 1);
   });
 
-  it("tipo sem handler vai pra DLQ (não some, não fica em laço)", async () => {
+  it("tipo sem handler vai para DLQ (não some, não fica em laço)", async () => {
     await enqueue(db, { type: "tipo.desconhecido", queue: Q });
     assert.deepEqual(await drain({}), { received: 1, acked: 0, retried: 0, dead: 1 });
     const [letter] = await peekDeadLetters(Q);
     assert.match(letter.error ?? "", /Nenhum handler/);
   });
 
-  it("mensagem ilegível vai pra DLQ como veio", async () => {
+  it("mensagem ilegível vai para DLQ como veio", async () => {
     const broker = await getBroker();
     await queueDepths([Q]); // declara a topologia
     const n = names(Q, broker.config);
@@ -208,7 +208,7 @@ describe("política de retentativa", () => {
     assert.equal((await depth()).dead, 1);
   });
 
-  it("adiamento que não é falha (`countAttempt: false`) nunca empurra pra DLQ", async () => {
+  it("adiamento que não é falha (`countAttempt: false`) nunca empurra para DLQ", async () => {
     await enqueue(db, { type: "teste.job", queue: Q, maxAttempts: 2 });
     const { seen, handlers } = recorder(() => (seen.length < 4 ? { retryInMs: 50, countAttempt: false } : undefined));
 
@@ -228,13 +228,13 @@ describe("política de retentativa", () => {
     assert.ok(raw, "pegou a mensagem");
     await channel.close(); // "morreu" no meio do processamento
 
-    assert.equal((await depth()).ready, 1, "a mensagem voltou pra fila");
+    assert.equal((await depth()).ready, 1, "a mensagem voltou para a fila");
     const { seen, handlers } = recorder();
     await drain(handlers);
     assert.equal(seen.length, 1);
   });
 
-  it("fila de espera escolhida arredonda o atraso pra cima", () => {
+  it("fila de espera escolhida arredonda o atraso para cima", () => {
     const tiers = [1_000, 5_000, 30_000];
     assert.equal(retryTierFor(1, tiers), 1_000);
     assert.equal(retryTierFor(1_000, tiers), 1_000);

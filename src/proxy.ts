@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { buildCsp } from "@/lib/csp";
 
 /**
- * Nonce novo a cada request pra CSP. O Next lê o nonce do header da request e
+ * Nonce novo a cada request para CSP. O Next lê o nonce do header da request e
  * aplica nos scripts dele; os `<script>` escritos à mão no layout leem de
  * `x-nonce`. Todas as páginas já são dinâmicas (o layout lê sessão e
  * carrinho), então o nonce não custa cache.
