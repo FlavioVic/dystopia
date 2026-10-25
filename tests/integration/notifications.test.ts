@@ -73,6 +73,26 @@ describe("notificação — entrega", () => {
     assert.equal(row?.recipient, "comprador@exemplo.dev", "o destinatário original fica registrado");
   });
 
+  it("manda o HTML do template gravado com a notificação (e o texto junto)", async () => {
+    const { notificationId } = await sendOrderConfirmation(db, { ...order, paymentMethod: "pix", items: [{ name: "Action Figure", quantity: 1, unitPriceCents: 12_990 }] });
+    const deps = sandbox({ status: 200, body: { id: "msg_7" } });
+    await deliverNotification(db, notificationId, { deps });
+
+    const sent = JSON.parse(String(deps.calls[0].body));
+    assert.equal(sent.html, (await notification(notificationId))?.html);
+    assert.match(sent.html, /\/email\/lockup\.png/, "assinatura da marca");
+    assert.match(sent.html, /\/pedido\/DYS-2026-000001/, "botão para o pedido");
+    assert.match(sent.text, /Total: R\$\s129,90/);
+  });
+
+  it("notificação antiga, sem HTML gravado, cai no layout genérico", async () => {
+    const { notificationId } = await sendOrderConfirmation(db, order);
+    await db.update(notifications).set({ html: null }).where(eq(notifications.id, notificationId));
+    const deps = sandbox({ status: 200, body: { id: "msg_8" } });
+    assert.equal(await deliverNotification(db, notificationId, { deps }), "sent");
+    assert.match(JSON.parse(String(deps.calls[0].body)).html, /DYSTOPIA/);
+  });
+
   it("já enviada não sai de novo (mensagem reentregue depois de um crash)", async () => {
     const { notificationId } = await sendOrderConfirmation(db, order);
     await deliverNotification(db, notificationId, { deps: sandbox({ status: 200, body: { id: "msg_1" } }) });

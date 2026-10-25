@@ -516,6 +516,8 @@ export const notifications = pgTable("notifications", {
   recipient: text("recipient").notNull(),
   subject: text("subject").notNull(),
   body: text("body").notNull(),
+  /** Versão HTML montada pelo template do e-mail; nula nas notificações antigas (cai no layout genérico). */
+  html: text("html"),
   correlationId: text("correlation_id"), // orderNumber
   dedupeKey: text("dedupe_key").notNull(),
   status: notificationStatusEnum("status").notNull().default("pending"),

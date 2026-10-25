@@ -14,8 +14,8 @@
 import { eq } from "drizzle-orm";
 import type { Executor } from "@/db";
 import { notifications } from "@/db/schema";
-import { formatPriceCents } from "@/lib/format";
 import { enqueue } from "@/queue";
+import { orderConfirmationEmail, serviceRequestAlertEmail } from "./templates";
 
 /** Fila das entregas de e-mail. */
 export const NOTIFICATIONS_QUEUE = "notifications";
@@ -28,7 +28,8 @@ export type OrderConfirmationInput = {
   recipient: string;
   customerName: string;
   totalCents: number;
-  items: Array<{ name: string; quantity: number }>;
+  paymentMethod?: string;
+  items: Array<{ name: string; quantity: number; unitPriceCents?: number }>;
 };
 
 export function orderConfirmationDedupeKey(orderNumber: string): string {
@@ -39,21 +40,15 @@ export async function sendOrderConfirmation(
   executor: Executor,
   input: OrderConfirmationInput,
 ): Promise<{ notificationId: string; duplicate: boolean }> {
-  const dedupeKey = orderConfirmationDedupeKey(input.orderNumber);
-  // Voz da marca: declarativa, sem exclamação.
-  const subject = `Aquisição ${input.orderNumber} registrada`;
-  const body = [
-    `${input.customerName}.`,
-    "",
-    `A aquisição ${input.orderNumber} foi registrada. O pagamento foi aprovado.`,
-    ...input.items.map((item) => `- ${item.quantity}x ${item.name}`),
-    "",
-    `Total: ${formatPriceCents(input.totalCents)}`,
-    "",
-    "Guarde este número. Registros são mantidos permanentemente.",
-  ].join("\n");
-
-  return record(executor, { recipient: input.recipient, subject, body, correlationId: input.orderNumber, dedupeKey });
+  const email = orderConfirmationEmail(input);
+  return record(executor, {
+    recipient: input.recipient,
+    subject: email.subject,
+    body: email.text,
+    html: email.html,
+    correlationId: input.orderNumber,
+    dedupeKey: orderConfirmationDedupeKey(input.orderNumber),
+  });
 }
 
 export type ServiceRequestAlertInput = {
@@ -74,23 +69,12 @@ export async function sendServiceRequestAlert(
   executor: Executor,
   input: ServiceRequestAlertInput,
 ): Promise<{ notificationId: string; duplicate: boolean }> {
-  const subject = `Orçamento ${input.protocol}: ${input.serviceName}`;
-  const body = [
-    `Nova solicitação registrada: ${input.protocol}.`,
-    "",
-    `Serviço: ${input.serviceName}`,
-    `Nome: ${input.name}`,
-    `E-mail: ${input.email}`,
-    `Telefone: ${input.phone ?? "não informado"}`,
-    "",
-    input.details,
-    "",
-    "Andamento em /admin/orcamentos.",
-  ].join("\n");
+  const email = serviceRequestAlertEmail(input);
   return record(executor, {
     recipient: input.recipient,
-    subject,
-    body,
+    subject: email.subject,
+    body: email.text,
+    html: email.html,
     correlationId: input.protocol,
     dedupeKey: `service-request-alert:${input.protocol}`,
   });
@@ -99,7 +83,7 @@ export async function sendServiceRequestAlert(
 /** Grava a notificação (idempotente por dedupe_key) e enfileira a entrega. */
 async function record(
   executor: Executor,
-  n: { recipient: string; subject: string; body: string; correlationId: string; dedupeKey: string },
+  n: { recipient: string; subject: string; body: string; html: string; correlationId: string; dedupeKey: string },
 ): Promise<{ notificationId: string; duplicate: boolean }> {
   const inserted = await executor
     .insert(notifications)

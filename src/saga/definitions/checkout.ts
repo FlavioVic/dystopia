@@ -156,7 +156,8 @@ const steps: SagaStep<CheckoutSagaPayload>[] = [
         recipient: ctx.payload.customerEmail,
         customerName: ctx.payload.customerName,
         totalCents: ctx.payload.totalCents,
-        items: ctx.payload.lines.map((line) => ({ name: line.name, quantity: line.quantity })),
+        paymentMethod: ctx.payload.paymentMethod,
+        items: ctx.payload.lines.map((line) => ({ name: line.name, quantity: line.quantity, unitPriceCents: line.unitPriceCents })),
       });
       return { notificationId: result.notificationId, duplicate: result.duplicate };
     },
