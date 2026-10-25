@@ -39,7 +39,12 @@ export function isSameOrigin(headers: Headers): boolean {
   }
 }
 
-export type AssistantResponse = { status: number; body: { reply: string } | { error: string } };
+export type AssistantResponse = {
+  status: number;
+  body: { reply: string } | { error: string };
+  /** A conversa deixou mensagem na outbox (orçamento registrado): alguém tem que drenar. */
+  queuedWork?: boolean;
+};
 
 export async function handleAssistantMessage(input: {
   headers: Headers;
@@ -77,7 +82,7 @@ export async function handleAssistantMessage(input: {
       runTool: (name, args) => runTool(name, args, input.context),
     });
     log.info("resposta", { tools: toolsUsed, loggedIn: input.context.userId !== null });
-    return { status: 200, body: { reply } };
+    return { status: 200, body: { reply }, queuedWork: toolsUsed.includes("registrar_orcamento") };
   } catch (error) {
     if (error instanceof AssistantBusyError) {
       return { status: 503, body: { error: `Muitas perguntas ao mesmo tempo. Tente de novo em ${error.retryAfterSeconds} s.` } };

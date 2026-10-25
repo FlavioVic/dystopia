@@ -1,6 +1,7 @@
 "use server";
 
 import { getCurrentUser } from "@/lib/data/auth";
+import { drainQueueAfterResponse } from "@/lib/inline-worker";
 import { getRequestIp } from "@/lib/request-ip";
 import { submitServiceRequest } from "@/lib/service-request-submit";
 import { parseServiceRequestForm } from "@/lib/validation/service-request";
@@ -29,5 +30,7 @@ export async function requestService(_prev: ServiceRequestState, formData: FormD
     const minutes = Math.ceil(result.retryAfterSeconds / 60);
     return { message: `Limite de solicitações atingido. Nova tentativa em ${minutes} min.`, values: typed };
   }
+  // O aviso ao responsável foi para a outbox: sem worker de pé, sai daqui.
+  drainQueueAfterResponse({ budgetMs: 15_000 });
   return { protocol: result.protocol };
 }
