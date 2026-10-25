@@ -55,7 +55,7 @@ describe("assistente — porta de entrada", () => {
 
     const response = await handleAssistantMessage({ headers: sameOrigin, body, context: visitor, complete: fake.complete });
 
-    assert.deepEqual(response, { status: 200, body: { reply: "Temos o [Ryzen 5 9600X](/produto/ryzen-5)." } });
+    assert.deepEqual(response, { status: 200, body: { reply: "Temos o [Ryzen 5 9600X](/produto/ryzen-5)." }, queuedWork: false });
     const system = fake.seen[0][0].content as string;
     assert.match(system, /Processadores \(processadores\)/, "categorias reais nas instruções");
     assert.match(system, /BEMVINDO10: 10% acima de R\$\s50,00/, "cupom ativo nas instruções");
@@ -112,6 +112,20 @@ describe("assistente — porta de entrada", () => {
     });
     assert.deepEqual(down, { status: 503, body: { error: "Assistente indisponível no momento." } });
     assert.ok(!JSON.stringify(down).includes("sk-secreta"));
+  });
+
+  it("orçamento registrado pela conversa avisa que há trabalho na fila; conversa comum, não", async () => {
+    const plain = await handleAssistantMessage({ headers: sameOrigin, body, context: visitor, complete: model([{ content: "oi", toolCalls: [] }]).complete });
+    assert.equal(plain.queuedWork, false);
+
+    const args = JSON.stringify({ servico: "manutencao", nome: "Ana Souza", email: "ana@exemplo.com", descricao: "PC desligando sozinho sob carga pesada." });
+    const fake = model([
+      { content: null, toolCalls: [{ id: "c1", type: "function", function: { name: "registrar_orcamento", arguments: args } }] },
+      { content: "Registrado.", toolCalls: [] },
+    ]);
+    const booked = await handleAssistantMessage({ headers: sameOrigin, body, context: visitor, complete: fake.complete });
+    assert.equal(booked.status, 200);
+    assert.equal(booked.queuedWork, true);
   });
 
   it("pessoa logada: as instruções liberam as ferramentas de pedido", async () => {
