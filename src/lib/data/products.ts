@@ -1,5 +1,5 @@
 import { cache } from "react";
-import { and, eq, ne, sql } from "drizzle-orm";
+import { and, eq, lte, ne, type SQL, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { categories, coupons, products, productSearchDocument } from "@/db/schema";
 import type { Page } from "@/lib/pagination";
@@ -92,6 +92,49 @@ export const searchProducts = cache(async (query: string, page: Page) => {
   ]);
   return { items, total };
 });
+
+/**
+ * Busca do assistente: termo (mesmo full-text da vitrine), categoria e teto de
+ * preço combinados, só produto ativo. Com estoque primeiro — é o que a pessoa
+ * pode comprar agora.
+ */
+export async function findProductsForAssistant(filters: {
+  term?: string;
+  categorySlug?: string;
+  maxPriceCents?: number;
+  limit: number;
+}) {
+  const conditions = [activeProduct];
+  // Sem termo não há relevância — e `ORDER BY 0` seria "coluna 0" no Postgres.
+  let rank: SQL | null = null;
+  if (filters.term) {
+    const tsquery = toPrefixQuery(filters.term);
+    if (!tsquery) return [];
+    const match = sql`to_tsquery('portuguese'::regconfig, f_unaccent(${tsquery}))`;
+    const document = productSearchDocument(products);
+    conditions.push(sql`${document} @@ ${match}`);
+    rank = sql`ts_rank(${document}, ${match})`;
+  }
+  if (filters.categorySlug) {
+    const category = await getCategoryBySlug(filters.categorySlug);
+    if (!category) return [];
+    conditions.push(eq(products.categoryId, category.id));
+  }
+  if (filters.maxPriceCents !== undefined) conditions.push(lte(products.priceCents, filters.maxPriceCents));
+
+  return db.query.products.findMany({
+    where: and(...conditions),
+    columns: { name: true, slug: true, brand: true, priceCents: true, stockQuantity: true },
+    with: { category: { columns: { name: true } } },
+    orderBy: (p, { desc }) => [
+      desc(sql`${p.stockQuantity} > 0`),
+      ...(rank ? [desc(rank)] : []),
+      desc(p.isFeatured),
+      desc(p.id),
+    ],
+    limit: filters.limit,
+  });
+}
 
 export const getActiveCoupons = cache(async () => {
   return db.query.coupons.findMany({

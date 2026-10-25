@@ -26,6 +26,8 @@ estoque, pagamento ou fila.
 ```
 app/ + components/        borda: UI, rotas, formulários
 lib/actions/*             borda HTTP (Server Actions): valida entrada, nada de regra
+lib/assistant/*           borda conversacional: o chatbot chama dado e serviço
+                          pelas mesmas portas que as telas usam
 saga/                     orquestração: ordem dos passos, retry, compensação
 services/*                regra de negócio, uma responsabilidade cada
                           (inventory, payments, orders, coupons, carts,
@@ -226,7 +228,17 @@ revise o SQL → `npm run db:migrate`. Nunca edite migration já aplicada.
   amqplib, zod, jose, bcryptjs, dotenv; em dev, Playwright para os testes de
   navegador). Saga, relay, política de retry, logger e
   runner de teste são caseiros de propósito; o Stripe é chamado via `fetch`
-  (sem SDK) e o Stripe.js vem de js.stripe.com, como o Stripe exige.
+  (sem SDK) e o Stripe.js vem de js.stripe.com, como o Stripe exige. O
+  modelo do assistente também é chamado via `fetch`, no protocolo Chat
+  Completions (Groq por padrão; outro provedor = trocar `CHAT_API_URL`/`CHAT_MODEL`).
+- **Assistente** (`lib/assistant`, `POST /api/assistente`): o modelo escolhe
+  ferramenta e argumento, mas QUEM é a pessoa vem da sessão, nunca de
+  argumento — pedido de outra conta é "não encontrado". Argumento passa por
+  Zod; orçamento pelo chat usa o MESMO fluxo do formulário
+  (`lib/service-request-submit.ts`, com o mesmo limite por IP); link na
+  resposta só para caminho interno (`rich-text.ts`). Sem `CHAT_API_KEY` o
+  botão não aparece. Teste: o modelo é falso nos testes (roteiro de respostas),
+  as ferramentas rodam contra o banco real.
 - Efeito externo nunca sai de dentro da transação de um passo: e-mail é
   gravado no passo e entregue por mensagem (`notifications.deliver`), com
   `Idempotency-Key`. Com `RESEND_API_KEY`, `EMAIL_REDIRECT_TO` é obrigatório

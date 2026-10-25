@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
+import { Assistant } from "@/components/Assistant";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { PromoBar } from "@/components/PromoBar";
@@ -7,6 +8,7 @@ import { getCategories } from "@/lib/data/products";
 import { getCartCount } from "@/lib/data/cart";
 import { getCurrentUser } from "@/lib/data/auth";
 import { getWishlistProductIds } from "@/lib/data/wishlist";
+import { chatConfigFromEnv } from "@/lib/assistant/provider";
 import { SITE_URL } from "@/lib/site";
 import { interTight, michroma, plexMono } from "./fonts";
 import "./globals.css";
@@ -87,6 +89,8 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
         />
         <main className="flex-1">{children}</main>
         <Footer categories={categories} />
+        {/* Sem CHAT_API_KEY o assistente não existe — nem o botão aparece. */}
+        {chatConfigFromEnv() ? <Assistant /> : null}
       </body>
     </html>
   );

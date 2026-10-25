@@ -98,6 +98,10 @@ jobs:
 
       - name: Subir a stack (migrations, app, worker, pagamentos)
         run: docker compose --profile app up -d --build --wait
+        env:
+          # Liga o botão do assistente; o teste intercepta a API, então a
+          # chave nunca chega a um provedor.
+          CHAT_API_KEY: e2e-sem-modelo
 
       - name: Popular o banco
         run: docker compose --profile app run --rm migrate npm run db:seed
