@@ -6,7 +6,8 @@
  */
 
 export const DEFAULT_CHAT_API_URL = "https://api.groq.com/openai/v1";
-export const DEFAULT_CHAT_MODEL = "llama-3.3-70b-versatile";
+// O substituto que a Groq indica para o Llama 3.3 70B (descontinuado em 08/2026).
+export const DEFAULT_CHAT_MODEL = "openai/gpt-oss-120b";
 const TIMEOUT_MS = 20_000;
 
 export type ChatToolCall = {
@@ -25,7 +26,23 @@ export type ChatTool = {
   function: { name: string; description: string; parameters: Record<string, unknown> };
 };
 
-export type ChatConfig = { url: string; apiKey: string; model: string };
+export type ChatConfig = {
+  url: string;
+  apiKey: string;
+  model: string;
+  /** `low`/`medium`/`high` — só para modelo que raciocina; `null` não manda o campo. */
+  reasoningEffort: string | null;
+};
+
+/**
+ * Raciocínio gasta token da mesma cota da resposta, e no plano grátis ela é
+ * curta. A família gpt-oss aceita `reasoning_effort` (Groq, OpenAI, AI
+ * Gateway); para os outros modelos o campo não vai — provedor que não o
+ * conhece recusaria a chamada.
+ */
+function defaultReasoningEffort(model: string): string | null {
+  return model.startsWith("openai/gpt-oss") ? "low" : null;
+}
 
 /** O que o assistente faz com uma resposta do modelo: texto final ou ferramentas a chamar. */
 export type ChatReply = { content: string | null; toolCalls: ChatToolCall[] };
@@ -52,10 +69,12 @@ export class AssistantUnavailableError extends Error {
 export function chatConfigFromEnv(env: Record<string, string | undefined> = process.env): ChatConfig | null {
   const apiKey = env.CHAT_API_KEY?.trim();
   if (!apiKey) return null;
+  const model = env.CHAT_MODEL?.trim() || DEFAULT_CHAT_MODEL;
   return {
     url: (env.CHAT_API_URL?.trim() || DEFAULT_CHAT_API_URL).replace(/\/+$/, ""),
     apiKey,
-    model: env.CHAT_MODEL?.trim() || DEFAULT_CHAT_MODEL,
+    model,
+    reasoningEffort: env.CHAT_REASONING_EFFORT?.trim() || defaultReasoningEffort(model),
   };
 }
 
@@ -72,7 +91,10 @@ export function createChatCompletion(config: ChatConfig, fetchImpl: typeof fetch
           tools,
           // Respostas de balcão: curtas e sem criatividade para inventar produto.
           temperature: 0.2,
-          max_tokens: 600,
+          // Em modelo que raciocina, o pensamento sai deste mesmo teto: apertado
+          // demais, a resposta final vem vazia.
+          max_tokens: 1_200,
+          ...(config.reasoningEffort ? { reasoning_effort: config.reasoningEffort } : {}),
         }),
         signal: AbortSignal.timeout(TIMEOUT_MS),
       });
