@@ -3,15 +3,16 @@ import Link from "next/link";
 import { ClassLabel, PageHeader, SectionHeading, Sector, gridCell, gridFrame } from "@/components/Kit";
 import { ServiceRequestForm } from "@/components/ServiceRequestForm";
 import { PROFILE } from "@/lib/portfolio";
-import { PROCESS, SERVICES, isServiceKind } from "@/lib/services-catalog";
+import { PROCESS, SERVICES, SERVICE_FAQ, isServiceKind } from "@/lib/services-catalog";
+import { JsonLd, breadcrumb, canonical, faqPage, serviceEntity } from "@/lib/seo";
 import { CONTACT_EMAIL } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Serviços",
   description:
-    "Montagem, manutenção e formatação de computadores, e desenvolvimento de software, por Flávio Victor.",
+    "Montagem, manutenção e formatação de computadores e desenvolvimento de software, por Flávio Victor. Orçamento sem custo, por escrito, antes de qualquer intervenção.",
+  alternates: canonical("/servicos"),
 };
-
 
 export default async function ServicesPage(props: PageProps<"/servicos">) {
   const params = await props.searchParams;
@@ -20,6 +21,18 @@ export default async function ServicesPage(props: PageProps<"/servicos">) {
 
   return (
     <>
+      <JsonLd
+        data={{
+          "@graph": [
+            ...SERVICES.map(serviceEntity),
+            faqPage(SERVICE_FAQ),
+            breadcrumb([
+              { name: "Início", path: "/" },
+              { name: "Serviços", path: "/servicos" },
+            ]),
+          ],
+        }}
+      />
       <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
         <PageHeader
           label="Serviços / Protocolo técnico"
@@ -70,6 +83,18 @@ export default async function ServicesPage(props: PageProps<"/servicos">) {
             </li>
           ))}
         </ol>
+      </Sector>
+
+      <Sector>
+        <SectionHeading index={`${String(SERVICE_FAQ.length).padStart(2, "0")} itens`} label="Dúvidas" title="Perguntas frequentes" />
+        <dl className="mt-8 grid gap-x-12 border-t border-border-faint lg:grid-cols-2">
+          {SERVICE_FAQ.map((item) => (
+            <div key={item.question} className="border-b border-border-faint py-5">
+              <dt className="font-semibold text-foreground">{item.question}</dt>
+              <dd className="mt-2 text-sm leading-relaxed text-foreground-muted">{item.answer}</dd>
+            </div>
+          ))}
+        </dl>
       </Sector>
 
       <Sector tone="graphite" id="orcamento" className="grid gap-12 lg:grid-cols-12">

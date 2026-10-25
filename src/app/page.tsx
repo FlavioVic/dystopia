@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { SectionHeading, Sector, buttonPrimary, buttonSecondary, gridCell, gridFrame } from "@/components/Kit";
 import { EmblemSting } from "@/components/Logo";
@@ -8,7 +9,10 @@ import { ProductCard } from "@/components/ProductCard";
 import { countActiveProducts, getFeaturedProducts } from "@/lib/data/products";
 import { PORTFOLIO, PROFILE } from "@/lib/portfolio";
 import { PROCESS, SERVICES, TICKER } from "@/lib/services-catalog";
+import { canonical } from "@/lib/seo";
 import { TEST_COUNT } from "@/lib/site";
+
+export const metadata: Metadata = { alternates: canonical("/") };
 
 export default async function Home() {
   const [featured, inventoryCount] = await Promise.all([getFeaturedProducts(4), countActiveProducts()]);
@@ -27,24 +31,24 @@ export default async function Home() {
       <section className="bg-grid relative overflow-hidden border-b border-border">
         <div className="mx-auto grid max-w-7xl items-center gap-12 px-4 py-16 sm:px-6 sm:py-20 lg:grid-cols-12 lg:px-8 lg:py-24">
           <div className="lg:col-span-7">
-            <Reveal>
+            <Reveal immediate>
               <p className="label text-foreground-muted">
                 <span className="text-signal-text">{PROFILE.name}</span> / Desenvolvimento e hardware
               </p>
             </Reveal>
-            <Reveal delay={80}>
+            <Reveal immediate delay={80}>
               <h1 className="display-1 mt-6">
                 A ordem é um <span className="text-primary">serviço.</span>
                 <span aria-hidden="true" className="caret ml-1 inline-block h-[0.8em] w-[0.35em] translate-y-[0.1em] bg-primary" />
               </h1>
             </Reveal>
-            <Reveal delay={160}>
+            <Reveal immediate delay={160}>
               <p className="mt-6 max-w-xl text-lg leading-[28px] text-foreground-muted">
                 Software construído sob medida. Computadores montados, mantidos e restaurados. Cada intervenção é
                 registrada do pedido à entrega.
               </p>
             </Reveal>
-            <Reveal delay={240}>
+            <Reveal immediate delay={240}>
               <div className="mt-10 flex flex-wrap gap-3">
                 <Link href="/servicos#orcamento" className={buttonPrimary}>
                   Solicitar orçamento
@@ -54,7 +58,7 @@ export default async function Home() {
                 </Link>
               </div>
             </Reveal>
-            <Reveal delay={320}>
+            <Reveal immediate delay={320}>
               <dl className="mt-14 grid grid-cols-2 gap-px border border-border-faint bg-border-faint sm:grid-cols-4">
                 {stats.map((s) => (
                   <div key={s.label} className="flex flex-col-reverse justify-end bg-background/95 p-4">

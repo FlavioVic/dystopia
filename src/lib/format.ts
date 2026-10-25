@@ -22,3 +22,15 @@ export const FREE_SHIPPING_MIN_CENTS = 14990;
 export function isFreeShipping(priceCents: number): boolean {
   return priceCents >= FREE_SHIPPING_MIN_CENTS;
 }
+
+/**
+ * Nome exibido em público (avaliações): primeiro nome e inicial do último
+ * sobrenome — "Ana Souza Lima" vira "Ana L.". O nome completo não precisa
+ * estar na página para a avaliação valer (LGPD: necessidade).
+ */
+export function publicName(fullName: string): string {
+  const parts = fullName.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "Cliente";
+  if (parts.length === 1) return parts[0];
+  return `${parts[0]} ${parts[parts.length - 1][0].toUpperCase()}.`;
+}

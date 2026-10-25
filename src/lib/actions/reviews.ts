@@ -10,6 +10,7 @@ import { refresh } from "next/cache";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { products } from "@/db/schema";
+import { limitAction } from "@/lib/action-limits";
 import { getCurrentUser } from "@/lib/data/auth";
 import { parseReviewForm } from "@/lib/validation/review";
 import { deleteReview as removeReview, upsertReview } from "@/services/reviews";
@@ -37,6 +38,9 @@ export async function submitReview(_prev: ReviewState, formData: FormData): Prom
   const parsed = parseReviewForm(formData);
   if (!parsed.ok) return { errors: parsed.errors };
   const { values } = parsed;
+
+  const limited = await limitAction("review", `user:${user.id}`);
+  if (limited) return { message: limited };
 
   await db.transaction(async (tx) => {
     await upsertReview(tx, {

@@ -3,7 +3,7 @@ import Link from "next/link";
 /** Faixa de diretiva no topo: o vermelho de ação, com o chamado principal. */
 export function PromoBar() {
   return (
-    <div className="bg-primary text-primary-foreground">
+    <aside aria-label="Aviso da loja" className="bg-primary text-primary-foreground">
       <div className="label mx-auto flex max-w-7xl items-center justify-center gap-x-4 gap-y-1 px-4 py-2 text-center">
         <span className="hidden sm:inline">Diretiva 01 / Orçamento sem custo para todo serviço</span>
         <span className="sm:hidden">Orçamento sem custo</span>
@@ -18,6 +18,6 @@ export function PromoBar() {
         </span>
         <span className="hidden md:inline">Loja: cupom BEMVINDO10 na primeira aquisição</span>
       </div>
-    </div>
+    </aside>
   );
 }

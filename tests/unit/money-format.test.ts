@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { errorDigest } from "@/lib/error-digest";
-import { discountPercent, formatPriceCents, installmentText, isFreeShipping, FREE_SHIPPING_MIN_CENTS } from "@/lib/format";
+import { discountPercent, formatPriceCents, installmentText, isFreeShipping, FREE_SHIPPING_MIN_CENTS, publicName } from "@/lib/format";
 import { toCents, toCentsOrDefault } from "@/lib/money";
 
 describe("dinheiro digitado → centavos", () => {
@@ -75,5 +75,14 @@ describe("chave pública do Stripe", () => {
       if (original === undefined) delete process.env.STRIPE_PUBLISHABLE_KEY;
       else process.env.STRIPE_PUBLISHABLE_KEY = original;
     }
+  });
+});
+
+describe("nome público (avaliações)", () => {
+  it("primeiro nome e inicial do último sobrenome; nome único fica como está", () => {
+    assert.equal(publicName("Ana Souza Lima"), "Ana L.");
+    assert.equal(publicName("  ana   souza "), "ana S.");
+    assert.equal(publicName("Ana"), "Ana");
+    assert.equal(publicName("   "), "Cliente");
   });
 });

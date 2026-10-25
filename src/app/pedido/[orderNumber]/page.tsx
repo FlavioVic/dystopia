@@ -9,8 +9,9 @@ import { getOrderByNumber } from "@/lib/data/orders";
 import { drainQueueAfterResponse } from "@/lib/inline-worker";
 import { formatPriceCents } from "@/lib/format";
 import { getSagaByCorrelationId } from "@/saga/orchestrator";
+import { PRIVATE_PAGE } from "@/lib/seo";
 
-export const metadata: Metadata = { title: "Pedido" };
+export const metadata: Metadata = { title: "Pedido", robots: PRIVATE_PAGE };
 export const maxDuration = 30;
 
 const methodLabel: Record<string, string> = {

@@ -7,7 +7,7 @@ type Category = { slug: string; name: string };
 
 export function Footer({ categories }: { categories: Category[] }) {
   const heading = "label text-foreground-muted";
-  const item = "text-sm text-foreground-muted hover:text-foreground";
+  const item = "inline-block py-0.5 text-sm text-foreground-muted hover:text-foreground";
   return (
     <footer className="mt-24 border-t border-border">
       <div className="mx-auto grid max-w-7xl gap-12 px-4 py-14 sm:px-6 lg:grid-cols-12 lg:px-8">
@@ -77,6 +77,11 @@ export function Footer({ categories }: { categories: Category[] }) {
             <li>
               <Link href="/creditos" className={item}>
                 Créditos
+              </Link>
+            </li>
+            <li>
+              <Link href="/privacidade" className={item}>
+                Privacidade
               </Link>
             </li>
             <li>

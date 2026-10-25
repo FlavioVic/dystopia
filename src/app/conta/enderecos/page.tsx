@@ -7,8 +7,9 @@ import { db } from "@/db";
 import { getCurrentUser } from "@/lib/data/auth";
 import { formatAddress } from "@/lib/validation/address";
 import { listAddresses } from "@/services/addresses";
+import { PRIVATE_PAGE } from "@/lib/seo";
 
-export const metadata: Metadata = { title: "Endereços" };
+export const metadata: Metadata = { title: "Endereços", robots: PRIVATE_PAGE };
 
 export default async function AddressesPage() {
   const user = await getCurrentUser();

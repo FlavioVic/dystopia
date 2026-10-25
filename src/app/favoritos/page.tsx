@@ -5,8 +5,9 @@ import { redirect } from "next/navigation";
 import { ProductCard } from "@/components/ProductCard";
 import { getCurrentUser } from "@/lib/data/auth";
 import { getWishlist } from "@/lib/data/wishlist";
+import { PRIVATE_PAGE } from "@/lib/seo";
 
-export const metadata: Metadata = { title: "Arquivo de favoritos" };
+export const metadata: Metadata = { title: "Arquivo de favoritos", robots: PRIVATE_PAGE };
 
 export default async function WishlistPage() {
   const user = await getCurrentUser();

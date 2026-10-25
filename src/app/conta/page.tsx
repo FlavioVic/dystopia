@@ -3,11 +3,13 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/data/auth";
 import { getUserOrders } from "@/lib/data/orders";
+import { DeleteAccountForm } from "@/components/DeleteAccountForm";
 import { logout } from "@/lib/actions/auth";
 import { formatPriceCents } from "@/lib/format";
 import { ORDER_STATUS_LABELS, orderStatusClass, type OrderStatus } from "@/lib/order-status";
+import { PRIVATE_PAGE } from "@/lib/seo";
 
-export const metadata: Metadata = { title: "Minha conta" };
+export const metadata: Metadata = { title: "Minha conta", robots: PRIVATE_PAGE };
 
 export default async function AccountPage() {
   const user = await getCurrentUser();
@@ -21,7 +23,7 @@ export default async function AccountPage() {
         <div>
           <p className="label text-foreground-muted">Ficha / {user.email}</p>
           <h1 className="display-2 mt-3 text-[26px] leading-[34px] sm:text-[32px] sm:leading-[40px]">{user.name}</h1>
-          <p className="mt-2 text-sm text-foreground-muted">Seus dados, endereços e aquisições. Registros são mantidos permanentemente.</p>
+          <p className="mt-2 text-sm text-foreground-muted">Seus dados, endereços e aquisições. Ficam guardados enquanto a conta existir.</p>
         </div>
         <form action={logout}>
           <button
@@ -116,6 +118,24 @@ export default async function AccountPage() {
           Abrir painel de gestão →
         </Link>
       ) : null}
+      <section className="mt-12 border-t border-border-faint pt-6" aria-labelledby="privacidade-titulo">
+        <h2 id="privacidade-titulo" className="label text-foreground-muted">
+          Privacidade
+        </h2>
+        <p className="mt-3 text-sm leading-relaxed text-foreground-muted">
+          Você pode baixar tudo o que a loja guarda sobre você ou excluir a conta. Detalhes na{" "}
+          <Link href="/privacidade" className="text-foreground underline underline-offset-4">
+            política de privacidade
+          </Link>
+          .
+        </p>
+        <div className="mt-4 flex flex-col items-start gap-4">
+          <a href="/conta/dados" download className="label min-h-6 text-foreground underline underline-offset-4 hover:text-foreground-muted">
+            Baixar meus dados (JSON)
+          </a>
+          {user.role === "admin" ? null : <DeleteAccountForm />}
+        </div>
+      </section>
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
 import { Assistant } from "@/components/Assistant";
 import { Header } from "@/components/Header";
@@ -9,6 +9,7 @@ import { getCartCount } from "@/lib/data/cart";
 import { getCurrentUser } from "@/lib/data/auth";
 import { getWishlistProductIds } from "@/lib/data/wishlist";
 import { chatConfigFromEnv } from "@/lib/assistant/provider";
+import { JsonLd, siteGraph } from "@/lib/seo";
 import { SITE_URL } from "@/lib/site";
 import { interTight, michroma, plexMono } from "./fonts";
 import "./globals.css";
@@ -43,6 +44,13 @@ export const metadata: Metadata = {
       "Desenvolvimento de software, montagem, manutenção e formatação de computadores. Orçamento sem custo. Portfólio e loja de peças de PC.",
   },
   twitter: { card: "summary_large_image" },
+  formatDetection: { telephone: false },
+};
+
+/** Barra do navegador no celular na cor da página; o site só tem tema escuro. */
+export const viewport: Viewport = {
+  themeColor: "#0b0b0c",
+  colorScheme: "dark",
 };
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
@@ -80,6 +88,14 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
         ) : null}
       </head>
       <body className="flex min-h-full flex-col bg-background text-foreground">
+        {/* Teclado e leitor de tela pulam aviso, logo e menu direto para a página. */}
+        <a
+          href="#conteudo"
+          className="label sr-only z-50 bg-foreground px-4 py-3 text-background focus:not-sr-only focus:fixed focus:left-4 focus:top-4"
+        >
+          Pular para o conteúdo
+        </a>
+        <JsonLd data={siteGraph()} />
         <PromoBar />
         <Header
           categories={categories}
@@ -87,7 +103,9 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
           favoriteCount={favorites.size}
           user={user}
         />
-        <main className="flex-1">{children}</main>
+        <main id="conteudo" tabIndex={-1} className="flex-1 outline-none">
+          {children}
+        </main>
         <Footer categories={categories} />
         {/* Sem CHAT_API_KEY o assistente não existe — nem o botão aparece. */}
         {chatConfigFromEnv() ? <Assistant /> : null}

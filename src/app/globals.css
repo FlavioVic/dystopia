@@ -216,6 +216,9 @@
   font-family: var(--font-display);
   font-weight: 400;
   text-transform: uppercase;
+  /* Fonte larga em caixa alta: palavra longa em tela estreita quebra em vez de
+     empurrar a página para o lado. */
+  overflow-wrap: break-word;
 }
 .display-1 { font-size: 64px; line-height: 72px; letter-spacing: 0.1em; }
 .display-2 { font-size: 40px; line-height: 48px; letter-spacing: 0.12em; }
@@ -327,6 +330,18 @@
 .js-reveal .reveal[data-visible="true"] {
   opacity: 1;
   transform: none;
+}
+/* Primeira tela: mesma entrada, sem esperar o JS (com movimento reduzido, a
+   regra global zera a animação e o bloco já nasce visível). */
+.reveal-now {
+  animation: reveal-in 600ms var(--ease-out) both;
+  animation-delay: var(--delay, 0ms);
+}
+@keyframes reveal-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
 }
 
 /* Linha vermelha que se estende no hover de cards e links de seção. */

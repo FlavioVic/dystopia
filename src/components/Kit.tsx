@@ -72,7 +72,9 @@ export function PageHeader({
   return (
     <div className={ruled ? "border-b border-border pb-8" : ""}>
       <p className="label text-foreground-muted">{label}</p>
-      <h1 className="display-2 mt-4 text-[26px] leading-[34px] sm:text-[40px] sm:leading-[48px]">{title}</h1>
+      {/* Palavra longa ("PROCESSADORES") na fonte larga não cabe em 320 px a 26 px: a
+          fonte acompanha a largura e, em último caso, a palavra quebra. */}
+      <h1 className="display-2 mt-4 break-words text-[clamp(18px,6.4vw,26px)] leading-[1.3] sm:text-[40px] sm:leading-[48px]">{title}</h1>
       {description ? <div className="mt-4 max-w-2xl text-base leading-relaxed text-foreground-muted">{description}</div> : null}
       {meta ? <div className="label mt-6 text-foreground-muted">{meta}</div> : null}
     </div>
@@ -122,11 +124,20 @@ export function Sector({
 export const gridFrame = "grid border-l border-t border-border-faint";
 export const gridCell = "border-b border-r border-border-faint";
 
-export function ProductGrid({ children }: { children: ReactNode }) {
+/**
+ * Grade de cards. `title` vira um h2 só para leitor de tela quando a página
+ * não tem outro título entre o h1 e os h3 dos cards (sem pular nível).
+ */
+export function ProductGrid({ children, title }: { children: ReactNode; title?: string }) {
+  const grid = <div className={`mt-8 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 ${gridFrame}`}>{children}</div>;
+  if (!title) return grid;
   return (
-    <div className={`mt-8 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 ${gridFrame}`}>
-      {children}
-    </div>
+    <section aria-labelledby="grade-titulo">
+      <h2 id="grade-titulo" className="sr-only">
+        {title}
+      </h2>
+      {grid}
+    </section>
   );
 }
 

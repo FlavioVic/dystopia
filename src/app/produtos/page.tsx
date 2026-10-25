@@ -6,12 +6,19 @@ import { Pagination } from "@/components/Pagination";
 import { ProductCard } from "@/components/ProductCard";
 import { listActiveProducts, searchProducts } from "@/lib/data/products";
 import { isPastLastPage, parsePage, STORE_PAGE_SIZE } from "@/lib/pagination";
+import { listingCanonical } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  title: "Inventário",
-  description:
-    "Peças de PC com ficha técnica: placas de vídeo, processadores, placas-mãe, memória, SSD, fontes, gabinetes, refrigeração, monitores e periféricos.",
-};
+export async function generateMetadata(props: PageProps<"/produtos">): Promise<Metadata> {
+  const params = await props.searchParams;
+  return {
+    title: "Inventário",
+    description:
+      "Peças de PC com ficha técnica: placas de vídeo, processadores, placas-mãe, memória, SSD, fontes, gabinetes, refrigeração, monitores e periféricos.",
+    alternates: listingCanonical("/produtos", params.pagina),
+    // Resultado de busca é infinito e repete o inventário: o robô segue os links, não indexa.
+    ...(params.q ? { robots: { index: false, follow: true } } : {}),
+  };
+}
 
 export default async function ProductsPage(props: PageProps<"/produtos">) {
   const params = await props.searchParams;
@@ -55,7 +62,7 @@ export default async function ProductsPage(props: PageProps<"/produtos">) {
             </Link>
           </div>
         ) : (
-          <ProductGrid>
+          <ProductGrid title="Itens">
             {products.map((p, i) => (
               <ProductCard key={p.slug} product={p} priority={i < 4} />
             ))}

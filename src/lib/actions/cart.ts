@@ -3,7 +3,9 @@
 import { cookies } from "next/headers";
 import { refresh } from "next/cache";
 import { db } from "@/db";
+import { limitAction } from "@/lib/action-limits";
 import { CART_COOKIE } from "@/lib/data/cart";
+import { getRequestIp } from "@/lib/request-ip";
 import { PermanentError } from "@/saga/errors";
 import * as cartsService from "@/services/carts";
 
@@ -38,6 +40,10 @@ export async function addToCart(input: {
   variantId?: string | null;
   quantity?: number;
 }): Promise<CartActionResult> {
+  // Por IP: sem cookie, cada chamada criaria um carrinho novo no banco.
+  const limited = await limitAction("cart", `ip:${await getRequestIp()}`);
+  if (limited) return { ok: false, error: limited };
+
   const cartId = await currentOrNewCartId();
   try {
     await cartsService.addItem(db, {
