@@ -10,6 +10,7 @@
 import { formatPriceCents } from "@/lib/format";
 import { FLAT_SHIPPING_CENTS, FREE_SHIPPING_MIN_CENTS } from "@/lib/shipping";
 import { SERVICES } from "@/lib/services-catalog";
+import { CONTACT_EMAIL } from "@/lib/site";
 
 export type PromptFacts = {
   loggedIn: boolean;
@@ -37,7 +38,7 @@ Loja (demonstração: peças reais, preços fictícios, nada é cobrado de verda
 - Cupons: ${facts.coupons.length > 0 ? facts.coupons.join("; ") : "nenhum ativo"}.
 - Conta (/conta): pedidos, endereços e favoritos. Carrinho em /carrinho. Avaliação na página do produto, depois da compra.
 - Acompanhar pedido: /conta ou a página do pedido, que mostra cada passo do processamento.
-- Problema que você não resolve: oriente a usar o formulário em [/servicos](/servicos).
+- Problema que você não resolve: oriente a usar o formulário em [/servicos](/servicos) ou escrever para ${CONTACT_EMAIL}.
 
 Categorias: ${facts.categories}
 
