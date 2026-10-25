@@ -23,10 +23,10 @@ export function Header({
   favoriteCount?: number;
   user?: { name: string } | null;
 }) {
-  const shortcut = "label flex items-center gap-2 text-foreground-muted transition-colors hover:text-foreground";
+  const shortcut = "label flex min-h-6 items-center gap-2 text-foreground-muted transition-colors hover:text-foreground";
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur-sm">
-      <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-4 sm:gap-8 sm:px-6 lg:px-8">
+      <div className="mx-auto flex h-16 max-w-7xl items-center gap-3 px-3 min-[360px]:gap-4 min-[360px]:px-4 sm:gap-8 sm:px-6 lg:px-8">
         {/* No celular o lockup inteiro não cabe com os atalhos: fica o emblema. */}
         <Link href="/" aria-label="DYSTOPIA — início" className="shrink-0 text-foreground sm:hidden">
           <Emblem size={28} className="text-primary" />
@@ -37,7 +37,7 @@ export function Header({
 
         <HeaderNav categories={categories} />
 
-        <nav aria-label="Atalhos" className="ml-auto flex shrink-0 items-center gap-4 sm:gap-5">
+        <nav aria-label="Atalhos" className="ml-auto flex shrink-0 items-center gap-3 min-[360px]:gap-4 sm:gap-5">
           {user ? (
             <>
               <Link href="/conta" className={shortcut}>

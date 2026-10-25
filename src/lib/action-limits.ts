@@ -19,6 +19,8 @@ export const ACTION_LIMITS = {
   cart: { limit: limitFromEnv("CART_LIMIT_PER_10MIN", 60), windowSeconds: 10 * 60 },
   review: { limit: limitFromEnv("REVIEW_LIMIT_PER_HOUR", 10), windowSeconds: 60 * 60 },
   wishlist: { limit: limitFromEnv("WISHLIST_LIMIT_PER_10MIN", 60), windowSeconds: 10 * 60 },
+  // Exclusão pede a senha de novo: sem limite, viraria força bruta por dentro da sessão.
+  accountDelete: { limit: 5, windowSeconds: 60 * 60 },
 } satisfies Record<string, RateLimitRule>;
 
 export type LimitedAction = keyof typeof ACTION_LIMITS;

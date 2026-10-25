@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { SectionHeading, Sector, buttonPrimary, buttonSecondary, gridCell, gridFrame } from "@/components/Kit";
 import { EmblemSting } from "@/components/Logo";
@@ -8,7 +9,10 @@ import { ProductCard } from "@/components/ProductCard";
 import { countActiveProducts, getFeaturedProducts } from "@/lib/data/products";
 import { PORTFOLIO, PROFILE } from "@/lib/portfolio";
 import { PROCESS, SERVICES, TICKER } from "@/lib/services-catalog";
+import { canonical } from "@/lib/seo";
 import { TEST_COUNT } from "@/lib/site";
+
+export const metadata: Metadata = { alternates: canonical("/") };
 
 export default async function Home() {
   const [featured, inventoryCount] = await Promise.all([getFeaturedProducts(4), countActiveProducts()]);

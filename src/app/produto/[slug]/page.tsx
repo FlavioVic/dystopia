@@ -12,16 +12,21 @@ import { WishlistHeart } from "@/components/WishlistHeart";
 import { db } from "@/db";
 import { getCurrentUser } from "@/lib/data/auth";
 import { getActiveCoupons, getProductBySlug, getRelatedProducts } from "@/lib/data/products";
+import { publicName } from "@/lib/format";
 import { photoCreditByUrl } from "@/lib/photo-credits";
+import { JsonLd, absoluteUrl, breadcrumb, canonical } from "@/lib/seo";
 import { getUserReview, ratingBreakdown } from "@/services/reviews";
 
 export async function generateMetadata(props: PageProps<"/produto/[slug]">): Promise<Metadata> {
   const { slug } = await props.params;
   const product = await getProductBySlug(slug);
   if (!product) return {};
+  const photo = product.images.find((image) => image.url.endsWith(".webp"));
   return {
     title: product.name,
     description: product.description.slice(0, 155),
+    alternates: canonical(`/produto/${product.slug}`),
+    openGraph: photo ? { images: [{ url: photo.url, alt: photo.altText ?? product.name }] } : undefined,
   };
 }
 
@@ -42,6 +47,36 @@ export default async function ProductPage(props: PageProps<"/produto/[slug]">) {
 
   return (
     <>
+      <JsonLd
+        data={{
+          "@graph": [
+            {
+              // Sem `offers`: a loja é demonstração (ver lib/seo.tsx).
+              "@type": "Product",
+              name: product.name,
+              description: product.description,
+              sku: product.sku,
+              category: product.category.name,
+              image: product.images.map((image) => absoluteUrl(image.url)),
+              ...(product.brand ? { brand: { "@type": "Brand", name: product.brand } } : {}),
+              ...(product.specs.length > 0
+                ? {
+                    additionalProperty: product.specs.map((spec) => ({
+                      "@type": "PropertyValue",
+                      name: spec.label,
+                      value: spec.value,
+                    })),
+                  }
+                : {}),
+            },
+            breadcrumb([
+              { name: "Inventário", path: "/produtos" },
+              { name: product.category.name, path: `/categoria/${product.category.slug}` },
+              { name: product.name, path: `/produto/${product.slug}` },
+            ]),
+          ],
+        }}
+      />
       <div className="mx-auto max-w-7xl px-4 pb-16 pt-10 sm:px-6 lg:px-8">
         <nav aria-label="Trilha" className="label flex flex-wrap gap-2 text-foreground-muted">
           <Link href="/produtos" className="hover:text-foreground">
@@ -167,7 +202,7 @@ export default async function ProductPage(props: PageProps<"/produto/[slug]">) {
                     <div className="flex items-center justify-between gap-4">
                       <StarRating rating={r.rating} />
                       <span className="label text-foreground-muted">
-                        {r.user.name}
+                        {publicName(r.user.name)}
                         {r.isVerifiedPurchase ? " · aquisição verificada" : ""}
                       </span>
                     </div>

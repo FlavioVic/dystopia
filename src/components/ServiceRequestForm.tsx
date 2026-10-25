@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState } from "react";
 import { FieldError, FormAlert, buttonPrimary, fieldLabelClass, inputClass } from "@/components/Kit";
 import { requestService, type ServiceRequestState } from "@/lib/actions/services";
@@ -121,6 +122,13 @@ export function ServiceRequestForm({ defaultKind }: { defaultKind?: ServiceKind 
       <button type="submit" disabled={pending} className={`${buttonPrimary} self-start`}>
         {pending ? "Registrando…" : "Registrar solicitação"}
       </button>
+      <p className="text-xs leading-relaxed text-foreground-muted">
+        Os dados servem só para responder a este pedido. Veja a{" "}
+        <Link href="/privacidade" className="text-foreground underline underline-offset-4">
+          política de privacidade
+        </Link>
+        .
+      </p>
     </form>
   );
 }

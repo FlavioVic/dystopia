@@ -5,9 +5,11 @@ import { buttonPrimary } from "@/components/Kit";
 import { getCart } from "@/lib/data/cart";
 import { formatPriceCents } from "@/lib/format";
 import { FREE_SHIPPING_MIN_CENTS } from "@/lib/shipping";
+import { PRIVATE_PAGE } from "@/lib/seo";
 
 export const metadata: Metadata = {
   title: "Carrinho",
+  robots: PRIVATE_PAGE,
 };
 
 export default async function CartPage() {

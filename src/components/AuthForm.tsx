@@ -84,6 +84,15 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
         >
           {pending ? "Verificando…" : isSignup ? "Abrir ficha" : "Identificar-se"}
         </button>
+        {isSignup ? (
+          <p className="text-xs leading-relaxed text-foreground-muted">
+            Ao criar a conta, seus dados são tratados como descrito na{" "}
+            <Link href="/privacidade" className="text-foreground underline underline-offset-4">
+              política de privacidade
+            </Link>
+            .
+          </p>
+        ) : null}
       </form>
 
       <p className="mt-6 text-sm text-foreground-muted">

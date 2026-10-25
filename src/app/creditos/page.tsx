@@ -2,10 +2,12 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import { PageHeader, gridCell, gridFrame } from "@/components/Kit";
 import { PRODUCT_PHOTOS } from "@/lib/photo-credits";
+import { canonical } from "@/lib/seo";
 
 export const metadata: Metadata = {
   title: "Créditos",
   description: "Créditos das fotos de produto (Wikimedia Commons) e das fontes usadas na DYSTOPIA.",
+  alternates: canonical("/creditos"),
 };
 
 const FONTS = [

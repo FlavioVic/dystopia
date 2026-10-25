@@ -83,6 +83,40 @@ export const PROCESS = [
   { step: "04", title: "Entrega", text: "Equipamento ou sistema entregue com laudo do que foi feito." },
 ];
 
+/**
+ * Perguntas frequentes de /servicos (também viram FAQPage no JSON-LD e o
+ * /llms.txt). Só o que o site já garante em outro lugar — nada de promessa nova.
+ */
+export const SERVICE_FAQ = [
+  {
+    question: "O orçamento tem custo?",
+    answer: "Não. Todo serviço começa com um orçamento sem custo, enviado por escrito depois do diagnóstico.",
+  },
+  {
+    question: "Como peço um orçamento?",
+    answer:
+      "Pelo formulário da página de serviços ou pelo assistente do site. Cada pedido recebe um protocolo (DYS-S…) e o retorno é feito pelo e-mail informado.",
+  },
+  {
+    question: "O serviço começa antes da minha aprovação?",
+    answer: "Não. Nada é executado sem a aprovação do orçamento, e o andamento fica registrado até a entrega.",
+  },
+  {
+    question: "Perco meus arquivos na formatação?",
+    answer: "Não. Os arquivos são copiados antes de qualquer intervenção, e só então o Windows ou o Linux é reinstalado.",
+  },
+  {
+    question: "O que recebo na entrega?",
+    answer:
+      "O equipamento ou sistema com o laudo do que foi feito. Na montagem, a máquina sai com BIOS atualizada, teste de estresse e laudo térmico.",
+  },
+  {
+    question: "A loja de peças vende de verdade?",
+    answer:
+      "Não. A loja é uma demonstração técnica do portfólio: o pagamento é simulado e nenhum valor é cobrado. Os serviços são reais.",
+  },
+];
+
 /** O que passa na faixa da home: serviços e o ferramental usado neles. */
 export const TICKER = [
   "Desenvolvimento web",

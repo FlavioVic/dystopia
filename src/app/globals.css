@@ -216,6 +216,9 @@
   font-family: var(--font-display);
   font-weight: 400;
   text-transform: uppercase;
+  /* Fonte larga em caixa alta: palavra longa em tela estreita quebra em vez de
+     empurrar a página para o lado. */
+  overflow-wrap: break-word;
 }
 .display-1 { font-size: 64px; line-height: 72px; letter-spacing: 0.1em; }
 .display-2 { font-size: 40px; line-height: 48px; letter-spacing: 0.12em; }

@@ -5,12 +5,17 @@ import { Pagination } from "@/components/Pagination";
 import { ProductCard } from "@/components/ProductCard";
 import { getCategoryBySlug, getProductsByCategorySlug } from "@/lib/data/products";
 import { isPastLastPage, parsePage, STORE_PAGE_SIZE } from "@/lib/pagination";
+import { listingCanonical } from "@/lib/seo";
 
 export async function generateMetadata(props: PageProps<"/categoria/[slug]">): Promise<Metadata> {
   const { slug } = await props.params;
   const category = await getCategoryBySlug(slug);
   if (!category) return {};
-  return { title: category.name, description: category.description ?? undefined };
+  return {
+    title: category.name,
+    description: category.description ?? undefined,
+    alternates: listingCanonical(`/categoria/${category.slug}`, (await props.searchParams).pagina),
+  };
 }
 
 export default async function CategoryPage(props: PageProps<"/categoria/[slug]">) {
@@ -34,7 +39,7 @@ export default async function CategoryPage(props: PageProps<"/categoria/[slug]">
 
       <div className="mx-auto max-w-7xl px-4 pb-16 sm:px-6 lg:px-8">
         {products.length > 0 ? (
-          <ProductGrid>
+          <ProductGrid title={`Itens de ${category.name}`}>
             {products.map((p, i) => (
               <ProductCard key={p.slug} product={{ ...p, category }} priority={i < 4} />
             ))}

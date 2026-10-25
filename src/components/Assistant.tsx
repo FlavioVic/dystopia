@@ -160,7 +160,12 @@ export function Assistant() {
 
           <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4 text-sm" aria-live="polite">
             <p className="text-foreground-muted">
-              Peças, pedidos e serviços. As respostas são geradas por IA e consultam o catálogo da loja.
+              Peças, pedidos e serviços. As respostas são geradas por IA e consultam o catálogo da loja. A conversa
+              é enviada ao provedor do modelo e não fica gravada no site: evite dados pessoais. Veja a{" "}
+              <Link href="/privacidade" className="text-foreground underline underline-offset-4">
+                privacidade
+              </Link>
+              .
             </p>
             {turns.length === 0 && (
               <ul className="flex flex-wrap gap-2" aria-label="Sugestões">

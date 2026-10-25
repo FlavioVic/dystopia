@@ -115,7 +115,7 @@ export function orderConfirmationEmail(input: OrderConfirmationEmailInput, siteU
     ...(payment ? [`Pagamento: ${payment}`] : []),
     "",
     `Acompanhe em ${orderUrl}`,
-    "Guarde este número. Registros são mantidos permanentemente.",
+    "Guarde este número. O pedido fica registrado na sua conta.",
   ].join("\n");
 
   const itemRows = input.items
@@ -137,7 +137,7 @@ export function orderConfirmationEmail(input: OrderConfirmationEmailInput, siteU
     lead: `${input.customerName}. O pagamento foi aprovado e o equipamento está reservado. O despacho segue o protocolo.`,
     contentHtml: `${panel(input.orderNumber, chip("Pago", "bone"), itemRows + summaryRows)}
 <table role="presentation" cellpadding="0" cellspacing="0" style="margin-top:28px"><tr><td>${button("Ver pedido", orderUrl)}</td></tr></table>
-<p style="margin:20px 0 0;font-family:${SANS};font-size:13px;line-height:20px;color:${COLOR.muted}">Guarde este número. Registros são mantidos permanentemente.</p>`,
+<p style="margin:20px 0 0;font-family:${SANS};font-size:13px;line-height:20px;color:${COLOR.muted}">Guarde este número. O pedido fica registrado na sua conta.</p>`,
     siteUrl,
   });
 

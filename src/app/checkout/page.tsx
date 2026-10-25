@@ -8,8 +8,9 @@ import { isCheckoutSimulationEnabled } from "@/lib/checkout-simulation";
 import { getStripePublishableKey } from "@/lib/stripe-public";
 import { formatAddress } from "@/lib/validation/address";
 import { listAddresses } from "@/services/addresses";
+import { PRIVATE_PAGE } from "@/lib/seo";
 
-export const metadata: Metadata = { title: "Finalizar compra" };
+export const metadata: Metadata = { title: "Finalizar compra", robots: PRIVATE_PAGE };
 // Vale para Server Action do formulário também: com o worker embutido, o
 // `after` do placeOrder drena a fila (até 45 s) dentro desta função.
 export const maxDuration = 60;

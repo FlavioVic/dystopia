@@ -4,11 +4,13 @@ import { Sector, buttonPrimary } from "@/components/Kit";
 import { isCheckoutSimulationEnabled } from "@/lib/checkout-simulation";
 import { getStripePublishableKey } from "@/lib/stripe-public";
 import { sagaStepLabel } from "@/lib/saga-ui";
+import { canonical } from "@/lib/seo";
 
 export const metadata: Metadata = {
   title: "Sobre o projeto",
   description:
     "DYSTOPIA é um projeto de portfólio de Flávio Victor: loja de hardware em Next.js com checkout orquestrado por SAGA.",
+  alternates: canonical("/sobre"),
 };
 
 const REPO_URL = "https://github.com/FlavioVic/dystopia";

@@ -148,11 +148,12 @@ export function HeaderNav({ categories }: { categories: Category[] }) {
             <span className={`h-[2px] bg-foreground transition-opacity ${mobileOpen ? "opacity-0" : ""}`} />
             <span className={`h-[2px] bg-foreground transition-transform ${mobileOpen ? "-translate-y-[5px] -rotate-45" : ""}`} />
           </span>
-          Menu
+          {/* Em 320 px a palavra não cabe junto dos atalhos; o leitor de tela ainda a lê. */}
+          <span className="max-[359px]:sr-only">Menu</span>
         </button>
         <div
           id="menu-celular"
-          className={`fixed inset-x-0 top-16 z-50 max-h-[calc(100vh-4rem)] overflow-y-auto border-b border-border bg-background px-4 pb-8 pt-6 transition-all duration-200 ${
+          className={`fixed inset-x-0 top-16 z-50 max-h-[calc(100dvh-4rem)] overflow-y-auto border-b border-border bg-background px-4 pb-8 pt-6 transition-all duration-200 ${
             mobileOpen ? "visible opacity-100" : "invisible -translate-y-2 opacity-0"
           }`}
         >
