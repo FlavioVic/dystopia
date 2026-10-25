@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { db } from "@/db";
 import { createSession, deleteSession } from "@/lib/session";
 import { CART_COOKIE } from "@/lib/data/cart";
+import { retryMessage } from "@/lib/action-limits";
 import { limitFromEnv } from "@/lib/rate-limit-config";
 import { getRequestIp } from "@/lib/request-ip";
 import { parseLoginForm, parseSignupForm } from "@/lib/validation/account";
@@ -28,9 +29,7 @@ const SIGNUP_RULE: RateLimitRule = { limit: limitFromEnv("SIGNUP_LIMIT_PER_HOUR"
 
 async function rateLimited(action: string, rule: RateLimitRule): Promise<string | null> {
   const { allowed, retryAfterSeconds } = await consumeRateLimit(db, `${action}:ip:${await getRequestIp()}`, rule);
-  if (allowed) return null;
-  const minutes = Math.ceil(retryAfterSeconds / 60);
-  return `Muitas tentativas. Tente de novo em ${minutes} ${minutes === 1 ? "minuto" : "minutos"}.`;
+  return allowed ? null : retryMessage(retryAfterSeconds);
 }
 
 /** Abre a sessão e leva junto o carrinho de visitante, se houver. */

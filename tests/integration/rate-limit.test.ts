@@ -8,6 +8,7 @@ import { after, beforeEach, describe, it } from "node:test";
 import { eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { rateLimits } from "@/db/schema";
+import { ACTION_LIMITS, limitAction } from "@/lib/action-limits";
 import { consumeRateLimit, pruneRateLimits } from "@/services/rate-limit";
 import { closeDatabase, resetDatabase } from "../helpers/db";
 
@@ -72,5 +73,14 @@ describe("limite de tentativas", () => {
     assert.equal(await pruneRateLimits(db, 3_600), 1);
     const keys = (await db.select().from(rateLimits)).map((r) => r.key);
     assert.deepEqual(keys, ["nova"]);
+  });
+
+  it("ações da loja: pedido barra no limite por usuário, com mensagem para a pessoa, sem afetar outra conta", async () => {
+    const { limit } = ACTION_LIMITS.checkout;
+    for (let i = 0; i < limit; i++) assert.equal(await limitAction("checkout", "user:a"), null);
+
+    assert.match((await limitAction("checkout", "user:a")) ?? "", /^Muitas tentativas\. Tente de novo em \d+ minutos?\.$/);
+    assert.equal(await limitAction("checkout", "user:b"), null);
+    assert.equal(await limitAction("cart", "user:a"), null, "cada ação tem o próprio contador");
   });
 });

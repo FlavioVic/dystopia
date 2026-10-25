@@ -33,11 +33,15 @@ import {
 } from "@/services/payments/contract";
 import { getStripePublishableKey } from "@/lib/stripe-public";
 import { isCheckoutSimulationEnabled } from "@/lib/checkout-simulation";
+import { limitAction } from "@/lib/action-limits";
+import { getRequestIp } from "@/lib/request-ip";
 
 const PAYMENT_METHODS = ["pix", "credit_card", "boleto"] as const satisfies readonly PaymentMethod[];
 
 /** Server Action pública para o preview do cupom no checkout. */
 export async function validateCoupon(code: string, subtotalCents: number): Promise<CouponResult> {
+  const limited = await limitAction("coupon", `ip:${await getRequestIp()}`);
+  if (limited) return { ok: false, message: limited };
   const result = await resolveCoupon(db, code, subtotalCents);
   if (!result.ok) return { ok: false, message: result.message };
   return {
@@ -96,6 +100,10 @@ export async function placeOrder(_prev: CheckoutState, formData: FormData): Prom
     if (!isCardPaymentMethodId(token)) return { message: "Preencha os dados do cartão." };
     cardPaymentMethodId = token;
   }
+
+  // Conta só a tentativa que chegaria a criar pedido (formulário já válido).
+  const limited = await limitAction("checkout", `user:${user.id}`);
+  if (limited) return { message: limited };
 
   // --- totais (recalculados no servidor, nunca vindos do cliente) ---
   const subtotalCents = cart.subtotalCents;
