@@ -99,6 +99,9 @@ desligar a flag.
 4. Com o repositório conectado (Settings → Git, ou `vercel git connect`), cada
    push na `main` publica sozinho. Migration nova continua manual: rode
    `npm run db:migrate` contra o Neon **antes** do push que depende dela.
+   As outras branches não geram deploy (`git.deploymentEnabled` no
+   `vercel.json`): as variáveis existem só em Production, então uma prévia
+   falharia no build — e a branch já é verificada pelo CI.
 5. **Analytics**: aba *Analytics* do projeto → *Enable* (grátis no Hobby). O
    script já está no layout e só carrega na Vercel.
 
