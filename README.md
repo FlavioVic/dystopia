@@ -36,6 +36,9 @@ responde (aprovar, recusar, instável, fora do ar) para ver a saga reagir.
   acessibilidade (axe, WCAG 2.1 AA). Testes de arquitetura impedem serviço de
   importar serviço, Server Action de escrever no banco e action do admin sem
   checagem de papel.
+- **Assistente com IA que usa o próprio sistema**: busca no catálogo, consulta
+  o pedido de quem está logado e registra orçamento por ferramentas (tool
+  calling), com a identidade vinda da sessão — nunca da conversa.
 - **Pronto para ficar exposto**: CSP com nonce por request, limite de
   tentativas no login, login que não revela quais e-mails existem.
 

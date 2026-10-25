@@ -75,6 +75,12 @@ services:
       SIGNUP_LIMIT_PER_HOUR: ${SIGNUP_LIMIT_PER_HOUR:-1000}
       LOGIN_LIMIT_PER_15MIN: ${LOGIN_LIMIT_PER_15MIN:-1000}
       SERVICE_REQUEST_LIMIT_PER_HOUR: ${SERVICE_REQUEST_LIMIT_PER_HOUR:-1000}
+      ASSISTANT_LIMIT_PER_10MIN: ${ASSISTANT_LIMIT_PER_10MIN:-1000}
+      # Assistente: sem chave, o botão nem aparece. Com chave da Groq (ou outro
+      # provedor Chat Completions via CHAT_API_URL/CHAT_MODEL), ele responde.
+      CHAT_API_KEY: ${CHAT_API_KEY:-}
+      CHAT_API_URL: ${CHAT_API_URL:-}
+      CHAT_MODEL: ${CHAT_MODEL:-}
     depends_on:
       db: { condition: service_healthy }
     restart: "no"

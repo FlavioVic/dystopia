@@ -47,6 +47,25 @@ grade com régua, campos de formulário) mora em `src/components/Kit.tsx`.
   request (React `cache()` + um componente de servidor que resolve o estado),
   não uma por card.
 
+# Assistente
+
+Botão fixo no canto da loja que abre uma conversa com um modelo de linguagem
+(Groq, plano grátis). Ele não "sabe" o catálogo de cor: consulta o sistema por
+ferramentas, como uma tela faria.
+
+- **Busca produtos** por termo, categoria e preço máximo ("placa de vídeo até
+  R$ 3.000"), com estoque primeiro e link para a página do produto.
+- **Pedidos** da pessoa logada (lista e detalhe). Visitante é mandado entrar; o
+  dono do pedido vem da sessão, nunca da conversa.
+- **Orçamento de serviço**: coleta os dados, mostra o resumo, e só registra
+  depois do "sim" — pelo mesmo fluxo e limite do formulário de /servicos.
+- **Dúvidas e suporte**: frete, pagamento, cupons ativos, conta e carrinho, a
+  partir das mesmas constantes que o checkout usa.
+
+Proteções: limite de mensagens por IP, só chamada da própria página, histórico
+com teto de tamanho, link só para página do site, conversa guardada só na aba
+(`sessionStorage`). Limite do provedor estourado vira "tente de novo em N s".
+
 # Painel admin
 
 Entre com o usuário admin do seed e acesse [`/admin`](http://localhost:3000/admin)

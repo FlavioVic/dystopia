@@ -92,6 +92,9 @@ desligar a flag.
      - `RESEND_API_KEY` + `EMAIL_REDIRECT_TO` = **o e-mail da sua conta no
        Resend** (modo sandbox: sem domínio próprio, o Resend só entrega para
        ele).
+     - `CHAT_API_KEY` — chave da Groq (console.groq.com → API Keys, plano
+       grátis sem cartão) para ligar o assistente. Sem ela, o botão não aparece.
+       `CHAT_API_URL`/`CHAT_MODEL` trocam o provedor/modelo.
      - `SERVICE_ALERT_TO` — quem recebe o aviso de cada pedido de orçamento
        (gravado na mesma transação do pedido e entregue pela fila
        `notifications`).
