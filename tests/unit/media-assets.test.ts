@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { existsSync } from "node:fs";
+import { existsSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 import { SEED_PRODUCTS } from "@/db/seed-catalog";
@@ -29,6 +29,34 @@ describe("portfólio", () => {
       assert.ok(!codes.has(p.code), `código repetido: ${p.code}`);
       codes.add(p.code);
       assert.ok(p.repo.startsWith("https://github.com/FlavioVic/"), `${p.slug}: repo fora do perfil`);
+    }
+  });
+});
+
+/** Toda imagem e vídeo servidos de `public/` (e os prints do README), recursivo. */
+function mediaFiles(dir: string): string[] {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) return mediaFiles(full);
+    return /\.(png|jpe?g|gif|bmp|tiff?|webp|avif|mp4|mov|avi|mkv|webm)$/i.test(entry.name) ? [full] : [];
+  });
+}
+
+describe("peso da mídia", () => {
+  // E-mail é a exceção: Outlook e Gmail antigo não mostram webp.
+  const EMAIL_ONLY = path.join(PUBLIC, "email");
+  const files = [...mediaFiles(PUBLIC), ...mediaFiles(path.resolve(PUBLIC, "../docs/screenshots"))];
+
+  it("imagem é webp e tem menos de 300 KB; vídeo é webm", () => {
+    assert.ok(files.length > 0);
+    for (const full of files) {
+      const name = path.relative(PUBLIC, full);
+      if (/\.(mp4|mov|avi|mkv|webm)$/i.test(full)) {
+        assert.match(full, /\.webm$/, `${name}: vídeo tem que ser webm`);
+        continue;
+      }
+      if (!full.startsWith(EMAIL_ONLY)) assert.match(full, /\.webp$/, `${name}: imagem tem que ser webp`);
+      assert.ok(statSync(full).size < 300 * 1024, `${name}: ${Math.round(statSync(full).size / 1024)} KB (máx. 300)`);
     }
   });
 });
