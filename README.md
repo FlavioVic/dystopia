@@ -52,6 +52,10 @@ responde (aprovar, recusar, instável, fora do ar) para ver a saga reagir.
 |---|
 | ![Orquestração](docs/screenshots/admin-orquestracao.webp) |
 
+| Assistente com IA consultando o catálogo | E-mail de confirmação |
+|---|---|
+| ![Assistente](docs/screenshots/assistente.webp) | ![E-mail](docs/screenshots/email-compra.webp) |
+
 | Serviços e orçamento | Portfólio |
 |---|---|
 | ![Serviços](docs/screenshots/servicos.webp) | ![Portfólio](docs/screenshots/portfolio.webp) |
@@ -66,7 +70,8 @@ responde (aprovar, recusar, instável, fora do ar) para ver a saga reagir.
 
 Os prints são gerados contra um banco populado só pelo seed, com pedidos feitos
 pelo próprio fluxo da loja num navegador de verdade (Playwright) — o recusado
-usa o gateway simulado (`ALLOW_CHECKOUT_SIMULATION`).
+usa o gateway simulado (`ALLOW_CHECKOUT_SIMULATION`). O do assistente é uma
+conversa real com o modelo, no site publicado.
 
 ## Arquitetura
 
