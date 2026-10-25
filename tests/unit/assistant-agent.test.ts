@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import { answer, MAX_TOOL_ROUNDS } from "@/lib/assistant/agent";
 import { buildSystemPrompt } from "@/lib/assistant/prompt";
 import type { ChatMessage, ChatReply, ChatTool } from "@/lib/assistant/provider";
+import { CONTACT_EMAIL } from "@/lib/site";
 
 const tools: ChatTool[] = [{ type: "function", function: { name: "buscar_produtos", description: "d", parameters: {} } }];
 
@@ -122,6 +123,7 @@ describe("instruções do assistente", () => {
     assert.match(prompt, /BEMVINDO10/);
     assert.match(prompt, /Processadores \(processadores\)/);
     assert.match(prompt, /Montagem de computadores \(montagem\)/);
+    assert.ok(prompt.includes(CONTACT_EMAIL), "contato da loja para o que o assistente não resolve");
   });
 
   it("dizem se a pessoa está logada — é o que decide se ela pode pedir pedidos", () => {

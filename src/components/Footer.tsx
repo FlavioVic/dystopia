@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Logo } from "@/components/Logo";
 import { SERVICES } from "@/lib/services-catalog";
+import { CONTACT_EMAIL } from "@/lib/site";
 
 type Category = { slug: string; name: string };
 
@@ -77,6 +78,11 @@ export function Footer({ categories }: { categories: Category[] }) {
               <Link href="/creditos" className={item}>
                 Créditos
               </Link>
+            </li>
+            <li>
+              <a href={`mailto:${CONTACT_EMAIL}`} className={`${item} break-all`}>
+                {CONTACT_EMAIL}
+              </a>
             </li>
           </ul>
         </div>

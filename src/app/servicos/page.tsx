@@ -4,6 +4,7 @@ import { ClassLabel, PageHeader, SectionHeading, Sector, gridCell, gridFrame } f
 import { ServiceRequestForm } from "@/components/ServiceRequestForm";
 import { PROFILE } from "@/lib/portfolio";
 import { PROCESS, SERVICES, isServiceKind } from "@/lib/services-catalog";
+import { CONTACT_EMAIL } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Serviços",
@@ -94,6 +95,10 @@ export default async function ServicesPage(props: PageProps<"/servicos">) {
                 GitHub
               </a>
             </div>
+            <p className="mt-6 label text-foreground-muted">Contato direto</p>
+            <a href={`mailto:${CONTACT_EMAIL}`} className="mt-2 inline-block break-all text-sm text-foreground underline underline-offset-4 hover:text-foreground-muted">
+              {CONTACT_EMAIL}
+            </a>
           </div>
         </div>
         <div className="lg:col-span-7">
