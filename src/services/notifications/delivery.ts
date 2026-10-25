@@ -1,22 +1,24 @@
 /**
- * Entrega das notificações — o job `notifications.deliver`.
+ * Entrega das notificações — a mensagem `notifications.deliver`.
  *
  * Roda fora da transação do passo (outbox): lê a notificação `pending`,
  * manda pelo provedor e marca o resultado. Sem `RESEND_API_KEY`, a entrega é
  * simulada (só marca como enviada) — é assim que dev e testes rodam.
  *
- * Falha transitória volta pra fila com backoff; esgotadas as tentativas, o
- * job vai pra dead-letter (alerta no admin) e a notificação fica `failed`.
- * Recusa definitiva do provedor (destinatário inválido…) marca `failed` na hora.
+ * Falha transitória volta pra fila de espera com backoff; esgotadas as
+ * tentativas, a mensagem vai pra DLQ (alerta no admin) e a notificação fica
+ * `failed`. Recusa definitiva do provedor (destinatário inválido…) marca
+ * `failed` na hora. Reentrega é segura: notificação `sent` não sai de novo, e
+ * o Resend recebe `Idempotency-Key`.
  */
 
 import { eq } from "drizzle-orm";
 import { db, type Executor } from "@/db";
 import { notifications } from "@/db/schema";
 import { createLogger } from "@/lib/logger";
-import type { ClaimedJob } from "@/queue";
-import { errorMessage, isRetryable } from "@/saga/errors";
-import { NOTIFICATION_DELIVER_JOB } from "./index";
+import type { QueueMessage } from "@/queue";
+import { errorMessage, isRetryable, PermanentError } from "@/saga/errors";
+import { NOTIFICATION_DELIVER } from "./index";
 import { emailConfigFromEnv, RESEND_PROVIDER, resendSend, type EmailConfig, type FetchLike } from "./resend";
 
 const logger = createLogger("notifications");
@@ -72,7 +74,7 @@ export async function deliverNotification(
       logger.warn("e-mail recusado pelo provedor", { notificationId: row.id, error: message });
       return "failed";
     }
-    throw error; // a fila tenta de novo (ou manda pra dead-letter na última)
+    throw error; // a fila tenta de novo (ou manda pra DLQ na última)
   }
 }
 
@@ -97,11 +99,10 @@ async function markSent(
 /** Handlers que o worker registra; os testes passam `deps` pra não tocar a rede. */
 export function createNotificationHandlers(deps?: DeliveryDeps) {
   return {
-    [NOTIFICATION_DELIVER_JOB]: async (job: ClaimedJob) => {
-      const id = job.payload.notificationId;
-      if (typeof id !== "string") throw new Error("job de entrega sem notificationId");
-      await deliverNotification(db, id, { finalAttempt: job.attempts >= job.maxAttempts, deps });
-      return { settled: false };
+    [NOTIFICATION_DELIVER]: async (message: QueueMessage) => {
+      const id = message.payload.notificationId;
+      if (typeof id !== "string") throw new PermanentError("invalid_message", "entrega sem notificationId");
+      await deliverNotification(db, id, { finalAttempt: message.attempt >= message.maxAttempts, deps });
     },
   };
 }

@@ -8,8 +8,10 @@
  *
  * Invariantes:
  * 1. **Um executor por vez**: a saga tem um *lease* (`locked_by`/`lease_until`).
- *    Quem não pega o lease recebe `busy` e vai embora. Lease vencido é
- *    liberado pela reconciliação, então worker morto não trava o fluxo.
+ *    Quem não pega o lease recebe `busy` (com a hora em que ele vence) e vai
+ *    embora. Lease vencido é liberado pela reconciliação, então worker morto
+ *    não trava o fluxo. Em retry com backoff a saga SEGURA o lease até a hora
+ *    do retry: mensagem duplicada que chegue antes não roda o passo cedo.
  * 2. **Passo = transação**: `invoke()` e a gravação do log do passo
  *    (`saga_steps`) commitam juntos. Se o passo falha, nada dele fica.
  * 3. **Idempotência**: passo com log `completed` nunca roda de novo — é assim
@@ -50,7 +52,8 @@ export type AdvanceOutcome =
   | { status: "retry"; step: string; runAt: Date; reason: string }
   /** Passo remoto aguardando resposta: nada a fazer até ela chegar. */
   | { status: "waiting"; step: string }
-  | { status: "busy" }
+  /** Outro executor (ou o backoff) segura a saga até `retryAt`. */
+  | { status: "busy"; retryAt: Date }
   | { status: "settled"; sagaStatus: SagaRow["status"] }
   | { status: "not-found" };
 
@@ -63,6 +66,8 @@ export type AdvanceOptions = {
 };
 
 export const DEFAULT_SAGA_LEASE_MS = 30_000;
+/** Quem "segura" a saga durante o backoff de um retry. */
+const BACKOFF_HOLDER = "backoff";
 
 const TERMINAL_STATUSES = ["completed", "compensated", "failed"] as const;
 
@@ -93,7 +98,10 @@ export async function advanceSaga(sagaId: string, options: AdvanceOptions = {}):
     if ((TERMINAL_STATUSES as readonly string[]).includes(existing.status)) {
       return { status: "settled", sagaStatus: existing.status };
     }
-    return { status: "busy" };
+    // Backoff: a hora do retry é exata. Outro executor trabalhando: o lease é
+    // só um teto (ele costuma soltar bem antes) — reolha logo.
+    const retryAt = existing.lockedBy === BACKOFF_HOLDER && existing.leaseUntil ? existing.leaseUntil : now;
+    return { status: "busy", retryAt };
   }
 
   // --- 2. definição + payload --------------------------------------------
@@ -267,7 +275,7 @@ async function execute(
 
       if (canRetry) {
         const runAt = nextRunAt(attempt, now, options.backoff);
-        await releaseLease(saga.id, now, message);
+        await holdUntil(saga.id, runAt, message);
         logger.warn("passo falhou, vai tentar de novo", {
           sagaId: saga.id,
           step: step.name,
@@ -374,7 +382,7 @@ async function compensate(
         await db.transaction(async (tx) => {
           await bumpStepAttempts(tx, saga.id, row.name, attempt, message);
         });
-        await releaseLease(saga.id, now, message);
+        await holdUntil(saga.id, runAt, message);
         logger.warn("compensação falhou, vai tentar de novo", {
           sagaId: saga.id,
           step: row.name,
@@ -507,6 +515,14 @@ async function releaseLease(sagaId: string, now: Date, lastError?: string): Prom
     .where(eq(sagas.id, sagaId));
 }
 
+/** Backoff: a saga fica "ocupada" até a hora do retry (ver invariante 1). */
+async function holdUntil(sagaId: string, runAt: Date, lastError: string): Promise<void> {
+  await db
+    .update(sagas)
+    .set({ lockedBy: BACKOFF_HOLDER, leaseUntil: runAt, lastError, updatedAt: new Date() })
+    .where(eq(sagas.id, sagaId));
+}
+
 async function markFailed(sagaId: string, reason: string, now: Date): Promise<void> {
   await db
     .update(sagas)
@@ -534,15 +550,18 @@ function isSkipped(output: unknown): boolean {
 }
 
 /**
- * Sagas em execução sem job ativo / com lease vencido — usado na reconciliação.
- * Saga com passo `waiting` fica de fora: ela não está parada, está esperando
- * uma resposta que já está garantida pela fila (outbox dos dois lados).
+ * Sagas em execução sem ninguém nelas (lease livre ou vencido) e sem progresso
+ * há `idleMs` — candidatas a perder a mensagem de avanço (DLQ, broker que
+ * perdeu a fila). Usado na reconciliação. Saga com passo `waiting` fica de
+ * fora: ela não está parada, está esperando uma resposta que já está garantida
+ * pela outbox dos dois lados.
  */
-export async function findStaleSagas(now: Date, limit = 50): Promise<SagaRow[]> {
+export async function findStaleSagas(now: Date, limit = 50, idleMs = 60_000): Promise<SagaRow[]> {
   return db.query.sagas.findMany({
     where: and(
       inArray(sagas.status, ["running", "compensating"]),
       or(isNull(sagas.leaseUntil), lt(sagas.leaseUntil, now)),
+      lt(sagas.updatedAt, new Date(now.getTime() - idleMs)),
       // SQL cru de propósito: na API relacional (db.query) o Drizzle reescreve
       // colunas de OUTRA tabela com o apelido da principal ("sagas"."saga_id").
       sql`not exists (select 1 from saga_steps st where st.saga_id = ${sagas.id} and st.status = 'waiting')`,

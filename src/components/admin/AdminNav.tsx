@@ -15,7 +15,7 @@ const links = [
 export function AdminNav() {
   const path = usePathname();
   return (
-    <nav className="flex gap-1 overflow-x-auto">
+    <nav className="flex min-w-0 gap-1 overflow-x-auto">
       {links.map((l) => {
         const active = l.href === "/admin" ? path === "/admin" : path.startsWith(l.href);
         return (

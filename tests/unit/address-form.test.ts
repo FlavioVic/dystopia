@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { valuesOf } from "../helpers/form";
 import { formatAddress, normalizeZipCode, parseAddressForm } from "@/lib/validation/address";
 
 function form(values: Record<string, string | undefined>): FormData {
@@ -34,8 +35,7 @@ describe("CEP", () => {
 
 describe("validação de endereço", () => {
   it("aceita endereço completo e normaliza UF e CEP", () => {
-    const { errors, values } = parseAddressForm(form({ zipCode: "01310100", complement: "Apto 42" }));
-    assert.deepEqual(errors, {});
+    const values = valuesOf(parseAddressForm(form({ zipCode: "01310100", complement: "Apto 42" })));
     assert.equal(values.state, "SP", "UF vai pra maiúscula");
     assert.equal(values.zipCode, "01310-100");
     assert.equal(values.complement, "Apto 42");
@@ -43,7 +43,7 @@ describe("validação de endereço", () => {
   });
 
   it("complemento vazio é null e apelido customizado é respeitado", () => {
-    const { values } = parseAddressForm(form({ label: "Casa" }));
+    const values = valuesOf(parseAddressForm(form({ label: "Casa" })));
     assert.equal(values.complement, null);
     assert.equal(values.label, "Casa");
   });
@@ -68,7 +68,7 @@ describe("validação de endereço", () => {
   });
 
   it("formata o endereço em uma linha legível", () => {
-    const { values } = parseAddressForm(form({ complement: "Apto 42" }));
+    const values = valuesOf(parseAddressForm(form({ complement: "Apto 42" })));
     const line = formatAddress(values);
     assert.match(line, /Av Paulista, 1000/);
     assert.match(line, /Apto 42/);

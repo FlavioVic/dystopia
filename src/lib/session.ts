@@ -21,7 +21,8 @@ if (!secret) {
 }
 const encodedKey = new TextEncoder().encode(secret);
 
-async function encrypt(payload: SessionPayload): Promise<string> {
+/** Token assinado da sessão. Puro (sem cookie) — exportado pros testes. */
+export async function signSessionToken(payload: SessionPayload): Promise<string> {
   return new SignJWT(payload)
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
@@ -29,7 +30,8 @@ async function encrypt(payload: SessionPayload): Promise<string> {
     .sign(encodedKey);
 }
 
-async function decrypt(token: string | undefined): Promise<SessionPayload | null> {
+/** Sessão do token, ou `null` se inválido, adulterado, expirado ou com papel desconhecido. */
+export async function verifySessionToken(token: string | undefined): Promise<SessionPayload | null> {
   if (!token) return null;
   try {
     const { payload } = await jwtVerify(token, encodedKey, { algorithms: ["HS256"] });
@@ -44,7 +46,7 @@ async function decrypt(token: string | undefined): Promise<SessionPayload | null
 
 /** Cria a sessão e seta o cookie (usar só em Server Action / Route Handler). */
 export async function createSession(payload: SessionPayload): Promise<void> {
-  const token = await encrypt(payload);
+  const token = await signSessionToken(payload);
   const store = await cookies();
   store.set(SESSION_COOKIE, token, {
     httpOnly: true,
@@ -58,7 +60,7 @@ export async function createSession(payload: SessionPayload): Promise<void> {
 /** Lê e valida a sessão atual (ou null). Seguro em Server Components. */
 export async function getSession(): Promise<SessionPayload | null> {
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
-  return decrypt(token);
+  return verifySessionToken(token);
 }
 
 /** Remove a sessão (logout). Usar só em Server Action / Route Handler. */

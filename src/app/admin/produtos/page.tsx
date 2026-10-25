@@ -1,22 +1,27 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
+import { notFound } from "next/navigation";
+import { Pagination } from "@/components/Pagination";
 import { requireAdmin } from "@/lib/data/auth";
-import { getAllProductsAdmin } from "@/lib/data/admin";
+import { listProductsAdmin } from "@/lib/data/admin";
+import { ADMIN_PAGE_SIZE, isPastLastPage, parsePage } from "@/lib/pagination";
 import { ProductFlags } from "@/components/admin/ProductFlags";
 import { formatPriceCents } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Produtos · Admin" };
 
-export default async function AdminProducts() {
+export default async function AdminProducts(props: PageProps<"/admin/produtos">) {
   await requireAdmin();
-  const products = await getAllProductsAdmin();
+  const page = parsePage((await props.searchParams).pagina, ADMIN_PAGE_SIZE);
+  const { items: products, total } = await listProductsAdmin(page);
+  if (isPastLastPage(page.page, total, ADMIN_PAGE_SIZE)) notFound();
 
   return (
     <div>
       <div className="flex items-center justify-between">
         <h2 className="label text-foreground-muted">
-          Produtos ({products.length})
+          Produtos ({total})
         </h2>
         <Link
           href="/admin/produtos/novo"
@@ -26,7 +31,7 @@ export default async function AdminProducts() {
         </Link>
       </div>
 
-      <div className="mt-4 overflow-x-auto rounded-xl border border-border">
+      <div tabIndex={0} role="region" aria-label="Produtos" className="mt-4 overflow-x-auto rounded-xl border border-border">
         <table className="w-full min-w-[720px] text-sm">
           <thead className="border-b border-border bg-background-elevated text-left text-xs text-foreground-muted">
             <tr>
@@ -70,6 +75,7 @@ export default async function AdminProducts() {
           </tbody>
         </table>
       </div>
+      <Pagination basePath="/admin/produtos" page={page.page} total={total} pageSize={ADMIN_PAGE_SIZE} />
     </div>
   );
 }

@@ -1,19 +1,17 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { SagaTimeline } from "@/components/SagaTimeline";
-import { JobActions } from "@/components/admin/JobActions";
+import { QueueActions } from "@/components/admin/QueueActions";
 import { requireAdmin } from "@/lib/data/auth";
 import { drainQueueAfterResponse } from "@/lib/inline-worker";
 import {
-  getActiveAndDeadJobs,
+  getDeadLetters,
   getOperationalHealth,
   getRecentNotifications,
   getSagasOverview,
 } from "@/lib/data/orchestration";
 import { formatDuration, HEALTH_WINDOWS, parseHealthWindow, type HealthWindow } from "@/lib/observability";
 import {
-  jobStatusClass,
-  JOB_STATUS_LABELS,
   sagaStatusClass,
   sagaStepLabel,
   SAGA_STATUS_LABELS,
@@ -32,22 +30,26 @@ const NOTIFICATION_STATUS = {
  * Painel de orquestração: o estado da SAGA e da fila em tempo real.
  *
  * É a tela de operação do fluxo de checkout — onde se vê um pedido que
- * compensou, um job que vai tentar de novo, e o que caiu na dead-letter.
+ * compensou, mensagem esperando retry no RabbitMQ, e o que caiu na DLQ.
  */
 export default async function OrchestrationPage(props: PageProps<"/admin/orquestracao">) {
   await requireAdmin();
-  // Worker embutido: abrir o painel reconcilia e drena (retry que venceu,
-  // lease de executor morto) — o que o worker de pé faria sozinho.
+  // Worker embutido: abrir o painel reconcilia e drena (retry que voltou da
+  // fila de espera, lease de executor morto) — o que o worker de pé faria.
   drainQueueAfterResponse({ budgetMs: 20_000, reconcile: true });
   const range = parseHealthWindow((await props.searchParams).janela);
 
-  const [sagasList, health, jobsList, notifications] = await Promise.all([
+  const [sagasList, health, notifications] = await Promise.all([
     getSagasOverview(12),
     getOperationalHealth(range),
-    getActiveAndDeadJobs(20),
     getRecentNotifications(8),
   ]);
   const { sagas: sagaMetrics, queue: queueMetrics } = health;
+  const deadLetters = await getDeadLetters(
+    queueMetrics.queues.filter((depth) => depth.dead > 0).map((depth) => depth.queue),
+    20,
+  );
+  const brokerDown = queueMetrics.broker.status === "down";
 
   const finished =
     (sagaMetrics.byStatus.completed ?? 0) + (sagaMetrics.byStatus.compensated ?? 0) + (sagaMetrics.byStatus.failed ?? 0);
@@ -66,13 +68,15 @@ export default async function OrchestrationPage(props: PageProps<"/admin/orquest
     },
     {
       label: "Fila",
-      value: String(queueMetrics.ready),
-      hint: queueMetrics.ready > 0 ? `prontos · mais antigo há ${formatDuration(queueMetrics.oldestReadyAgeMs)}` : "prontos · nada esperando",
+      value: brokerDown ? "—" : String(queueMetrics.ready + queueMetrics.retrying),
+      hint: brokerDown
+        ? "RabbitMQ inacessível"
+        : `${queueMetrics.ready} prontas · ${queueMetrics.retrying} em espera de retry`,
     },
     {
       label: "Precisam de ação",
       value: String(needsAction),
-      hint: "dead-letter + compensações que falharam",
+      hint: "DLQ + compensações que falharam",
       warn: needsAction > 0,
     },
   ];
@@ -110,7 +114,7 @@ export default async function OrchestrationPage(props: PageProps<"/admin/orquest
         </div>
 
         {sagaMetrics.steps.length > 0 ? (
-          <div className="mt-4 overflow-x-auto rounded-xl border border-border">
+          <div tabIndex={0} role="region" aria-label="Passos da saga" className="mt-4 overflow-x-auto rounded-xl border border-border">
             <table className="w-full min-w-[640px] text-sm">
               <thead className="border-b border-border bg-background-elevated text-left text-xs text-foreground-muted">
                 <tr>
@@ -149,54 +153,93 @@ export default async function OrchestrationPage(props: PageProps<"/admin/orquest
 
       <section>
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="label text-foreground-muted">
-            Fila ({Object.entries(queueMetrics.byStatus).map(([status, count]) => `${JOB_STATUS_LABELS[status] ?? status}: ${count}`).join(" · ") || "vazia"})
-          </h2>
-          <JobActions />
+          <h2 className="label text-foreground-muted">Fila · RabbitMQ</h2>
+          <QueueActions />
         </div>
 
-        {jobsList.length === 0 ? (
-          <p className="mt-4 text-sm text-foreground-muted">Nenhum job pendente — tudo processado.</p>
+        {brokerDown ? (
+          <p className="mt-4 border border-border bg-background-elevated px-4 py-3 text-sm">
+            Broker inacessível: {queueMetrics.broker.status === "down" ? queueMetrics.broker.error : ""}
+          </p>
         ) : (
-          <div className="mt-4 overflow-x-auto rounded-xl border border-border">
-            <table className="w-full min-w-[720px] text-sm">
+          <div tabIndex={0} role="region" aria-label="Filas do RabbitMQ" className="mt-4 overflow-x-auto rounded-xl border border-border">
+            <table className="w-full min-w-[560px] text-sm">
               <thead className="border-b border-border bg-background-elevated text-left text-xs text-foreground-muted">
                 <tr>
-                  <th className="px-4 py-2.5 font-medium">Tipo</th>
-                  <th className="px-4 py-2.5 font-medium">Status</th>
-                  <th className="px-4 py-2.5 font-medium">Tentativas</th>
-                  <th className="px-4 py-2.5 font-medium">Próxima execução</th>
-                  <th className="px-4 py-2.5 font-medium">Último erro</th>
-                  <th className="px-4 py-2.5 text-right font-medium">Ações</th>
+                  <th className="px-4 py-2.5 font-medium">Fila</th>
+                  <th className="px-4 py-2.5 text-right font-medium">Prontas</th>
+                  <th className="px-4 py-2.5 text-right font-medium" title="Nas filas de espera (TTL) até o próximo retry">
+                    Em espera
+                  </th>
+                  <th className="px-4 py-2.5 text-right font-medium">DLQ</th>
+                  <th className="px-4 py-2.5 text-right font-medium">Consumidores</th>
                 </tr>
               </thead>
               <tbody>
-                {jobsList.map((job) => (
-                  <tr key={job.id} className="border-b border-border last:border-0">
-                    <td className="px-4 py-2.5 font-mono text-xs">{job.type}</td>
-                    <td className="px-4 py-2.5">
-                      <span className={`label whitespace-nowrap px-2 py-0.5 ${jobStatusClass(job.status)}`}>
-                        {JOB_STATUS_LABELS[job.status] ?? job.status}
-                      </span>
+                {queueMetrics.queues.map((depth) => (
+                  <tr key={depth.queue} className="border-b border-border last:border-0">
+                    <td className="px-4 py-2.5 font-mono text-xs">{depth.queue}</td>
+                    <td className="px-4 py-2.5 text-right tabular-nums">{depth.ready}</td>
+                    <td className="px-4 py-2.5 text-right tabular-nums">{depth.retrying}</td>
+                    <td className={`px-4 py-2.5 text-right tabular-nums ${depth.dead > 0 ? "font-semibold" : ""}`}>
+                      {depth.dead}
+                      {depth.dead > 0 ? (
+                        <span className="ml-2">
+                          <QueueActions queue={depth.queue} />
+                        </span>
+                      ) : null}
                     </td>
-                    <td className="px-4 py-2.5 tabular-nums">
-                      {job.attempts}/{job.maxAttempts}
-                    </td>
-                    <td className="px-4 py-2.5 text-xs text-foreground-muted">
-                      {new Date(job.runAt).toLocaleString("pt-BR")}
-                    </td>
-                    <td className="max-w-[18rem] px-4 py-2.5 text-xs text-foreground-muted">
-                      <span className="line-clamp-2">{job.lastError ?? "—"}</span>
-                    </td>
-                    <td className="px-4 py-2.5 text-right">
-                      {job.status === "dead" ? <JobActions jobId={job.id} /> : null}
-                    </td>
+                    <td className="px-4 py-2.5 text-right tabular-nums text-foreground-muted">{depth.consumers}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
         )}
+
+        <p className="mt-3 text-xs text-foreground-muted">
+          Outbox: {queueMetrics.outbox.pending === 0
+            ? "tudo publicado"
+            : `${queueMetrics.outbox.pending} esperando publicação (mais antiga há ${formatDuration(queueMetrics.outbox.oldestPendingAgeMs)}${queueMetrics.outbox.failing > 0 ? `, ${queueMetrics.outbox.failing} com falha de publicação` : ""})`}
+          .
+        </p>
+
+        {deadLetters.length > 0 ? (
+          <div tabIndex={0} role="region" aria-label="Mensagens na DLQ" className="mt-4 overflow-x-auto rounded-xl border border-border">
+            <table className="w-full min-w-[720px] text-sm">
+              <thead className="border-b border-border bg-background-elevated text-left text-xs text-foreground-muted">
+                <tr>
+                  <th className="px-4 py-2.5 font-medium">DLQ · tipo</th>
+                  <th className="px-4 py-2.5 font-medium">Fila</th>
+                  <th className="px-4 py-2.5 font-medium">Tentativas</th>
+                  <th className="px-4 py-2.5 font-medium">Caiu em</th>
+                  <th className="px-4 py-2.5 font-medium">Erro</th>
+                  <th className="px-4 py-2.5 text-right font-medium">Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                {deadLetters.map((letter) => (
+                  <tr key={`${letter.queue}:${letter.id}`} className="border-b border-border last:border-0">
+                    <td className="px-4 py-2.5 font-mono text-xs">{letter.type}</td>
+                    <td className="px-4 py-2.5 font-mono text-xs">{letter.queue}</td>
+                    <td className="px-4 py-2.5 tabular-nums">
+                      {letter.attempts}/{letter.maxAttempts}
+                    </td>
+                    <td className="px-4 py-2.5 text-xs text-foreground-muted">
+                      {letter.failedAt ? new Date(letter.failedAt).toLocaleString("pt-BR") : "—"}
+                    </td>
+                    <td className="max-w-[18rem] px-4 py-2.5 text-xs text-foreground-muted">
+                      <span className="line-clamp-2">{letter.error ?? "—"}</span>
+                    </td>
+                    <td className="px-4 py-2.5 text-right">
+                      <QueueActions queue={letter.queue} messageId={letter.id} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : null}
       </section>
 
       <section>
@@ -245,7 +288,11 @@ export default async function OrchestrationPage(props: PageProps<"/admin/orquest
                 <footer className="mt-3 flex flex-wrap gap-3 text-[11px] text-foreground-muted">
                   <span>criada {new Date(saga.createdAt).toLocaleString("pt-BR")}</span>
                   {saga.finishedAt ? <span>· fim {new Date(saga.finishedAt).toLocaleString("pt-BR")}</span> : null}
-                  {saga.lockedBy ? <span>· executando em {saga.lockedBy}</span> : null}
+                  {saga.lockedBy === "backoff" && saga.leaseUntil ? (
+                    <span>· retry às {new Date(saga.leaseUntil).toLocaleTimeString("pt-BR")}</span>
+                  ) : saga.lockedBy ? (
+                    <span>· executando em {saga.lockedBy}</span>
+                  ) : null}
                 </footer>
               </article>
             ))}

@@ -71,7 +71,7 @@ export default async function AccountPage() {
         {orders.length === 0 ? (
           <div className="mt-3 rounded-lg border border-border p-5 text-sm text-foreground-muted">
             Você ainda não fez pedidos.{" "}
-            <Link href="/produtos" className="text-accent hover:underline">
+            <Link href="/produtos" className="text-accent underline underline-offset-4">
               Explorar produtos
             </Link>
           </div>

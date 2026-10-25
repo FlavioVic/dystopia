@@ -1,27 +1,27 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { retryJob, runReconcile } from "@/lib/actions/admin";
+import { replayDeadLetter, runReconcile } from "@/lib/actions/admin";
 
 /**
- * Sem `jobId` → botão de reconciliação manual.
- * Com `jobId` → reprocessa um job da dead-letter.
+ * Sem `queue` → reconciliação manual.
+ * Com `queue` → reprocessa a DLQ daquela fila (tudo, ou só `messageId`).
  */
-export function JobActions({ jobId }: { jobId?: string }) {
+export function QueueActions({ queue, messageId }: { queue?: string; messageId?: string }) {
   const [pending, startTransition] = useTransition();
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   const run = () =>
     startTransition(async () => {
-      const result = jobId ? await retryJob(jobId) : await runReconcile();
+      const result = queue ? await replayDeadLetter(queue, messageId) : await runReconcile();
       if (!result.ok) {
         setMsg({ ok: false, text: result.error ?? "Erro." });
         return;
       }
       setMsg({
         ok: true,
-        text: jobId
-          ? "Job devolvido pra fila."
+        text: queue
+          ? "Devolvido pra fila."
           : `Reconciliado: ${Object.entries("report" in result && result.report ? result.report : {})
               .map(([key, value]) => `${key}=${value}`)
               .join(" ")}`,
@@ -35,16 +35,14 @@ export function JobActions({ jobId }: { jobId?: string }) {
         onClick={run}
         disabled={pending}
         className={
-          jobId
+          queue
             ? "rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:border-border-hover disabled:opacity-50"
             : "rounded-lg bg-primary px-3.5 py-2 text-xs font-semibold text-primary-foreground disabled:opacity-50"
         }
       >
-        {pending ? "…" : jobId ? "Reprocessar" : "Rodar reconciliação"}
+        {pending ? "…" : queue ? (messageId ? "Reprocessar" : "Reprocessar todas") : "Rodar reconciliação"}
       </button>
-      {msg ? (
-        <span className={`text-[11px] ${msg.ok ? "text-foreground" : "text-foreground"}`}>{msg.text}</span>
-      ) : null}
+      {msg ? <span className="text-[11px] text-foreground">{msg.text}</span> : null}
     </span>
   );
 }

@@ -12,18 +12,18 @@ import type { SagaMetrics } from "@/saga/metrics";
 export type AlertLevel = "critical" | "warning";
 
 export type Alert = {
-  id: "dead-letter" | "compensation-failed" | "queue-lag" | "stuck-sagas";
+  id: "dead-letter" | "compensation-failed" | "broker-down" | "outbox-lag" | "stuck-sagas";
   level: AlertLevel;
   title: string;
   detail: string;
 };
 
 export type AlertThresholds = {
-  /** Job pronto esperando mais que isso = ninguém consumindo a fila. */
-  queueLagMs: number;
+  /** Mensagem esperando publicação mais que isso = relay parado ou broker fora. */
+  outboxLagMs: number;
 };
 
-export const DEFAULT_THRESHOLDS: AlertThresholds = { queueLagMs: 60_000 };
+export const DEFAULT_THRESHOLDS: AlertThresholds = { outboxLagMs: 60_000 };
 
 export const HEALTH_WINDOWS = {
   "24h": { label: "24 h", ms: 24 * 60 * 60_000 },
@@ -47,7 +47,7 @@ export function formatDuration(ms: number | null): string {
 }
 
 export function computeAlerts(
-  queue: Pick<QueueMetrics, "dead" | "ready" | "oldestReadyAgeMs">,
+  queue: Pick<QueueMetrics, "dead" | "broker" | "outbox">,
   sagas: Pick<SagaMetrics, "stuck"> & { failed: number },
   thresholds: AlertThresholds = DEFAULT_THRESHOLDS,
 ): Alert[] {
@@ -62,21 +62,30 @@ export function computeAlerts(
     });
   }
 
+  if (queue.broker.status === "down") {
+    alerts.push({
+      id: "broker-down",
+      level: "critical",
+      title: "RabbitMQ inacessível",
+      detail: "Nada se perde — as mensagens esperam na outbox —, mas nada anda até o broker voltar.",
+    });
+  }
+
   if (queue.dead > 0) {
     alerts.push({
       id: "dead-letter",
       level: "critical",
-      title: `${plural(queue.dead, "job", "jobs")} na dead-letter`,
-      detail: "Esgotaram as tentativas. Veja o erro e reprocesse depois de corrigir a causa.",
+      title: `${plural(queue.dead, "mensagem", "mensagens")} na DLQ`,
+      detail: "Esgotaram as tentativas ou falharam de forma permanente. Veja o erro e reprocesse depois de corrigir a causa.",
     });
   }
 
-  if (queue.ready > 0 && queue.oldestReadyAgeMs > thresholds.queueLagMs) {
+  if (queue.outbox.pending > 0 && queue.outbox.oldestPendingAgeMs > thresholds.outboxLagMs) {
     alerts.push({
-      id: "queue-lag",
+      id: "outbox-lag",
       level: "warning",
-      title: `Fila atrasada: job pronto esperando há ${formatDuration(queue.oldestReadyAgeMs)}`,
-      detail: "Ninguém está consumindo a fila — o worker está rodando?",
+      title: `Outbox atrasada: mensagem esperando publicação há ${formatDuration(queue.outbox.oldestPendingAgeMs)}`,
+      detail: "O relay não está publicando — o worker está rodando e o broker aceita conexão?",
     });
   }
 

@@ -1,14 +1,14 @@
 /**
  * Request/reply sobre a fila — "endereço de resposta" no próprio comando.
  *
- * Quem pede manda, junto com o comando, um `replyTo`: o tipo de job, a fila e
- * o payload que identificam a conversa do lado de quem pediu. Quem atende só
+ * Quem pede manda, junto com o comando, um `replyTo`: o tipo de mensagem, a
+ * fila e o payload que identificam a conversa do lado de quem pediu. Quem atende só
  * devolve o resultado nesse endereço, sem saber se do outro lado há uma saga,
  * um script ou outro serviço. É o que deixa pagamentos ignorar a saga.
  *
  * Entrega é "pelo menos uma vez": a mesma resposta pode chegar duas vezes
- * (comando reprocessado depois de um crash). Quem recebe tem que ser
- * idempotente — a `dedupeKey` só evita duas respostas ATIVAS ao mesmo tempo.
+ * (comando reprocessado depois de um crash, reentrega do broker). Quem
+ * recebe tem que ser idempotente.
  */
 
 import type { Executor } from "@/db";
@@ -16,9 +16,8 @@ import { enqueue } from "./index";
 
 export type ReplyTo = {
   type: string;
-  queue?: string;
+  queue: string;
   payload: Record<string, unknown>;
-  dedupeKey?: string;
 };
 
 export type ReplyResult =
@@ -38,13 +37,9 @@ export function readReplyTo(payload: Record<string, unknown>): ReplyTo | null {
   const raw = payload[REPLY_TO];
   if (!raw || typeof raw !== "object") return null;
   const candidate = raw as Partial<ReplyTo>;
-  if (typeof candidate.type !== "string" || !candidate.payload || typeof candidate.payload !== "object") return null;
-  return {
-    type: candidate.type,
-    queue: typeof candidate.queue === "string" ? candidate.queue : undefined,
-    payload: candidate.payload,
-    dedupeKey: typeof candidate.dedupeKey === "string" ? candidate.dedupeKey : undefined,
-  };
+  if (typeof candidate.type !== "string" || typeof candidate.queue !== "string") return null;
+  if (!candidate.payload || typeof candidate.payload !== "object") return null;
+  return { type: candidate.type, queue: candidate.queue, payload: candidate.payload };
 }
 
 /**
@@ -56,7 +51,6 @@ export async function sendReply(executor: Executor, replyTo: ReplyTo, result: Re
     type: replyTo.type,
     queue: replyTo.queue,
     payload: { ...replyTo.payload, [RESULT]: result },
-    dedupeKey: replyTo.dedupeKey ?? null,
   });
 }
 

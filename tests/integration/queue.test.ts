@@ -1,256 +1,337 @@
 /**
- * Testes da fila: deduplicação, concorrência (`FOR UPDATE SKIP LOCKED`),
- * backoff, dead-letter e reprocessamento.
+ * Fila: outbox no Postgres + RabbitMQ de verdade (prefixo de teste, filas de
+ * espera de 50–400 ms). Cada caso é uma regra da política de entrega e de
+ * retentativa — o que o resto do sistema assume que a fila garante.
  */
 
 import assert from "node:assert/strict";
 import { after, beforeEach, describe, it } from "node:test";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { jobs } from "@/db/schema";
-import * as queue from "@/queue";
-import { processOnce } from "@/queue/worker";
+import { outbox } from "@/db/schema";
+import { enqueue, type QueueMessage } from "@/queue";
+import {
+  closeBroker,
+  getBroker,
+  HEADER_ATTEMPTS,
+  HEADER_ERROR,
+  names,
+  purgeQueues,
+  queueDepths,
+  retryTierFor,
+} from "@/queue/broker";
+import { peekDeadLetters, replayDeadLetters } from "@/queue/dead-letters";
+import { relayOutbox } from "@/queue/relay";
+import { drainQueues, startWorker, type Handlers } from "@/queue/worker";
+import { PermanentError, RetryableError } from "@/saga/errors";
 import { closeDatabase, resetDatabase } from "../helpers/db";
 
-beforeEach(resetDatabase);
+const Q = "teste";
+
+beforeEach(async () => {
+  await resetDatabase();
+  await purgeQueues([Q]);
+});
 after(closeDatabase);
 
-const future = (ms: number) => new Date(Date.now() + ms);
-const past = (ms: number) => new Date(Date.now() - ms);
+async function depth() {
+  const [d] = await queueDepths([Q]);
+  return { ready: d.ready, retrying: d.retrying, dead: d.dead };
+}
 
-describe("enfileiramento", () => {
-  it("grava o job com os padrões esperados", async () => {
-    const enqueued = await queue.enqueue(db, { type: "teste.job", payload: { a: 1 } });
-    assert.ok(enqueued);
+/** Handler que registra cada entrega e responde conforme `behave`. */
+function recorder(behave: (message: QueueMessage) => Promise<unknown> | unknown = () => undefined) {
+  const seen: QueueMessage[] = [];
+  const handlers: Handlers = {
+    "teste.job": async (message) => {
+      seen.push(message);
+      const result = await behave(message);
+      return result as void;
+    },
+  };
+  return { seen, handlers };
+}
 
-    const job = await db.query.jobs.findFirst({ where: eq(jobs.id, enqueued.id) });
-    assert.equal(job?.status, "queued");
-    assert.equal(job?.queue, "default");
-    assert.equal(job?.attempts, 0);
-    assert.equal(job?.maxAttempts, queue.DEFAULT_MAX_ATTEMPTS);
-    assert.deepEqual(job?.payload, { a: 1 });
+const drain = (handlers: Handlers, waitForScheduled = false) =>
+  drainQueues({ queues: [Q], handlers, budgetMs: 5_000, waitForScheduled });
+
+describe("outbox", () => {
+  it("grava a mensagem com os padrões e não publica nada sozinha", async () => {
+    const { id } = await enqueue(db, { type: "teste.job", queue: Q, payload: { a: 1 } });
+    const row = await db.query.outbox.findFirst({ where: eq(outbox.id, id) });
+    assert.equal(row?.maxAttempts, 5);
+    assert.equal(row?.delayMs, 0);
+    assert.equal(row?.publishedAt, null, "só o relay publica");
+    assert.deepEqual(await depth(), { ready: 0, retrying: 0, dead: 0 });
   });
 
-  it("deduplica jobs ativos pela dedupe key", async () => {
-    const first = await queue.enqueue(db, { type: "teste.job", dedupeKey: "chave-1" });
-    const second = await queue.enqueue(db, { type: "teste.job", dedupeKey: "chave-1" });
-
-    assert.ok(first);
-    assert.equal(second, null, "o segundo enqueue é ignorado");
-    assert.equal((await db.query.jobs.findMany()).length, 1);
-  });
-
-  it("libera a chave depois que o job termina", async () => {
-    const first = await queue.enqueue(db, { type: "teste.job", dedupeKey: "chave-2" });
-    await queue.complete(first!.id);
-
-    const second = await queue.enqueue(db, { type: "teste.job", dedupeKey: "chave-2" });
-    assert.ok(second, "com o anterior concluído, a chave pode ser reusada");
-    assert.equal((await db.query.jobs.findMany()).length, 2);
-  });
-
-  it("jobs sem dedupe key não colidem entre si", async () => {
-    await queue.enqueue(db, { type: "teste.job" });
-    await queue.enqueue(db, { type: "teste.job" });
-    assert.equal((await db.query.jobs.findMany()).length, 2);
-  });
-});
-
-describe("claim", () => {
-  it("pega o job pronto e marca como running com lease", async () => {
-    const enqueued = await queue.enqueue(db, { type: "teste.job" });
-    const claimed = await queue.claim({ workerId: "w1", leaseMs: 5_000 });
-
-    assert.equal(claimed.length, 1);
-    assert.equal(claimed[0].id, enqueued!.id);
-    assert.equal(claimed[0].attempts, 1, "a tentativa é contada no claim");
-
-    const job = await db.query.jobs.findFirst({ where: eq(jobs.id, enqueued!.id) });
-    assert.equal(job?.status, "running");
-    assert.equal(job?.lockedBy, "w1");
-    assert.ok(job?.leaseUntil && job.leaseUntil.getTime() > Date.now());
-  });
-
-  it("não pega job agendado pro futuro", async () => {
-    await queue.enqueue(db, { type: "teste.job", runAt: future(60_000) });
-    assert.deepEqual(await queue.claim({ workerId: "w1" }), []);
-  });
-
-  it("respeita a fila pedida", async () => {
-    await queue.enqueue(db, { type: "teste.job", queue: "emails" });
-    assert.deepEqual(await queue.claim({ workerId: "w1" }), [], "fila default está vazia");
-
-    const claimed = await queue.claim({ workerId: "w1", queues: ["emails"] });
-    assert.equal(claimed.length, 1);
-  });
-
-  it("ordena pelo mais antigo e respeita o limite", async () => {
-    const velho = await queue.enqueue(db, { type: "antigo", runAt: past(10_000) });
-    await queue.enqueue(db, { type: "novo", runAt: past(1_000) });
-
-    const claimed = await queue.claim({ workerId: "w1", limit: 1 });
-    assert.equal(claimed.length, 1);
-    assert.equal(claimed[0].id, velho!.id);
-  });
-
-  it("dois workers concorrentes nunca pegam o mesmo job (SKIP LOCKED)", async () => {
-    await queue.enqueue(db, { type: "teste.job" });
-    await queue.enqueue(db, { type: "teste.job" });
-
-    const [a, b] = await Promise.all([
-      queue.claim({ workerId: "w1", limit: 2 }),
-      queue.claim({ workerId: "w2", limit: 2 }),
-    ]);
-
-    const ids = [...a, ...b].map((job) => job.id);
-    assert.equal(ids.length, 2, "os dois jobs foram distribuídos");
-    assert.equal(new Set(ids).size, 2, "sem job processado duas vezes");
-  });
-
-  it("com um job só, o segundo worker sai de mãos vazias", async () => {
-    await queue.enqueue(db, { type: "teste.job" });
-
-    const [a, b] = await Promise.all([
-      queue.claim({ workerId: "w1" }),
-      queue.claim({ workerId: "w2" }),
-    ]);
-
-    assert.equal(a.length + b.length, 1);
-  });
-});
-
-describe("falha, backoff e dead-letter", () => {
-  it("reagenda com atraso enquanto houver tentativa", async () => {
-    const enqueued = await queue.enqueue(db, { type: "teste.job", maxAttempts: 3 });
-    await queue.claim({ workerId: "w1" });
-
-    const result = await queue.fail(enqueued!.id, "erro de teste");
-    assert.equal(result.status, "failed");
-
-    const job = await db.query.jobs.findFirst({ where: eq(jobs.id, enqueued!.id) });
-    assert.equal(job?.status, "failed");
-    assert.equal(job?.attempts, 1);
-    assert.equal(job?.lastError, "erro de teste");
-    assert.ok(job!.runAt.getTime() > Date.now(), "próxima tentativa no futuro");
-    assert.equal(job?.lockedBy, null, "lease devolvido");
-  });
-
-  it("vai pra dead-letter quando esgota as tentativas", async () => {
-    const enqueued = await queue.enqueue(db, { type: "teste.job", maxAttempts: 2 });
-
-    await queue.claim({ workerId: "w1" });
-    assert.equal((await queue.fail(enqueued!.id, "1")).status, "failed");
-
-    await db.update(jobs).set({ runAt: new Date() }).where(eq(jobs.id, enqueued!.id));
-    await queue.claim({ workerId: "w1" });
-    const second = await queue.fail(enqueued!.id, "2");
-
-    assert.equal(second.status, "dead");
-    const job = await db.query.jobs.findFirst({ where: eq(jobs.id, enqueued!.id) });
-    assert.equal(job?.status, "dead");
-    assert.ok(job?.finishedAt);
-  });
-
-  it("job já morto não é mais pego pelo claim", async () => {
-    const enqueued = await queue.enqueue(db, { type: "teste.job", maxAttempts: 1 });
-    await queue.claim({ workerId: "w1" });
-    await queue.fail(enqueued!.id, "fatal");
-
-    assert.deepEqual(await queue.claim({ workerId: "w2" }), []);
-  });
-
-  it("release devolve o job sem gastar tentativa", async () => {
-    const enqueued = await queue.enqueue(db, { type: "teste.job" });
-    await queue.claim({ workerId: "w1" });
-    await queue.release(enqueued!.id, { delayMs: 0 });
-
-    const job = await db.query.jobs.findFirst({ where: eq(jobs.id, enqueued!.id) });
-    assert.equal(job?.status, "queued");
-    assert.equal(job?.attempts, 0, "a tentativa do claim foi desfeita");
-  });
-
-  it("truncamento: erro gigante não estoura a coluna", async () => {
-    const enqueued = await queue.enqueue(db, { type: "teste.job", maxAttempts: 9 });
-    await queue.claim({ workerId: "w1" });
-    await queue.fail(enqueued!.id, "x".repeat(5_000));
-
-    const job = await db.query.jobs.findFirst({ where: eq(jobs.id, enqueued!.id) });
-    assert.ok((job?.lastError?.length ?? 0) <= 2_001);
-  });
-});
-
-describe("manutenção da fila", () => {
-  it("devolve pra fila job travado por worker morto", async () => {
-    const enqueued = await queue.enqueue(db, { type: "teste.job" });
-    await queue.claim({ workerId: "w1", leaseMs: 1_000 });
-    await db.update(jobs).set({ leaseUntil: past(5_000) }).where(eq(jobs.id, enqueued!.id));
-
-    assert.equal(await queue.requeueExpiredLeases(), 1);
-    const job = await db.query.jobs.findFirst({ where: eq(jobs.id, enqueued!.id) });
-    assert.equal(job?.status, "queued");
-    assert.equal(job?.lockedBy, null);
-  });
-
-  it("não mexe em job com lease válido", async () => {
-    await queue.enqueue(db, { type: "teste.job" });
-    await queue.claim({ workerId: "w1", leaseMs: 60_000 });
-    assert.equal(await queue.requeueExpiredLeases(), 0);
-  });
-
-  it("reprocessa job da dead-letter zerando as tentativas", async () => {
-    const enqueued = await queue.enqueue(db, { type: "teste.job", maxAttempts: 1 });
-    await queue.claim({ workerId: "w1" });
-    await queue.fail(enqueued!.id, "fatal");
-
-    assert.equal(await queue.retryDeadJob(enqueued!.id), true);
-    const job = await db.query.jobs.findFirst({ where: eq(jobs.id, enqueued!.id) });
-    assert.equal(job?.status, "queued");
-    assert.equal(job?.attempts, 0);
-    assert.equal(job?.lastError, null);
-
-    assert.equal(await queue.retryDeadJob(enqueued!.id), false, "só funciona em job morto");
-  });
-
-  it("settle fecha os jobs ativos de uma chave", async () => {
-    await queue.enqueue(db, { type: "teste.job", dedupeKey: "chave-3" });
-    assert.equal(await queue.settleByDedupeKey("chave-3"), 1);
-    assert.equal(await queue.findActiveByDedupeKey("chave-3"), undefined);
-  });
-
-  it("schedule cria o job quando não existe nenhum ativo", async () => {
-    const runAt = future(5_000);
-    assert.equal(
-      await queue.scheduleByDedupeKey("chave-4", { type: "teste.job", runAt }),
-      "created",
+  it("transação desfeita não deixa mensagem: fato e mensagem são atômicos", async () => {
+    await assert.rejects(
+      db.transaction(async (tx) => {
+        await enqueue(tx, { type: "teste.job", queue: Q });
+        throw new Error("regra de negócio falhou depois de enfileirar");
+      }),
     );
-    assert.equal(
-      await queue.scheduleByDedupeKey("chave-4", { type: "teste.job", runAt }),
-      "rescheduled",
-      "com job ativo, só reagenda",
-    );
-    assert.equal((await db.query.jobs.findMany()).length, 1);
+    assert.deepEqual(await db.select().from(outbox), []);
   });
 });
 
-describe("worker", () => {
-  it("manda pra fila de novo quando não existe handler pro tipo", async () => {
-    const enqueued = await queue.enqueue(db, { type: "tipo.inexistente", maxAttempts: 2 });
+describe("relay", () => {
+  it("publica com confirmação, marca como publicada e preserva o id da mensagem", async () => {
+    const { id } = await enqueue(db, { type: "teste.job", queue: Q, payload: { a: 1 }, maxAttempts: 3 });
 
-    const report = await processOnce({ workerId: "w1" });
-    assert.equal(report.claimed, 1);
-    assert.equal(report.unknown, 1);
+    assert.deepEqual(await relayOutbox(), { published: 1, failed: 0 });
+    const row = await db.query.outbox.findFirst({ where: eq(outbox.id, id) });
+    assert.ok(row?.publishedAt);
+    assert.deepEqual(await depth(), { ready: 1, retrying: 0, dead: 0 });
 
-    const job = await db.query.jobs.findFirst({ where: eq(jobs.id, enqueued!.id) });
-    assert.equal(job?.status, "failed");
-    assert.match(job?.lastError ?? "", /handler/);
+    const { seen, handlers } = recorder();
+    await drain(handlers);
+    assert.equal(seen[0].id, id, "messageId = id da outbox: chave de idempotência");
+    assert.deepEqual(seen[0].payload, { a: 1 });
+    assert.equal(seen[0].attempt, 1);
+    assert.equal(seen[0].maxAttempts, 3);
+    assert.equal((await relayOutbox()).published, 0, "não publica de novo");
   });
 
-  it("não faz nada quando a fila está vazia", async () => {
-    assert.deepEqual(await processOnce({ workerId: "w1" }), {
-      claimed: 0,
-      completed: 0,
-      failed: 0,
-      unknown: 0,
+  it("broker fora do ar: nada se perde — a outbox tenta de novo com backoff", async () => {
+    await enqueue(db, { type: "teste.job", queue: Q });
+    const realUrl = process.env.RABBITMQ_URL;
+    await closeBroker();
+    process.env.RABBITMQ_URL = "amqp://ninguem:nada@127.0.0.1:1"; // porta sem broker
+    try {
+      assert.deepEqual(await relayOutbox(), { published: 0, failed: 1 });
+    } finally {
+      await closeBroker();
+      if (realUrl === undefined) delete process.env.RABBITMQ_URL;
+      else process.env.RABBITMQ_URL = realUrl;
+    }
+
+    const [row] = await db.select().from(outbox);
+    assert.equal(row.publishedAt, null);
+    assert.equal(row.publishAttempts, 1);
+    assert.ok(row.lastError);
+    assert.ok(row.nextAttemptAt.getTime() > Date.now(), "próxima tentativa com backoff, não em laço");
+    assert.equal((await relayOutbox()).published, 0, "antes da hora, não tenta");
+
+    // Broker de volta: na hora da próxima tentativa, publica.
+    assert.equal((await relayOutbox({ now: row.nextAttemptAt })).published, 1);
+    assert.deepEqual(await depth(), { ready: 1, retrying: 0, dead: 0 });
+  });
+
+  it("relays em paralelo não publicam a mesma mensagem duas vezes (SKIP LOCKED)", async () => {
+    for (let i = 0; i < 20; i += 1) await enqueue(db, { type: "teste.job", queue: Q, payload: { i } });
+    const reports = await Promise.all([relayOutbox({ limit: 7 }), relayOutbox({ limit: 7 }), relayOutbox({ limit: 7 })]);
+    const total = reports.reduce((sum, report) => sum + report.published, 0);
+    assert.equal(total + (await relayOutbox()).published, 20);
+    assert.equal((await depth()).ready, 20);
+  });
+
+  it("entrega adiada sai pela fila de espera e só chega depois do atraso", async () => {
+    await enqueue(db, { type: "teste.job", queue: Q, delayMs: 100 });
+    await relayOutbox();
+    assert.deepEqual(await depth(), { ready: 0, retrying: 1, dead: 0 });
+
+    const { seen, handlers } = recorder();
+    await drain(handlers, true);
+    assert.equal(seen.length, 1);
+  });
+});
+
+describe("política de retentativa", () => {
+  it("sucesso: ack e a fila esvazia", async () => {
+    await enqueue(db, { type: "teste.job", queue: Q });
+    const { handlers } = recorder();
+    assert.deepEqual(await drain(handlers), { received: 1, acked: 1, retried: 0, dead: 0 });
+    assert.deepEqual(await depth(), { ready: 0, retrying: 0, dead: 0 });
+  });
+
+  it("erro transitório: volta pela fila de espera e a tentativa seguinte sabe que é a 2ª", async () => {
+    await enqueue(db, { type: "teste.job", queue: Q, maxAttempts: 3 });
+    const { seen, handlers } = recorder((message) => {
+      if (message.attempt === 1) throw new RetryableError("gateway_unavailable", "fora do ar");
     });
+
+    assert.deepEqual(await drain(handlers), { received: 1, acked: 0, retried: 1, dead: 0 });
+    assert.deepEqual(await depth(), { ready: 0, retrying: 1, dead: 0 }, "esperando o TTL, não na fila de trabalho");
+
+    await drain(handlers, true);
+    assert.deepEqual(seen.map((message) => message.attempt), [1, 2]);
+    assert.equal(seen[0].id, seen[1].id, "mesma mensagem, mesmo id");
+    assert.deepEqual(await depth(), { ready: 0, retrying: 0, dead: 0 });
+  });
+
+  it("esgotadas as tentativas: DLQ, com o último erro e as tentativas no cabeçalho", async () => {
+    await enqueue(db, { type: "teste.job", queue: Q, maxAttempts: 3 });
+    const { seen, handlers } = recorder(() => {
+      throw new Error("timeout do provedor"); // erro desconhecido = transitório
+    });
+
+    await drain(handlers, true);
+    assert.equal(seen.length, 3);
+    assert.deepEqual(await depth(), { ready: 0, retrying: 0, dead: 1 });
+
+    const [letter] = await peekDeadLetters(Q);
+    assert.equal(letter.type, "teste.job");
+    assert.equal(letter.attempts, 3);
+    assert.match(letter.error ?? "", /timeout do provedor/);
+    assert.ok(letter.failedAt);
+  });
+
+  it("erro permanente: DLQ na hora, sem gastar retry com o que não vai mudar", async () => {
+    await enqueue(db, { type: "teste.job", queue: Q, maxAttempts: 5 });
+    const { seen, handlers } = recorder(() => {
+      throw new PermanentError("invalid_command", "payload inválido");
+    });
+
+    assert.deepEqual(await drain(handlers, true), { received: 1, acked: 0, retried: 0, dead: 1 });
+    assert.equal(seen.length, 1);
+  });
+
+  it("tipo sem handler vai pra DLQ (não some, não fica em laço)", async () => {
+    await enqueue(db, { type: "tipo.desconhecido", queue: Q });
+    assert.deepEqual(await drain({}), { received: 1, acked: 0, retried: 0, dead: 1 });
+    const [letter] = await peekDeadLetters(Q);
+    assert.match(letter.error ?? "", /Nenhum handler/);
+  });
+
+  it("mensagem ilegível vai pra DLQ como veio", async () => {
+    const broker = await getBroker();
+    await queueDepths([Q]); // declara a topologia
+    const n = names(Q, broker.config);
+    broker.publisher.publish(n.exchange, Q, Buffer.from("{não é json"), { messageId: "x", type: "teste.job" });
+    await broker.publisher.waitForConfirms();
+
+    const { seen, handlers } = recorder();
+    assert.equal((await drain(handlers)).dead, 1);
+    assert.equal(seen.length, 0);
+    assert.equal((await depth()).dead, 1);
+  });
+
+  it("adiamento que não é falha (`countAttempt: false`) nunca empurra pra DLQ", async () => {
+    await enqueue(db, { type: "teste.job", queue: Q, maxAttempts: 2 });
+    const { seen, handlers } = recorder(() => (seen.length < 4 ? { retryInMs: 50, countAttempt: false } : undefined));
+
+    await drain(handlers, true);
+    assert.equal(seen.length, 4, "adiada 3 vezes com maxAttempts = 2, e ainda assim processada");
+    assert.ok(seen.every((message) => message.attempt === 1), "tentativa não andou");
+    assert.equal((await depth()).dead, 0);
+  });
+
+  it("consumidor que morre sem ack: o broker reentrega (pelo menos uma vez)", async () => {
+    await enqueue(db, { type: "teste.job", queue: Q });
+    await relayOutbox();
+
+    const broker = await getBroker();
+    const channel = await broker.connection.createChannel();
+    const raw = await channel.get(names(Q, broker.config).work, { noAck: false });
+    assert.ok(raw, "pegou a mensagem");
+    await channel.close(); // "morreu" no meio do processamento
+
+    assert.equal((await depth()).ready, 1, "a mensagem voltou pra fila");
+    const { seen, handlers } = recorder();
+    await drain(handlers);
+    assert.equal(seen.length, 1);
+  });
+
+  it("fila de espera escolhida arredonda o atraso pra cima", () => {
+    const tiers = [1_000, 5_000, 30_000];
+    assert.equal(retryTierFor(1, tiers), 1_000);
+    assert.equal(retryTierFor(1_000, tiers), 1_000);
+    assert.equal(retryTierFor(1_001, tiers), 5_000);
+    assert.equal(retryTierFor(10 * 60_000, tiers), 30_000, "acima do maior, usa o maior");
+  });
+});
+
+describe("DLQ: inspeção e reprocessamento", () => {
+  async function twoDeadLetters() {
+    await enqueue(db, { type: "teste.job", queue: Q, payload: { n: 1 } });
+    await enqueue(db, { type: "teste.job", queue: Q, payload: { n: 2 } });
+    const { handlers } = recorder(() => {
+      throw new PermanentError("quebrado", "ainda quebrado");
+    });
+    await drain(handlers);
+    return peekDeadLetters(Q);
+  }
+
+  it("olhar a DLQ não consome nada", async () => {
+    const letters = await twoDeadLetters();
+    assert.equal(letters.length, 2);
+    assert.equal((await peekDeadLetters(Q)).length, 2);
+    assert.equal((await depth()).dead, 2);
+  });
+
+  it("reprocessa só a mensagem pedida, com as tentativas zeradas", async () => {
+    const [first, second] = await twoDeadLetters();
+
+    assert.equal(await replayDeadLetters(Q, { messageId: second.id }), 1);
+    assert.deepEqual(await depth(), { ready: 1, retrying: 0, dead: 1 });
+    assert.deepEqual((await peekDeadLetters(Q)).map((letter) => letter.id), [first.id]);
+
+    const { seen, handlers } = recorder(); // causa corrigida
+    await drain(handlers);
+    assert.equal(seen[0].id, second.id);
+    assert.equal(seen[0].attempt, 1);
+  });
+
+  it("reprocessa tudo de uma vez", async () => {
+    await twoDeadLetters();
+    assert.equal(await replayDeadLetters(Q), 2);
+    assert.deepEqual(await depth(), { ready: 2, retrying: 0, dead: 0 });
+  });
+
+  it("o cabeçalho da DLQ guarda o erro de quem desistiu", async () => {
+    await twoDeadLetters();
+    const broker = await getBroker();
+    const channel = await broker.connection.createChannel();
+    const raw = await channel.get(names(Q, broker.config).dead, { noAck: false });
+    assert.ok(raw);
+    assert.match(String(raw.properties.headers?.[HEADER_ERROR]), /ainda quebrado/);
+    assert.equal(raw.properties.headers?.[HEADER_ATTEMPTS], 1);
+    await channel.close();
+  });
+});
+
+describe("worker de longa duração (push)", () => {
+  it("conexão com o broker cai no meio: o worker reconecta sozinho e volta a consumir", async () => {
+    const { seen, handlers } = recorder();
+    const worker = startWorker({ workerId: "teste-reconexao", queues: [Q], handlers, relayEveryMs: 50 });
+    const until = async (cond: () => boolean) => {
+      const deadline = Date.now() + 8_000;
+      while (!cond() && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 25));
+    };
+
+    await enqueue(db, { type: "teste.job", queue: Q, payload: { n: 1 } });
+    await until(() => seen.length >= 1);
+
+    // Derruba a conexão por baixo do worker (o que acontece num restart do broker).
+    const broker = await getBroker();
+    await broker.connection.close();
+
+    await enqueue(db, { type: "teste.job", queue: Q, payload: { n: 2 } });
+    await until(() => seen.length >= 2);
+    worker.stop();
+    await worker.done;
+
+    assert.deepEqual(seen.map((message) => message.payload.n), [1, 2]);
+    assert.deepEqual(await depth(), { ready: 0, retrying: 0, dead: 0 });
+  });
+
+  it("consome o que o relay publica e encerra limpo, sem largar mensagem pela metade", async () => {
+    const { seen, handlers } = recorder(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    });
+    const worker = startWorker({ workerId: "teste", queues: [Q], handlers, relayEveryMs: 50 });
+
+    await enqueue(db, { type: "teste.job", queue: Q, payload: { n: 1 } });
+    await enqueue(db, { type: "teste.job", queue: Q, payload: { n: 2 } });
+
+    const deadline = Date.now() + 5_000;
+    while (seen.length < 2 && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 25));
+    worker.stop();
+    await worker.done;
+
+    assert.equal(seen.length, 2);
+    assert.deepEqual(await depth(), { ready: 0, retrying: 0, dead: 0 }, "as duas com ack antes de parar");
   });
 });

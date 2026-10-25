@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { valuesOf } from "../helpers/form";
 import { normalizePhone, parseServiceRequestForm } from "@/lib/validation/service-request";
 import { generateProtocol } from "@/services/service-requests";
 
@@ -19,17 +20,16 @@ const valid = {
 
 describe("formulário de orçamento", () => {
   it("aceita o pedido completo e normaliza nome e e-mail", () => {
-    const { errors, values } = parseServiceRequestForm(form(valid));
-    assert.deepEqual(errors, {});
+    const values = valuesOf(parseServiceRequestForm(form(valid)));
     assert.equal(values.name, "Ana Souza");
     assert.equal(values.email, "ana@exemplo.com");
     assert.equal(values.phone, null);
   });
 
   it("recusa serviço que não está no catálogo", () => {
-    const { errors, values } = parseServiceRequestForm(form({ ...valid, kind: "hackear" }));
-    assert.ok(errors.kind);
-    assert.equal(values.kind, "");
+    const result = parseServiceRequestForm(form({ ...valid, kind: "hackear" }));
+    assert.equal(result.ok, false, "serviço fora do catálogo nunca vira valor");
+    assert.ok(result.errors.kind);
   });
 
   it("exige descrição mínima e e-mail válido", () => {
@@ -40,7 +40,7 @@ describe("formulário de orçamento", () => {
 
   it("telefone é opcional, mas se vier tem que ser DDD + número", () => {
     assert.ok(parseServiceRequestForm(form({ ...valid, phone: "1234" })).errors.phone);
-    assert.equal(parseServiceRequestForm(form({ ...valid, phone: "(11) 91234-5678" })).values.phone, "11912345678");
+    assert.equal(valuesOf(parseServiceRequestForm(form({ ...valid, phone: "(11) 91234-5678" }))).phone, "11912345678");
   });
 });
 

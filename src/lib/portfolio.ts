@@ -29,13 +29,13 @@ export const PORTFOLIO: PortfolioProject[] = [
     kind: "E-commerce + serviços",
     year: "2026",
     summary:
-      "Esta loja. Checkout orquestrado por SAGA com fila durável no próprio Postgres, compensação automática, pagamento em processo próprio e observabilidade.",
+      "Esta loja. Checkout orquestrado por SAGA sobre RabbitMQ com outbox transacional, compensação automática, pagamento em processo próprio e observabilidade.",
     highlights: [
       "Seis passos atômicos com compensação em ordem reversa",
-      "Outbox, SKIP LOCKED, lease, retry com backoff e dead-letter",
+      "Outbox + relay, retry por fila de espera (TTL + DLX) e DLQ",
       "Roda de graça: worker embutido na Vercel + Neon",
     ],
-    stack: ["Next.js 16", "TypeScript", "PostgreSQL", "Drizzle", "Tailwind 4"],
+    stack: ["Next.js 16", "TypeScript", "PostgreSQL", "RabbitMQ", "Drizzle", "Tailwind 4"],
     image: "/portfolio/dystopia-saga.webp",
     imageAlt: "Página de pedido recusado da DYSTOPIA, com a compensação da saga passo a passo",
     screenshot: true,

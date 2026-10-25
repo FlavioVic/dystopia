@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CouponStrip } from "@/components/CouponStrip";
-import { ProductGrid, Rule, SectionHeading } from "@/components/Kit";
+import { ProductGrid, Rule, SectionHeading, Sector } from "@/components/Kit";
 import { ProductActions } from "@/components/ProductActions";
 import { ProductCard } from "@/components/ProductCard";
 import { ProductGallery } from "@/components/ProductGallery";
@@ -41,59 +41,62 @@ export default async function ProductPage(props: PageProps<"/produto/[slug]">) {
   const rating = Number(product.ratingAverage);
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-      <nav aria-label="Trilha" className="label flex flex-wrap gap-2 text-foreground-muted">
-        <Link href="/produtos" className="hover:text-foreground">
-          Inventário
-        </Link>
-        <span aria-hidden="true">/</span>
-        <Link href={`/categoria/${product.category.slug}`} className="hover:text-foreground">
-          {product.category.name}
-        </Link>
-        <span aria-hidden="true">/</span>
-        <span className="text-foreground">{product.sku}</span>
-      </nav>
+    <>
+      <div className="mx-auto max-w-7xl px-4 pb-16 pt-10 sm:px-6 lg:px-8">
+        <nav aria-label="Trilha" className="label flex flex-wrap gap-2 text-foreground-muted">
+          <Link href="/produtos" className="hover:text-foreground">
+            Inventário
+          </Link>
+          <span aria-hidden="true">/</span>
+          <Link href={`/categoria/${product.category.slug}`} className="hover:text-foreground">
+            {product.category.name}
+          </Link>
+          <span aria-hidden="true">/</span>
+          <span className="text-foreground">{product.sku}</span>
+        </nav>
 
-      <div className="mt-8 grid gap-10 lg:grid-cols-12">
-        <div className="lg:col-span-7">
-          <ProductGallery
-            images={product.images.map((image) => ({ ...image, credit: photoCreditByUrl(image.url) }))}
-            productName={product.name}
-          />
-        </div>
-
-        <div className="flex flex-col gap-6 lg:col-span-5">
-          <div className="flex flex-col gap-3">
-            <div className="flex items-center justify-between gap-3">
-              <span className="serial text-foreground-muted">
-                {product.sku}
-                {product.brand ? ` / ${product.brand.toUpperCase()}` : ""}
-              </span>
-              <WishlistHeart productId={product.id} />
-            </div>
-            <h1 className="text-[28px] font-semibold leading-[34px] tracking-[-0.005em]">{product.name}</h1>
-            {product.ratingCount > 0 ? <StarRating rating={rating} count={product.ratingCount} size="md" /> : null}
-            <p className="text-base leading-relaxed text-foreground-muted">{product.description}</p>
+        <div className="mt-8 grid gap-10 lg:grid-cols-12">
+          <div className="lg:col-span-7">
+            <ProductGallery
+              images={product.images.map((image) => ({ ...image, credit: photoCreditByUrl(image.url) }))}
+              productName={product.name}
+            />
           </div>
 
-          <ProductActions
-            productId={product.id}
-            basePriceCents={product.priceCents}
-            compareAtPriceCents={product.compareAtPriceCents}
-            baseStock={product.stockQuantity}
-            variants={product.variants.map((v) => ({
-              id: v.id,
-              name: v.name,
-              priceCents: v.priceCents,
-              stockQuantity: v.stockQuantity,
-              attributes: v.attributes as Record<string, string>,
-            }))}
-          />
+          <div className="flex flex-col gap-6 lg:col-span-5">
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center justify-between gap-3">
+                <span className="serial text-foreground-muted">
+                  {product.sku}
+                  {product.brand ? ` / ${product.brand.toUpperCase()}` : ""}
+                </span>
+                <WishlistHeart productId={product.id} />
+              </div>
+              <h1 className="text-[28px] font-semibold leading-[34px] tracking-[-0.005em]">{product.name}</h1>
+              {product.ratingCount > 0 ? <StarRating rating={rating} count={product.ratingCount} size="md" /> : null}
+              <p className="text-base leading-relaxed text-foreground-muted">{product.description}</p>
+            </div>
+
+            <ProductActions
+              productId={product.id}
+              basePriceCents={product.priceCents}
+              compareAtPriceCents={product.compareAtPriceCents}
+              baseStock={product.stockQuantity}
+              variants={product.variants.map((v) => ({
+                id: v.id,
+                name: v.name,
+                priceCents: v.priceCents,
+                stockQuantity: v.stockQuantity,
+                attributes: v.attributes as Record<string, string>,
+              }))}
+            />
+          </div>
         </div>
       </div>
 
       {product.specs.length > 0 ? (
-        <section className="mt-16">
+        // Ficha técnica em bone: lê como a folha de especificação impressa.
+        <Sector tone="bone">
           <SectionHeading index={product.sku} label="Ficha técnica" title="Especificações" />
           <dl className="mt-6 border-t border-border-faint">
             {product.specs.map((spec) => (
@@ -109,12 +112,12 @@ export default async function ProductPage(props: PageProps<"/produto/[slug]">) {
           <p className="mt-3 text-xs text-foreground-muted">
             Especificações do fabricante. Preço fictício: projeto de portfólio.
           </p>
-        </section>
+        </Sector>
       ) : null}
 
       <CouponStrip coupons={coupons} />
 
-      <section className="mt-16">
+      <Sector tone="graphite">
         <SectionHeading index={`${String(product.ratingCount).padStart(2, "0")} registros`} label="Avaliações" title="Relatórios de campo" />
 
         <div className="mt-8 grid gap-8 lg:grid-cols-12">
@@ -178,10 +181,10 @@ export default async function ProductPage(props: PageProps<"/produto/[slug]">) {
             )}
           </div>
         </div>
-      </section>
+      </Sector>
 
       {related.length > 0 ? (
-        <section className="mt-16">
+        <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
           <Rule label="Mesma categoria" index={product.category.name} />
           <ProductGrid>
             {related.map((p) => (
@@ -190,6 +193,6 @@ export default async function ProductPage(props: PageProps<"/produto/[slug]">) {
           </ProductGrid>
         </section>
       ) : null}
-    </div>
+    </>
   );
 }

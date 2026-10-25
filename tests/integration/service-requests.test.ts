@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import { after, beforeEach, describe, it } from "node:test";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { jobs, notifications, serviceRequests } from "@/db/schema";
+import { notifications, outbox, serviceRequests } from "@/db/schema";
 import { sendServiceRequestAlert } from "@/services/notifications";
 import { PermanentError } from "@/saga/errors";
 import {
@@ -75,7 +75,7 @@ describe("pedidos de orçamento", () => {
     const [n] = await db.select().from(notifications);
     assert.match(n.subject, /^Orçamento DYS-S\d{6}: Manutenção$/);
     assert.equal(n.recipient, "responsavel@exemplo.dev");
-    assert.equal((await db.select().from(jobs).where(eq(jobs.type, "notifications.deliver"))).length, 1);
+    assert.equal((await db.select().from(outbox).where(eq(outbox.type, "notifications.deliver"))).length, 1);
   });
 
   it("se a transação desfaz, não sobra pedido nem alerta", async () => {

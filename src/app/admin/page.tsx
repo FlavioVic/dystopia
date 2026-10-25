@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { requireAdmin } from "@/lib/data/auth";
-import { getAdminStats, getAllOrders } from "@/lib/data/admin";
+import { getAdminStats, getRecentOrders } from "@/lib/data/admin";
 import { formatPriceCents } from "@/lib/format";
 import { ORDER_STATUS_LABELS, orderStatusClass, type OrderStatus } from "@/lib/order-status";
 
@@ -9,7 +9,7 @@ export const metadata: Metadata = { title: "Admin" };
 
 export default async function AdminDashboard() {
   await requireAdmin();
-  const [stats, recent] = await Promise.all([getAdminStats(), getAllOrders(6)]);
+  const [stats, recent] = await Promise.all([getAdminStats(), getRecentOrders(6)]);
 
   const cards = [
     { label: "Receita total", value: formatPriceCents(stats.revenueCents) },
@@ -40,7 +40,7 @@ export default async function AdminDashboard() {
         {recent.length === 0 ? (
           <p className="mt-4 text-sm text-foreground-muted">Nenhum pedido ainda.</p>
         ) : (
-          <div className="mt-4 overflow-x-auto rounded-xl border border-border">
+          <div tabIndex={0} role="region" aria-label="Últimos pedidos" className="mt-4 overflow-x-auto rounded-xl border border-border">
             <table className="w-full min-w-[560px] text-sm">
               <thead className="border-b border-border bg-background-elevated text-left text-xs text-foreground-muted">
                 <tr>

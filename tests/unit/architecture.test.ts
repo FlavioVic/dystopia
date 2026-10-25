@@ -127,6 +127,35 @@ describe("fronteiras da arquitetura", () => {
     }
   });
 
+  it("Server Action não escreve no banco: valida a entrada e chama o serviço", () => {
+    // Leitura pra decidir a resposta (guarda, redirect) é ok, e abrir uma
+    // transação pra compor serviços também (é o outbox do checkout). Mutação
+    // na borda não: vira regra fora do serviço, sem teste, e com o "lê,
+    // decide, escreve" que dá corrida.
+    for (const file of sourceFiles(path.join("src", "lib", "actions"))) {
+      const content = readFileSync(path.join(ROOT, file), "utf-8");
+      const writes = [...content.matchAll(/\b(?:db|tx)\s*\.\s*(insert|update|delete)\s*\(/g)];
+      assert.deepEqual(
+        writes.map((match) => match[1]),
+        [],
+        `${file} escreve no banco direto — mova a escrita pra um serviço`,
+      );
+    }
+  });
+
+  it("toda Server Action do admin começa checando o papel", () => {
+    // Server Action é endpoint público: o layout protegido não cobre quem
+    // chama a action direto. A checagem tem que ser a primeira coisa.
+    const content = readFileSync(path.join(ROOT, "src", "lib", "actions", "admin.ts"), "utf-8");
+    // O corpo começa na `{` que fecha a linha da assinatura (o tipo de retorno
+    // pode ter `{ … }` no meio da linha).
+    const actions = [...content.matchAll(/export async function (\w+)[\s\S]*?\{\n\s*([^\n]*)/g)];
+    assert.ok(actions.length > 0);
+    for (const [, name, firstLine] of actions) {
+      assert.equal(firstLine.trim(), "await ensureAdmin();", `${name} não começa com ensureAdmin()`);
+    }
+  });
+
   it("o orquestrador não conhece a definição concreta (só o registry)", () => {
     for (const specifier of importsOf("src/saga/orchestrator.ts")) {
       assert.ok(

@@ -6,22 +6,22 @@
  *
  * O pagamento é um passo remoto (processo próprio, fila `payments`): o
  * request avança até ele e a saga estaciona em `waiting`; `settleSaga` roda os
- * workers das duas filas até o fim, como em produção.
+ * consumidores do RabbitMQ até o fim, como em produção.
  */
 
 import assert from "node:assert/strict";
 import { after, beforeEach, describe, it } from "node:test";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { and, inArray } from "drizzle-orm";
-import { cartItems, coupons, jobs, notifications, orders, payments, products, sagas } from "@/db/schema";
-import * as queue from "@/queue";
+import { and } from "drizzle-orm";
+import { cartItems, coupons, notifications, orders, outbox, payments, products, sagas } from "@/db/schema";
+import { queueDepths } from "@/queue/broker";
 import { advanceSaga, getSagaWithSteps } from "@/saga/orchestrator";
-import { advanceDedupeKey, runSagaInline } from "@/saga/runner";
+import { runSagaInline } from "@/saga/runner";
 import { PAYMENT_AUTHORIZE, PAYMENTS_QUEUE } from "@/services/payments/contract";
 import { closeDatabase, resetDatabase, seedCheckoutFixture } from "../helpers/db";
 import { startCheckout } from "../helpers/checkout";
-import { fastForwardJobs, lastErrorCode, settleSaga, work } from "../helpers/saga";
+import { IDLE, lastErrorCode, pendingWork, settleSaga, waitForRetries, work } from "../helpers/saga";
 
 beforeEach(resetDatabase);
 after(closeDatabase);
@@ -34,9 +34,10 @@ async function stockOf(productId: string): Promise<number> {
   return product?.stockQuantity ?? -1;
 }
 
-/** Jobs ainda ativos (na fila, rodando ou aguardando retry), de qualquer fila. */
-async function activeJobs() {
-  return db.query.jobs.findMany({ where: inArray(jobs.status, ["queued", "running", "failed"]) });
+/** Mensagens gravadas na outbox (publicadas ou não), na ordem em que nasceram. */
+async function outboxTypes(): Promise<string[]> {
+  const rows = await db.query.outbox.findMany({ orderBy: (row, { asc }) => [asc(row.createdAt)] });
+  return rows.map((row) => row.type);
 }
 
 async function stepStatuses(sagaId: string): Promise<Record<string, string>> {
@@ -54,21 +55,20 @@ describe("saga de checkout — caminho feliz", () => {
     });
     const checkout = await startCheckout(fixture, { useCoupon: true });
 
-    // O pedido nasce pendente e o job nasce junto, na mesma transação (outbox).
+    // O pedido nasce pendente e a mensagem nasce junto, na mesma transação (outbox).
     const created = await db.query.orders.findFirst({ where: eq(orders.id, checkout.orderId) });
     assert.equal(created?.status, "pending");
-    const queued = await queue.findActiveByDedupeKey(advanceDedupeKey(checkout.sagaId));
-    assert.ok(queued, "o job de avanço precisa existir junto do pedido");
-    assert.equal(queued.status, "queued");
+    assert.deepEqual(await outboxTypes(), ["saga.advance"], "a mensagem de avanço existe junto do pedido");
+    assert.equal((await pendingWork()).outbox, 1, "e ainda não foi publicada: quem publica é o relay");
 
     // O request avança até o pagamento, que é remoto: a saga estaciona.
     const inline = await runSagaInline(checkout.sagaId);
     assert.deepEqual(inline, { status: "waiting", step: "authorize-payment" });
     assert.equal((await stepStatuses(checkout.sagaId))["authorize-payment"], "waiting");
-    const command = await db.query.jobs.findFirst({
-      where: and(eq(jobs.queue, PAYMENTS_QUEUE), eq(jobs.type, PAYMENT_AUTHORIZE)),
+    const command = await db.query.outbox.findFirst({
+      where: and(eq(outbox.queue, PAYMENTS_QUEUE), eq(outbox.type, PAYMENT_AUTHORIZE)),
     });
-    assert.ok(command, "o comando de cobrança entrou na fila de pagamentos");
+    assert.ok(command, "o comando de cobrança foi gravado pra fila de pagamentos, junto do passo");
 
     const saga0 = await settleSaga(checkout.sagaId, { inline: false });
     assert.equal(saga0.status, "completed");
@@ -112,17 +112,21 @@ describe("saga de checkout — caminho feliz", () => {
       "notify-customer": "completed",
     });
 
-    // A confirmação sai por outbox: gravada no passo, entregue por um job.
-    assert.equal(sent[0].status, "pending");
-    assert.deepEqual((await activeJobs()).map((job) => job.type), ["notifications.deliver"]);
-    await work("all");
+    // A confirmação sai por outbox: gravada no passo, entregue por OUTRA
+    // mensagem (fila `notifications`) — o e-mail nunca sai de dentro do passo.
+    assert.deepEqual(await outboxTypes(), [
+      "saga.advance",
+      "payments.authorize",
+      "saga.reply",
+      "notifications.deliver",
+    ]);
     const delivered = await db.query.notifications.findFirst({ where: eq(notifications.id, sent[0].id) });
     assert.equal(delivered?.status, "sent");
     assert.equal(delivered?.provider, "simulado", "sem RESEND_API_KEY a entrega é simulada");
 
-    // Nada sobra pra worker nenhum: avanço, comando, resposta e entrega fechados.
-    assert.deepEqual(await activeJobs(), []);
-    assert.equal((await work("all")).claimed, 0);
+    // Nada sobra pra consumidor nenhum: avanço, comando, resposta e entrega com ack.
+    assert.deepEqual(await pendingWork(), IDLE);
+    assert.equal((await work("all")).received, 0);
   });
 
   it("pula o passo do cupom quando o pedido não usa cupom", async () => {
@@ -244,14 +248,12 @@ describe("saga de checkout — retry e worker", () => {
 
     assert.equal((await runSagaInline(checkout.sagaId)).status, "waiting");
 
-    // 1ª tentativa no processo de pagamentos: gateway fora → o COMANDO volta
-    // pra fila dele com backoff (o retry agora é de quem executa).
+    // 1ª tentativa no processo de pagamentos: gateway fora → o COMANDO vai pra
+    // fila de espera dele no broker (o retry é de quem executa).
     const first = await work("payments");
-    assert.equal(first.claimed, 1);
-    const command = await db.query.jobs.findFirst({ where: eq(jobs.type, PAYMENT_AUTHORIZE) });
-    assert.equal(command?.status, "failed", "comando aguardando nova tentativa");
-    assert.ok(command && command.runAt.getTime() > Date.now(), "retry agendado pro futuro");
-    assert.match(command?.lastError ?? "", /indispon/i);
+    assert.deepEqual(first, { received: 1, acked: 0, retried: 1, dead: 0 });
+    const [payments0] = await queueDepths([PAYMENTS_QUEUE]);
+    assert.equal(payments0.retrying, 1, "comando na fila de espera, aguardando o TTL");
 
     const order = await db.query.orders.findFirst({ where: eq(orders.id, checkout.orderId) });
     assert.equal(order?.status, "pending", "pedido segue pendente entre as tentativas");
@@ -259,8 +261,8 @@ describe("saga de checkout — retry e worker", () => {
     assert.equal(waiting?.lockedBy, null, "a saga não segura lease enquanto espera");
     assert.equal((await stepStatuses(checkout.sagaId))["authorize-payment"], "waiting");
 
-    // Adianta o relógio: 2ª tentativa aprova, a resposta acorda a saga.
-    await fastForwardJobs();
+    // O TTL vence, o comando volta pra fila: 2ª tentativa aprova e a resposta acorda a saga.
+    await waitForRetries();
     const saga = await settleSaga(checkout.sagaId, { inline: false });
     assert.equal(saga.status, "completed");
 
@@ -291,8 +293,7 @@ describe("saga de checkout — retry e worker", () => {
     assert.equal(step?.status, "failed");
     assert.equal(step?.attempts, 3, "maxAttemptsPerStep = 3 vale pro comando remoto");
 
-    const dead = await db.query.jobs.findMany({ where: eq(jobs.status, "dead") });
-    assert.deepEqual(dead, [], "ninguém foi pra dead-letter: a falha virou resposta");
+    assert.equal((await pendingWork()).dead, 0, "ninguém foi pra DLQ: a falha virou resposta");
   });
 });
 
@@ -356,13 +357,23 @@ describe("saga de checkout — idempotência e concorrência", () => {
 
     const outcome = await advanceSaga(checkout.sagaId, { workerId: "eu" });
     assert.equal(outcome.status, "busy");
+    assert.ok(
+      outcome.status === "busy" && outcome.retryAt.getTime() <= Date.now(),
+      "outro executor trabalhando: reolha logo, não no fim do lease",
+    );
+
+    // Já no backoff de um retry, "ocupada" vale até a hora exata do retry.
+    const runAt = new Date(Date.now() + 45_000);
+    await db.update(sagas).set({ lockedBy: "backoff", leaseUntil: runAt }).where(eq(sagas.id, checkout.sagaId));
+    const held = await advanceSaga(checkout.sagaId, { workerId: "eu" });
+    assert.deepEqual(held, { status: "busy", retryAt: runAt });
 
     const order = await db.query.orders.findFirst({ where: eq(orders.id, checkout.orderId) });
     assert.equal(order?.status, "pending");
     assert.equal(await stockOf(fixture.product.id), 5);
   });
 
-  it("job de saga inexistente é fechado sem erro", async () => {
+  it("mensagem de saga inexistente é encerrada sem erro", async () => {
     const outcome = await advanceSaga("00000000-0000-0000-0000-000000000000");
     assert.equal(outcome.status, "not-found");
   });

@@ -1,0 +1,104 @@
+/**
+ * Relay da outbox → RabbitMQ (padrão "polling publisher").
+ *
+ * Pega um lote do que falta publicar com `FOR UPDATE SKIP LOCKED` (vários
+ * relays em paralelo não publicam a mesma linha), publica com publisher
+ * confirm e só então marca `published_at`, na mesma transação que segurou as
+ * linhas. Se o broker não confirmar, nada é marcado: as linhas ganham
+ * `publish_attempts` + backoff e voltam no próximo ciclo.
+ *
+ * Duplicata é possível (broker confirmou, o commit do `published_at` falhou)
+ * e é aceita de propósito: a entrega já é "pelo menos uma vez" e o consumidor
+ * é idempotente. Perda não é possível.
+ */
+
+import { and, asc, eq, inArray, isNull, lt, lte } from "drizzle-orm";
+import { db } from "@/db";
+import { outbox } from "@/db/schema";
+import { createLogger } from "@/lib/logger";
+import { errorMessage } from "@/saga/errors";
+import { nextRunAt } from "./backoff";
+import { getBroker, publishEnvelope } from "./broker";
+
+const logger = createLogger("queue:relay");
+
+/** Backoff da PUBLICAÇÃO (broker fora): até 1 min entre tentativas. */
+const PUBLISH_BACKOFF = { baseMs: 1_000, maxMs: 60_000 };
+
+export type RelayReport = { published: number; failed: number };
+
+export async function relayOutbox(options: { limit?: number; now?: Date } = {}): Promise<RelayReport> {
+  const now = options.now ?? new Date();
+  const limit = options.limit ?? 100;
+
+  const report = await db.transaction(async (tx) => {
+    const rows = await tx
+      .select()
+      .from(outbox)
+      .where(and(isNull(outbox.publishedAt), lte(outbox.nextAttemptAt, now)))
+      .orderBy(asc(outbox.createdAt))
+      .limit(limit)
+      .for("update", { skipLocked: true });
+    if (rows.length === 0) return { published: 0, failed: 0 };
+
+    try {
+      const broker = await getBroker();
+      for (const row of rows) {
+        const envelope = {
+          id: row.id,
+          queue: row.queue,
+          type: row.type,
+          payload: (row.payload ?? {}) as Record<string, unknown>,
+          attempts: 0,
+          maxAttempts: row.maxAttempts,
+        };
+        await publishEnvelope(broker, envelope, row.delayMs > 0 ? { to: "retry", delayMs: row.delayMs } : { to: "work" });
+      }
+      await broker.publisher.waitForConfirms();
+    } catch (error) {
+      const message = errorMessage(error);
+      for (const row of rows) {
+        await tx
+          .update(outbox)
+          .set({
+            publishAttempts: row.publishAttempts + 1,
+            nextAttemptAt: nextRunAt(row.publishAttempts + 1, now, PUBLISH_BACKOFF),
+            lastError: message.slice(0, 2_000),
+          })
+          .where(eq(outbox.id, row.id));
+      }
+      logger.warn("publicação no broker falhou; a outbox tenta de novo", { messages: rows.length, error: message });
+      return { published: 0, failed: rows.length };
+    }
+
+    await tx
+      .update(outbox)
+      .set({ publishedAt: new Date(), lastError: null })
+      .where(inArray(outbox.id, rows.map((row) => row.id)));
+    return { published: rows.length, failed: 0 };
+  });
+
+  if (report.published > 0) logger.debug("outbox publicada", report);
+  return report;
+}
+
+/** Publica até não sobrar nada pronto (ou até o broker recusar). */
+export async function relayAll(options: { maxBatches?: number } = {}): Promise<RelayReport> {
+  const total: RelayReport = { published: 0, failed: 0 };
+  for (let batch = 0; batch < (options.maxBatches ?? 20); batch += 1) {
+    const report = await relayOutbox();
+    total.published += report.published;
+    total.failed += report.failed;
+    if (report.published === 0) break;
+  }
+  return total;
+}
+
+/** Faxina: o que já foi publicado há mais de `olderThanMs` sai da outbox. */
+export async function pruneOutbox(olderThanMs: number, now: Date = new Date()): Promise<number> {
+  const rows = await db
+    .delete(outbox)
+    .where(lt(outbox.publishedAt, new Date(now.getTime() - olderThanMs)))
+    .returning({ id: outbox.id });
+  return rows.length;
+}

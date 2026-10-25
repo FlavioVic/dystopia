@@ -5,21 +5,19 @@ import { Marquee } from "@/components/Marquee";
 import { CountUp, Reveal } from "@/components/Motion";
 import { PortfolioCard, ProjectImage, StackTags } from "@/components/PortfolioCard";
 import { ProductCard } from "@/components/ProductCard";
-import { getAllProducts, getFeaturedProducts } from "@/lib/data/products";
+import { countActiveProducts, getFeaturedProducts } from "@/lib/data/products";
 import { PORTFOLIO, PROFILE } from "@/lib/portfolio";
 import { PROCESS, SERVICES, TICKER } from "@/lib/services-catalog";
-
-// Número de testes automatizados do próprio repositório (README › Testes).
-const TEST_COUNT = 254;
+import { TEST_COUNT } from "@/lib/site";
 
 export default async function Home() {
-  const [featured, inventory] = await Promise.all([getFeaturedProducts(4), getAllProducts()]);
+  const [featured, inventoryCount] = await Promise.all([getFeaturedProducts(4), countActiveProducts()]);
   const [lead, ...others] = PORTFOLIO;
 
   const stats = [
     { value: PORTFOLIO.length, label: "Projetos publicados" },
     { value: SERVICES.length, label: "Serviços" },
-    { value: inventory.length, label: "Itens no inventário" },
+    { value: inventoryCount, label: "Itens no inventário" },
     { value: TEST_COUNT, label: "Testes nesta loja", pad: 3 },
   ];
 

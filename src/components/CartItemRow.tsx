@@ -30,6 +30,7 @@ export function CartItemRow({ line }: { line: CartLine }) {
     >
       <Link
         href={`/produto/${line.slug}`}
+        aria-label={line.name}
         className="relative aspect-square h-20 w-20 shrink-0 overflow-hidden rounded-md border border-border bg-background"
       >
         {line.imageUrl ? (

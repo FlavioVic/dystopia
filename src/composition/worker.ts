@@ -1,68 +1,76 @@
 /**
- * Raiz de composição do worker: o único lugar (fora de `src/scripts`) que
- * pluga os handlers dos serviços na fila. Dois executores usam:
- *
- * - o processo de longa duração (`npm run worker`, container);
- * - o worker embutido (`INLINE_WORKER=1`, deploy só na Vercel): sem processo
- *   ficando de pé, a fila é drenada depois dos requests que deixam trabalho
- *   nela, e por um cron de segurança. É o que deixa a demo rodar de graça —
- *   o banco (Neon) só acorda quando alguém usa o site.
- *
- * O desenho não muda entre os dois: pagamentos continua falando por mensagem
- * (fila `payments`, contrato), só que consumida no mesmo runtime.
+ * Raiz de composição: o único lugar (fora de `src/scripts`) que pluga os
+ * handlers dos serviços na fila. Usada pelo worker de pé (push) e pelo worker
+ * embutido da Vercel (`INLINE_WORKER=1`, pull depois dos requests + cron) —
+ * mesmas filas, mesma política de retry.
  */
 
 import { db } from "@/db";
 import { createLogger } from "@/lib/logger";
-import { DEFAULT_QUEUE } from "@/queue";
-import { drainQueue, type TickReport } from "@/queue/worker";
+import { sagaHandlers } from "@/queue/handlers";
+import { pruneOutbox, relayAll } from "@/queue/relay";
+import { drainQueues, type DrainReport, type Handlers } from "@/queue/worker";
 import { errorMessage } from "@/saga/errors";
+import { SAGA_QUEUE } from "@/saga/messaging";
 import { reconcile, type ReconcileReport } from "@/saga/reconcile";
 import { createNotificationHandlers } from "@/services/notifications/delivery";
+import { NOTIFICATIONS_QUEUE } from "@/services/notifications";
 import { paymentHandlers } from "@/services/payments/consumer";
 import { PAYMENTS_QUEUE } from "@/services/payments/contract";
 import { pruneRateLimits } from "@/services/rate-limit";
 
 const logger = createLogger("worker");
 
-export function workerHandlers() {
-  return { ...paymentHandlers, ...createNotificationHandlers() };
+/** Todas as filas do sistema (painel, worker embutido). */
+export const ALL_QUEUES = [SAGA_QUEUE, PAYMENTS_QUEUE, NOTIFICATIONS_QUEUE];
+
+/** Mensagem publicada fica 7 dias na outbox (auditoria) e depois sai. */
+const OUTBOX_RETENTION_MS = 7 * 24 * 60 * 60_000;
+
+export function workerHandlers(): Handlers {
+  return { ...sagaHandlers, ...paymentHandlers, ...createNotificationHandlers() };
 }
 
-export const INLINE_WORKER_QUEUES = [DEFAULT_QUEUE, PAYMENTS_QUEUE];
+/** Faxina que só um executor periódico faz (worker de pé ou cron). */
+export async function housekeeping(): Promise<void> {
+  const [rateLimits, published] = await Promise.all([
+    pruneRateLimits(db, 24 * 60 * 60),
+    pruneOutbox(OUTBOX_RETENTION_MS),
+  ]);
+  if (rateLimits + published > 0) logger.info("faxina", { rateLimits, outbox: published });
+}
 
 export type InlineRunOptions = {
   /** Tempo máximo drenando; tem que caber no `maxDuration` da rota. */
   budgetMs: number;
-  /** Espera retries em backoff que ficam prontos dentro do orçamento. */
+  /** Espera retries nas filas de espera que voltam dentro do orçamento. */
   waitForScheduled?: boolean;
-  /** Reconcilia antes (leases vencidos, sagas órfãs) — cron e admin. */
+  /** Reconcilia antes (leases vencidos, sagas paradas) — cron e admin. */
   reconcile?: boolean;
-  /** Faxina do rate limit — só o cron. */
+  /** Faxina (rate limit, outbox publicada) — só o cron. */
   housekeeping?: boolean;
 };
+
+const emptyReport = (): DrainReport => ({ received: 0, acked: 0, retried: 0, dead: 0 });
 
 /** Uma rodada do worker embutido. Nunca lança: é chamado depois da resposta. */
 export async function runInlineWorker(
   options: InlineRunOptions,
-): Promise<TickReport & { reconciled?: ReconcileReport }> {
-  const empty: TickReport = { claimed: 0, completed: 0, failed: 0, unknown: 0 };
+): Promise<DrainReport & { reconciled?: ReconcileReport }> {
   try {
     const reconciled = options.reconcile ? await reconcile() : undefined;
-    if (options.housekeeping) await pruneRateLimits(db, 24 * 60 * 60);
-    const report = await drainQueue({
-      workerId: "inline",
-      queues: INLINE_WORKER_QUEUES,
+    if (options.housekeeping) await housekeeping();
+    await relayAll();
+    const report = await drainQueues({
+      queues: ALL_QUEUES,
       handlers: workerHandlers(),
-      batchSize: 5,
       budgetMs: options.budgetMs,
-      maxTicks: 500,
       waitForScheduled: options.waitForScheduled,
     });
-    if (report.claimed > 0) logger.info("worker embutido drenou a fila", report);
+    if (report.received > 0) logger.info("worker embutido drenou a fila", report);
     return { ...report, ...(reconciled ? { reconciled } : {}) };
   } catch (error) {
     logger.error("worker embutido falhou", { error: errorMessage(error) });
-    return empty;
+    return emptyReport();
   }
 }

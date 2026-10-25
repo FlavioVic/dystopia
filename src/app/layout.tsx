@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { PromoBar } from "@/components/PromoBar";
@@ -43,6 +44,8 @@ export const metadata: Metadata = {
 };
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
+  // Nonce da CSP (src/proxy.ts) pros <script> escritos à mão aqui.
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
   const [categories, cartCount, user, favorites] = await Promise.all([
     getCategories(),
     getCartCount(),
@@ -59,17 +62,18 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       <head>
         {/* Liga a animação de "revelar" só quando há JS: sem isso, o conteúdo
             nunca fica escondido esperando um script que não vai rodar. */}
-        <script dangerouslySetInnerHTML={{ __html: "document.documentElement.classList.add('js-reveal')" }} />
+        <script nonce={nonce} dangerouslySetInnerHTML={{ __html: "document.documentElement.classList.add('js-reveal')" }} />
         {/* Vercel Web Analytics (grátis no Hobby) pela integração por script, sem
             dependência nova. Só na Vercel: fora dela o endpoint não existe. */}
         {process.env.VERCEL === "1" ? (
           <>
             <script
+              nonce={nonce}
               dangerouslySetInnerHTML={{
                 __html: "window.va=window.va||function(){(window.vaq=window.vaq||[]).push(arguments)};",
               }}
             />
-            <script defer src="/_vercel/insights/script.js" />
+            <script nonce={nonce} defer src="/_vercel/insights/script.js" />
           </>
         ) : null}
       </head>

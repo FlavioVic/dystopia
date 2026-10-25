@@ -28,7 +28,7 @@ export default async function AdminCoupons() {
       {coupons.length === 0 ? (
         <p className="mt-4 text-sm text-foreground-muted">Nenhum cupom cadastrado.</p>
       ) : (
-        <div className="mt-4 overflow-x-auto rounded-xl border border-border">
+        <div tabIndex={0} role="region" aria-label="Cupons" className="mt-4 overflow-x-auto rounded-xl border border-border">
           <table className="w-full min-w-[760px] text-sm">
             <thead className="border-b border-border bg-background-elevated text-left text-xs text-foreground-muted">
               <tr>

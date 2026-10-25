@@ -5,13 +5,15 @@
  * Cada comando roda numa transação que grava o efeito E a resposta (outbox):
  * não existe cobrança sem aviso pra quem pediu, nem aviso sem cobrança.
  *
- * Retry é daqui agora: falha transitória volta pra fila com backoff (o job
- * conta as tentativas). Esgotou, responde com falha — quem pediu não pode
- * ficar esperando pra sempre por um comando que morreu na dead-letter.
+ * Retry é daqui: falha transitória (gateway fora, timeout) é relançada e a
+ * fila devolve o comando pela fila de espera com backoff, contando a
+ * tentativa. Na ÚLTIMA tentativa não relança: responde com falha — quem pediu
+ * não pode ficar esperando pra sempre por um comando que morreu na DLQ.
+ * Reentrega do mesmo comando é segura: `idempotency_key` no banco e no Stripe.
  */
 
 import { db, type Transaction } from "@/db";
-import type { ClaimedJob } from "@/queue";
+import type { MessageHandler, QueueMessage } from "@/queue";
 import { readReplyTo, sendReply, type ReplyTo } from "@/queue/reply";
 import { errorCode, errorMessage, isRetryable, PermanentError } from "@/saga/errors";
 import {
@@ -30,48 +32,45 @@ import { authorizePayment, refundPayment } from "./index";
 
 export { cardProvider };
 
-type Handler = (job: ClaimedJob) => Promise<{ settled: boolean }>;
-
 /** Handlers que o processo de pagamentos registra no worker. */
-export const paymentHandlers: Record<string, Handler> = {
-  [PAYMENT_AUTHORIZE]: (job) =>
-    handle(job, parseAuthorize, async (tx, command): Promise<AuthorizeReply> => {
-      const result = await authorizePayment(tx, { ...command, attempt: job.attempts });
+export const paymentHandlers: Record<string, MessageHandler> = {
+  [PAYMENT_AUTHORIZE]: (message) =>
+    handle(message, parseAuthorize, async (tx, command): Promise<AuthorizeReply> => {
+      const result = await authorizePayment(tx, { ...command, attempt: message.attempt });
       return { paymentId: result.paymentId, transactionId: result.transactionId };
     }),
-  [PAYMENT_REFUND]: (job) =>
-    handle(job, parseRefund, async (tx, command): Promise<RefundReply> => refundPayment(tx, command)),
+  [PAYMENT_REFUND]: (message) =>
+    handle(message, parseRefund, async (tx, command): Promise<RefundReply> => refundPayment(tx, command)),
 };
 
 async function handle<TCommand, TReply extends Record<string, unknown>>(
-  job: ClaimedJob,
+  message: QueueMessage,
   parse: (payload: Record<string, unknown>) => TCommand,
   run: (tx: Transaction, command: TCommand) => Promise<TReply>,
-): Promise<{ settled: boolean }> {
-  const replyTo = readReplyTo(job.payload);
-  // Sem endereço não há a quem responder: erro de quem montou o comando.
-  // Lança pra fila — esgota as tentativas e vai pra dead-letter (alerta).
-  if (!replyTo) throw new Error(`comando ${job.type} sem replyTo`);
+): Promise<void> {
+  const replyTo = readReplyTo(message.payload);
+  // Sem endereço não há a quem responder: erro de quem montou o comando, que
+  // retry não conserta — direto pra DLQ (alerta no painel).
+  if (!replyTo) throw new PermanentError("invalid_command", `comando ${message.type} sem replyTo`);
 
   try {
-    const command = parse(job.payload);
+    const command = parse(message.payload);
     await db.transaction(async (tx) => {
       const output = await run(tx, command);
-      await sendReply(tx, replyTo, { ok: true, output, attempts: job.attempts });
+      await sendReply(tx, replyTo, { ok: true, output, attempts: message.attempt });
     });
   } catch (error) {
-    if (isRetryable(error) && job.attempts < job.maxAttempts) throw error;
-    await replyFailure(replyTo, job, error);
+    if (isRetryable(error) && message.attempt < message.maxAttempts) throw error;
+    await replyFailure(replyTo, message, error);
   }
-  return { settled: false };
 }
 
-async function replyFailure(replyTo: ReplyTo, job: ClaimedJob, error: unknown): Promise<void> {
+async function replyFailure(replyTo: ReplyTo, message: QueueMessage, error: unknown): Promise<void> {
   await sendReply(db, replyTo, {
     ok: false,
     code: errorCode(error),
     message: errorMessage(error),
-    attempts: job.attempts,
+    attempts: message.attempt,
   });
 }
 

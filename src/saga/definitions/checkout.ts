@@ -1,7 +1,7 @@
 /**
  * SAGA de checkout — a orquestração do pedido.
  *
- * O pedido nasce `pending` (junto com a saga e o job, numa transação só) e
+ * O pedido nasce `pending` (junto com a saga e a mensagem, numa transação só) e
  * cada passo abaixo é atômico, de um serviço diferente:
  *
  *   1. reserve-stock      → inventory   | comp: devolve as unidades

@@ -60,14 +60,17 @@ export function PageHeader({
   title,
   description,
   meta,
+  ruled = true,
 }: {
   label: string;
   title: string;
   description?: ReactNode;
   meta?: ReactNode;
+  /** Dentro de um `<Sector>` a troca de superfície já separa; a régua sobra. */
+  ruled?: boolean;
 }) {
   return (
-    <div className="border-b border-border pb-8">
+    <div className={ruled ? "border-b border-border pb-8" : ""}>
       <p className="label text-foreground-muted">{label}</p>
       <h1 className="display-2 mt-4 text-[26px] leading-[34px] sm:text-[40px] sm:leading-[48px]">{title}</h1>
       {description ? <div className="mt-4 max-w-2xl text-base leading-relaxed text-foreground-muted">{description}</div> : null}
@@ -87,12 +90,15 @@ export function Sector({
   tone = "obsidian",
   id,
   narrow = false,
+  compact = false,
   className = "",
   children,
 }: {
   tone?: SectorTone;
   id?: string;
   narrow?: boolean;
+  /** Faixa de cabeçalho (listagem): menos respiro que uma seção de conteúdo. */
+  compact?: boolean;
   className?: string;
   children: ReactNode;
 }) {
@@ -101,7 +107,7 @@ export function Sector({
   const edge = tone === "graphite" ? "border-y border-border-faint" : "";
   return (
     <section id={id} className={`scroll-mt-24 ${surface} ${edge}`}>
-      <div className={`mx-auto w-full ${narrow ? "max-w-4xl" : "max-w-7xl"} px-4 py-16 sm:px-6 sm:py-20 lg:px-8 ${className}`}>
+      <div className={`mx-auto w-full ${narrow ? "max-w-4xl" : "max-w-7xl"} px-4 ${compact ? "py-10 sm:py-12" : "py-16 sm:py-20"} sm:px-6 lg:px-8 ${className}`}>
         {children}
       </div>
     </section>

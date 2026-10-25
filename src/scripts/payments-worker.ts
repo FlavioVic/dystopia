@@ -1,16 +1,18 @@
 /**
  * Processo do serviço de pagamentos: `npm run worker:payments`.
  *
- * Consome SÓ a fila `payments`, com SÓ os handlers de pagamento, e não
- * reconcilia saga nenhuma — ele não sabe que saga existe. Recebe comandos
- * (`payments.authorize`, `payments.refund`) e responde no endereço que veio
- * em cada um. É o mesmo código-base, mas outro processo: dá pra escalar,
- * reiniciar ou derrubar pagamentos sem tocar no resto.
+ * Consome SÓ a fila `payments` do RabbitMQ, com SÓ os handlers de pagamento,
+ * e não reconcilia saga nenhuma — ele não sabe que saga existe. Recebe
+ * comandos (`payments.authorize`, `payments.refund`) e responde no endereço
+ * que veio em cada um, pela outbox (o relay deste processo publica). É o mesmo
+ * código-base, mas outro processo: dá pra escalar, reiniciar ou derrubar
+ * pagamentos sem tocar no resto.
  */
 
 import "dotenv/config";
 import { pgPool } from "@/db";
 import { createLogger } from "@/lib/logger";
+import { closeBroker } from "@/queue/broker";
 import { startWorker } from "@/queue/worker";
 import { PAYMENTS_QUEUE } from "@/services/payments/contract";
 import { cardProvider, paymentHandlers } from "@/services/payments/consumer";
@@ -22,9 +24,8 @@ async function main(): Promise<void> {
   const worker = startWorker({
     queues: [PAYMENTS_QUEUE],
     handlers: paymentHandlers,
-    reconcile: false,
-    batchSize: Number(process.env.WORKER_BATCH_SIZE ?? 5),
-    pollMs: Number(process.env.WORKER_POLL_MS ?? 1_000),
+    prefetch: Number(process.env.WORKER_PREFETCH ?? 5),
+    relayEveryMs: Number(process.env.WORKER_RELAY_MS ?? 500),
   });
 
   let shuttingDown = false;
@@ -38,6 +39,7 @@ async function main(): Promise<void> {
   }
 
   await worker.done;
+  await closeBroker();
   await pgPool.end();
 }
 

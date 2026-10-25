@@ -7,8 +7,8 @@ import { runInlineWorker, type InlineRunOptions } from "@/composition/worker";
  * (`after`). Sem a flag — dev, ou deploy com o worker em container — não faz
  * nada: o `npm run worker` é quem cuida.
  *
- * Vários drenos ao mesmo tempo são seguros: `claim()` usa SKIP LOCKED e a saga
- * tem lease, então cada job/passo roda uma vez só.
+ * Vários drenos ao mesmo tempo são seguros: o broker entrega cada mensagem a
+ * um consumidor só, o relay usa SKIP LOCKED e a saga tem lease.
  */
 export function inlineWorkerEnabled(): boolean {
   return process.env.INLINE_WORKER === "1";

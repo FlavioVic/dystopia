@@ -3,7 +3,7 @@
  * status dentro das transições permitidas.
  *
  * `createOrder` é a PRÉ-CONDIÇÃO da saga (o pedido nasce `pending` junto com
- * a saga e o job, na mesma transação). Os passos da saga só mudam estado.
+ * a saga e a mensagem, na mesma transação). Os passos da saga só mudam estado.
  */
 
 import { and, eq, inArray } from "drizzle-orm";

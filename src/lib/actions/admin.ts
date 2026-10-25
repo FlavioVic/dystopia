@@ -19,7 +19,8 @@ import { canTransition, isOrderStatus, ORDER_STATUS_LABELS, type OrderStatus } f
 import { parseCouponForm } from "@/lib/validation/coupon";
 import { parseProductForm, field } from "@/lib/validation/product";
 import { parseVariantForm } from "@/lib/validation/variant";
-import * as queue from "@/queue";
+import { ALL_QUEUES } from "@/composition/worker";
+import { replayDeadLetters } from "@/queue/dead-letters";
 import * as catalog from "@/services/catalog";
 import * as couponsService from "@/services/coupons";
 import { transitionOrder } from "@/services/orders";
@@ -84,8 +85,9 @@ export async function updateProduct(
   formData: FormData,
 ): Promise<AdminFormState> {
   await ensureAdmin();
-  const { errors, values } = parseProductForm(formData);
-  if (Object.keys(errors).length > 0) return { errors };
+  const parsed = parseProductForm(formData);
+  if (!parsed.ok) return { errors: parsed.errors };
+  const { values } = parsed;
 
   try {
     await catalog.updateProduct(db, id, values);
@@ -101,9 +103,10 @@ export async function createProduct(
   formData: FormData,
 ): Promise<AdminFormState> {
   await ensureAdmin();
-  const { errors, values } = parseProductForm(formData);
+  const parsed = parseProductForm(formData);
   const imageUrl = field(formData, "imageUrl") || null;
-  if (Object.keys(errors).length > 0) return { errors };
+  if (!parsed.ok) return { errors: parsed.errors };
+  const { values } = parsed;
 
   try {
     await catalog.createProduct(db, values, { imageUrl });
@@ -124,8 +127,9 @@ export async function createVariant(
   formData: FormData,
 ): Promise<AdminFormState> {
   await ensureAdmin();
-  const { errors, values } = parseVariantForm(formData);
-  if (Object.keys(errors).length > 0) return { errors };
+  const parsed = parseVariantForm(formData);
+  if (!parsed.ok) return { errors: parsed.errors };
+  const { values } = parsed;
 
   try {
     await catalog.createVariant(db, productId, values);
@@ -143,8 +147,9 @@ export async function updateVariant(
   formData: FormData,
 ): Promise<AdminFormState> {
   await ensureAdmin();
-  const { errors, values } = parseVariantForm(formData);
-  if (Object.keys(errors).length > 0) return { errors };
+  const parsed = parseVariantForm(formData);
+  if (!parsed.ok) return { errors: parsed.errors };
+  const { values } = parsed;
 
   try {
     await catalog.updateVariant(db, variantId, values);
@@ -173,8 +178,9 @@ export async function createCoupon(
   formData: FormData,
 ): Promise<AdminFormState> {
   await ensureAdmin();
-  const { errors, values } = parseCouponForm(formData);
-  if (Object.keys(errors).length > 0) return { errors };
+  const parsed = parseCouponForm(formData);
+  if (!parsed.ok) return { errors: parsed.errors };
+  const { values } = parsed;
 
   try {
     await couponsService.createCoupon(db, values);
@@ -191,8 +197,9 @@ export async function updateCoupon(
   formData: FormData,
 ): Promise<AdminFormState> {
   await ensureAdmin();
-  const { errors, values } = parseCouponForm(formData);
-  if (Object.keys(errors).length > 0) return { errors };
+  const parsed = parseCouponForm(formData);
+  if (!parsed.ok) return { errors: parsed.errors };
+  const { values } = parsed;
 
   try {
     await couponsService.updateCoupon(db, couponId, values);
@@ -215,11 +222,15 @@ export async function toggleCouponActive(couponId: string): Promise<SimpleResult
   return { ok: true };
 }
 
-/** Reprocessa um job da dead-letter (painel de orquestração). */
-export async function retryJob(jobId: string): Promise<SimpleResult> {
+/**
+ * Reprocessa da DLQ (painel de orquestração): uma mensagem (`messageId`) ou
+ * tudo o que está parado naquela fila.
+ */
+export async function replayDeadLetter(queueName: string, messageId?: string): Promise<SimpleResult> {
   await ensureAdmin();
-  const requeued = await queue.retryDeadJob(jobId);
-  if (!requeued) return { ok: false, error: "Job não está na dead-letter." };
+  if (!ALL_QUEUES.includes(queueName)) return { ok: false, error: "Fila desconhecida." };
+  const replayed = await replayDeadLetters(queueName, messageId ? { messageId } : {});
+  if (replayed === 0) return { ok: false, error: "Nada a reprocessar — a mensagem já saiu da DLQ." };
   refresh();
   return { ok: true };
 }

@@ -1,146 +1,245 @@
 /**
- * Worker da fila.
+ * Consumidor da fila. `handleDelivery` é a política de retentativa, igual
+ * pra toda mensagem (tabela em docs/ARQUITETURA.md › A fila): ok → ack;
+ * transitório → fila de espera do backoff; permanente/esgotado/ilegível/sem
+ * handler → DLQ. O `ack` vem DEPOIS de encaminhar com confirmação: crash =
+ * reentrega, nunca perda.
  *
- * Roda fora do Next (`npm run worker`) e é o executor durável da orquestração:
- * pega jobs prontos, chama o handler, e cuida de retry/dead-letter. Pode
- * rodar em N processos — `claim()` usa `FOR UPDATE SKIP LOCKED`, então não
- * existe job processado duas vezes em paralelo.
- *
- * `processOnce` é exposto separado do loop pra poder ser chamado nos testes
- * (e no caminho inline do checkout) sem subir processo nenhum.
+ * Push (`startWorker`, processo de pé) e pull (`drainQueues`, Vercel e
+ * testes) usam o mesmo `handleDelivery`.
  */
 
 import { randomUUID } from "node:crypto";
+import type { Channel, ConsumeMessage, GetMessage } from "amqplib";
 import { createLogger } from "@/lib/logger";
-import { errorMessage } from "@/saga/errors";
-import { reconcile } from "@/saga/reconcile";
-import * as queue from "./index";
-import { getHandler, type JobHandler } from "./handlers";
+import { errorMessage, isRetryable } from "@/saga/errors";
+import { backoffMs } from "./backoff";
+import { declareQueue, getBroker, names, publishEnvelope, queueDepths, readEnvelope, type Envelope } from "./broker";
+import type { MessageHandler, QueueMessage } from "./index";
+import { relayAll } from "./relay";
 
 const logger = createLogger("queue:worker");
 
-export type WorkerOptions = {
-  workerId?: string;
-  queues?: string[];
-  batchSize?: number;
-  leaseMs?: number;
-  /** Intervalo entre buscas quando a fila está vazia. */
-  pollMs?: number;
-  /** Intervalo da reconciliação. */
-  reconcileEveryMs?: number;
-  /** Desliga a reconciliação de sagas (processo que não roda saga, ex.: pagamentos). */
-  reconcile?: boolean;
-  /**
-   * Handlers além do registro padrão — é como o processo de pagamentos (ou o
-   * worker que também consome a fila `payments`) pluga os dele sem que a fila
-   * precise importar a implementação de um serviço.
-   */
-  handlers?: Record<string, JobHandler>;
+export type Handlers = Record<string, MessageHandler>;
+
+export type Outcome = "acked" | "retried" | "dead";
+
+export type DrainReport = {
+  received: number;
+  acked: number;
+  retried: number;
+  dead: number;
 };
 
-export type TickReport = {
-  claimed: number;
-  completed: number;
-  failed: number;
-  unknown: number;
-};
+const emptyReport = (): DrainReport => ({ received: 0, acked: 0, retried: 0, dead: 0 });
 
 export function defaultWorkerId(): string {
   return `worker-${process.pid}-${randomUUID().slice(0, 8)}`;
 }
 
-/** Processa um lote de jobs. Retorna o que aconteceu (usado em testes). */
-export async function processOnce(options: WorkerOptions = {}): Promise<TickReport> {
-  const workerId = options.workerId ?? defaultWorkerId();
-  const jobs = await queue.claim({
-    workerId,
-    limit: options.batchSize ?? 5,
-    queues: options.queues,
-    leaseMs: options.leaseMs,
-  });
+/**
+ * Decide o destino de UMA mensagem e a encaminha. Não dá `ack` — quem
+ * recebeu (push ou pull) dá, depois que isto voltou sem erro.
+ */
+export async function handleDelivery(
+  queue: string,
+  raw: ConsumeMessage | GetMessage,
+  handlers: Handlers,
+): Promise<Outcome> {
+  const broker = await getBroker();
+  const envelope = readEnvelope(queue, raw);
 
-  const report: TickReport = { claimed: jobs.length, completed: 0, failed: 0, unknown: 0 };
+  if (!envelope) {
+    // Ilegível não melhora com retry: vai direto pro parking lot como veio.
+    logger.error("mensagem ilegível foi pra DLQ", { queue, messageId: raw.properties.messageId });
+    const n = names(queue, broker.config);
+    broker.publisher.publish(n.deadExchange, queue, raw.content, { ...raw.properties, persistent: true });
+    await broker.publisher.waitForConfirms();
+    return "dead";
+  }
 
-  for (const job of jobs) {
-    const handler = options.handlers?.[job.type] ?? getHandler(job.type);
+  const route = async (next: Envelope, to: "retry" | "dead", delayMs = 0): Promise<void> => {
+    await publishEnvelope(broker, next, to === "retry" ? { to, delayMs } : { to });
+    await broker.publisher.waitForConfirms();
+  };
 
-    if (!handler) {
-      report.unknown += 1;
-      logger.error("job sem handler", { jobId: job.id, type: job.type });
-      await queue.fail(job.id, `Nenhum handler registrado para "${job.type}"`);
-      continue;
+  const handler = handlers[envelope.type];
+  if (!handler) {
+    const error = `Nenhum handler registrado para "${envelope.type}" na fila ${queue}`;
+    logger.error("mensagem sem handler foi pra DLQ", { messageId: envelope.id, type: envelope.type });
+    await route({ ...envelope, lastError: error }, "dead");
+    return "dead";
+  }
+
+  const message: QueueMessage = {
+    id: envelope.id,
+    queue,
+    type: envelope.type,
+    payload: envelope.payload,
+    attempt: envelope.attempts + 1,
+    maxAttempts: envelope.maxAttempts,
+  };
+
+  try {
+    const result = await handler(message);
+    if (!result) return "acked";
+    const attempts = result.countAttempt === false ? envelope.attempts : envelope.attempts + 1;
+    if (attempts >= envelope.maxAttempts) {
+      await route({ ...envelope, attempts, lastError: "tentativas esgotadas" }, "dead");
+      return "dead";
+    }
+    await route({ ...envelope, attempts }, "retry", result.retryInMs);
+    return "retried";
+  } catch (error) {
+    const reason = errorMessage(error);
+    const fields = { messageId: envelope.id, type: envelope.type, attempt: message.attempt, error: reason };
+
+    if (!isRetryable(error) || message.attempt >= envelope.maxAttempts) {
+      await route({ ...envelope, attempts: message.attempt, lastError: reason }, "dead");
+      // Nível error de propósito: é a linha que um alerta de log filtra.
+      logger.error("mensagem foi pra DLQ", fields);
+      return "dead";
     }
 
-    try {
-      const result = await handler(job);
-      if (!result.settled) await queue.complete(job.id);
-      report.completed += 1;
-    } catch (error) {
-      report.failed += 1;
-      const message = errorMessage(error);
-      const outcome = await queue.fail(job.id, message);
-      const fields = { jobId: job.id, type: job.type, attempts: job.attempts, status: outcome.status, error: message };
-      // Dead-letter é nível error de propósito: é a linha que um alerta de log
-      // (Fly, Datadog…) filtra. Falha com tentativa sobrando é só aviso.
-      if (outcome.status === "dead") logger.error("job foi pra dead-letter", fields);
-      else logger.warn("job falhou", fields);
+    await route({ ...envelope, attempts: message.attempt, lastError: reason }, "retry", backoffMs(message.attempt));
+    logger.warn("mensagem falhou, vai tentar de novo", fields);
+    return "retried";
+  }
+}
+
+function count(report: DrainReport, outcome: Outcome): void {
+  report.received += 1;
+  report[outcome] += 1;
+}
+
+// ---------------------------------------------------------------------------
+// Pull: drena com orçamento de tempo (Vercel, testes)
+// ---------------------------------------------------------------------------
+
+export type DrainOptions = {
+  queues: string[];
+  handlers: Handlers;
+  /** Tempo máximo drenando. */
+  budgetMs?: number;
+  /** Teto de mensagens processadas numa chamada. */
+  maxMessages?: number;
+  /**
+   * Com tudo vazio, se ainda há mensagem nas filas de espera (retry em
+   * backoff), espera ela voltar em vez de sair — dentro do orçamento. É o que
+   * deixa o worker embutido levar um retry até o fim sem processo de pé.
+   *
+   * E só sai depois de `quietMs` sem nada pronto nem esperando: mensagem que
+   * OUTRO consumidor está segurando (pegou, ainda sem ack) não aparece em
+   * contagem nenhuma do broker, e pode virar retry daqui a pouco — é o caso
+   * da Vercel, onde o dreno da página do pedido corre junto do dreno do
+   * checkout.
+   */
+  waitForScheduled?: boolean;
+  /** Silêncio exigido antes de sair, no modo que espera. */
+  quietMs?: number;
+  /** Intervalo entre olhadas enquanto espera retry. */
+  idleMs?: number;
+};
+
+export async function drainQueues(options: DrainOptions): Promise<DrainReport> {
+  const budgetMs = options.budgetMs ?? 5_000;
+  const maxMessages = options.maxMessages ?? 500;
+  const startedAt = Date.now();
+  const report = emptyReport();
+  const elapsed = () => Date.now() - startedAt;
+  let quietSince: number | null = null;
+
+  const broker = await getBroker();
+  const channel = await broker.connection.createChannel();
+  try {
+    for (const queue of options.queues) await declareQueue(broker, queue);
+
+    while (elapsed() < budgetMs && report.received < maxMessages) {
+      // Handler grava mensagem nova na outbox (resposta, próximo passo): o
+      // relay roda a cada volta pra ela entrar no mesmo dreno.
+      await relayAll();
+
+      let got = 0;
+      for (const queue of options.queues) {
+        const raw = await channel.get(names(queue, broker.config).work, { noAck: false });
+        if (!raw) continue;
+        got += 1;
+        await settle(channel, raw, () => handleDelivery(queue, raw, options.handlers), report);
+      }
+      if (got > 0) {
+        quietSince = null;
+        continue;
+      }
+
+      if (!options.waitForScheduled) break;
+      const depths = await queueDepths(options.queues);
+      const soonest = depths
+        .map((depth) => depth.soonestRetryMs)
+        .filter((ms): ms is number => ms !== null)
+        .sort((a, b) => a - b)[0];
+      if (soonest === undefined) {
+        quietSince ??= Date.now();
+        if (Date.now() - quietSince >= (options.quietMs ?? 1_500)) break;
+      } else {
+        quietSince = null;
+        // Retry que só volta depois do orçamento: não adianta dormir por ele.
+        if (elapsed() + soonest > budgetMs) break;
+      }
+      await sleep(options.idleMs ?? 200);
     }
+  } finally {
+    await channel.close().catch(() => {});
   }
 
   return report;
 }
 
-/**
- * Drena a fila até não sobrar job pronto (ou até estourar o orçamento de
- * tempo). Útil no caminho inline e nos testes de integração.
- *
- * `waitForScheduled`: com a fila vazia, se o próximo job agendado (retry em
- * backoff) fica pronto dentro do orçamento, espera por ele em vez de sair —
- * é o que deixa o worker embutido na Vercel levar um retry até o fim sem
- * processo de longa duração.
- */
-export async function drainQueue(
-  options: WorkerOptions & { budgetMs?: number; maxTicks?: number; waitForScheduled?: boolean } = {},
-): Promise<TickReport> {
-  const budgetMs = options.budgetMs ?? 5_000;
-  const maxTicks = options.maxTicks ?? 50;
-  const startedAt = Date.now();
-  const total: TickReport = { claimed: 0, completed: 0, failed: 0, unknown: 0 };
-
-  for (let tick = 0; tick < maxTicks; tick += 1) {
-    if (Date.now() - startedAt > budgetMs) break;
-    const report = await processOnce(options);
-    total.claimed += report.claimed;
-    total.completed += report.completed;
-    total.failed += report.failed;
-    total.unknown += report.unknown;
-    if (report.claimed > 0) continue;
-
-    if (!options.waitForScheduled) break;
-    const next = await queue.nextScheduledAt(options.queues);
-    if (!next) break;
-    const waitMs = Math.max(0, next.getTime() - Date.now());
-    if (Date.now() - startedAt + waitMs > budgetMs) break;
-    // Pronto mas não pego = está com outro executor (ex.: o dreno da página que
-    // o redirect renderiza no mesmo request); um respiro e olha de novo.
-    await new Promise((resolve) => setTimeout(resolve, Math.max(waitMs, 250)));
+/** Processa e dá `ack`; se o encaminhamento falhar, devolve a mensagem pro broker. */
+async function settle(
+  channel: Channel,
+  raw: ConsumeMessage | GetMessage,
+  run: () => Promise<Outcome>,
+  report: DrainReport,
+): Promise<void> {
+  try {
+    count(report, await run());
+    channel.ack(raw);
+  } catch (error) {
+    // Não conseguiu nem encaminhar (broker caiu no meio): `nack` com requeue
+    // devolve a mensagem intacta — reentrega, não perda.
+    logger.error("falha ao encaminhar mensagem; devolvida ao broker", { error: errorMessage(error) });
+    try {
+      channel.nack(raw, false, true);
+    } catch {
+      // canal já fechado: o broker reentrega sozinho o que não teve ack
+    }
   }
-
-  return total;
 }
 
+// ---------------------------------------------------------------------------
+// Push: processo de longa duração
+// ---------------------------------------------------------------------------
+
+export type WorkerOptions = {
+  workerId?: string;
+  queues: string[];
+  handlers: Handlers;
+  /** Mensagens em processamento ao mesmo tempo, por fila. */
+  prefetch?: number;
+  /** Intervalo do relay da outbox. */
+  relayEveryMs?: number;
+  /** Tarefas periódicas extras (reconciliação, faxina). */
+  periodic?: Array<{ name: string; everyMs: number; run: () => Promise<unknown> }>;
+};
+
 export type WorkerHandle = {
-  /** Encerra o loop depois do tick atual. */
+  /** Para de consumir, espera o que está em processamento e fecha. */
   stop: () => void;
-  /** Promessa que resolve quando o loop terminou de verdade. */
   done: Promise<void>;
 };
 
-export function startWorker(options: WorkerOptions = {}): WorkerHandle {
+export function startWorker(options: WorkerOptions): WorkerHandle {
   const workerId = options.workerId ?? defaultWorkerId();
-  const pollMs = options.pollMs ?? 1_000;
-  const reconcileEveryMs = options.reconcileEveryMs ?? 30_000;
-
   let running = true;
   let wake: (() => void) | null = null;
 
@@ -149,40 +248,92 @@ export function startWorker(options: WorkerOptions = {}): WorkerHandle {
     wake?.();
   };
 
-  const sleep = (ms: number) =>
+  const sleepUnlessStopped = (ms: number) =>
     new Promise<void>((resolve) => {
-      const timer = setTimeout(() => {
-        wake = null;
-        resolve();
-      }, ms);
+      const timer = setTimeout(resolve, ms);
       wake = () => {
         clearTimeout(timer);
-        wake = null;
         resolve();
       };
     });
 
-  const done = (async () => {
-    logger.info("worker iniciado", { workerId, queues: options.queues ?? ["default"], pollMs });
-    let lastReconcile = 0;
+  /** Uma sessão: conecta, consome até a conexão cair ou pedirem pra parar. */
+  const session = async () => {
+    const broker = await getBroker();
+    const channel = await broker.connection.createChannel();
+    await channel.prefetch(options.prefetch ?? 5);
+    const inFlight = new Set<Promise<void>>();
+    const report = emptyReport();
 
+    const closed = new Promise<void>((resolve) => {
+      channel.on("close", resolve);
+      broker.connection.on("close", resolve);
+    });
+
+    const tags: string[] = [];
+    for (const queue of options.queues) {
+      await declareQueue(broker, queue);
+      const { consumerTag } = await channel.consume(names(queue, broker.config).work, (raw) => {
+        if (!raw) return; // consumidor cancelado pelo broker (fila apagada)
+        const task = settle(channel, raw, () => handleDelivery(queue, raw, options.handlers), report).finally(() =>
+          inFlight.delete(task),
+        );
+        inFlight.add(task);
+      });
+      tags.push(consumerTag);
+    }
+    logger.info("consumindo", { workerId, queues: options.queues, prefetch: options.prefetch ?? 5 });
+
+    const timers = startPeriodic(options, workerId);
+    await Promise.race([closed, new Promise<void>((resolve) => (wake = resolve))]);
+    for (const timer of timers) clearInterval(timer);
+
+    // Parada pedida: para de receber e termina o que já pegou (ack incluso).
+    for (const tag of tags) await channel.cancel(tag).catch(() => {});
+    await Promise.allSettled([...inFlight]);
+    await channel.close().catch(() => {});
+  };
+
+  const done = (async () => {
+    logger.info("worker iniciado", { workerId, queues: options.queues });
+    let failures = 0;
     while (running) {
       try {
-        if (options.reconcile !== false && Date.now() - lastReconcile >= reconcileEveryMs) {
-          lastReconcile = Date.now();
-          await reconcile();
-        }
-
-        const report = await processOnce({ ...options, workerId });
-        if (report.claimed === 0) await sleep(pollMs);
+        await session();
+        failures = 0;
       } catch (error) {
-        logger.error("tick do worker falhou", { workerId, error: errorMessage(error) });
-        await sleep(pollMs);
+        failures += 1;
+        logger.error("sessão com o broker caiu; reconectando", { workerId, error: errorMessage(error) });
       }
+      // Reconexão com backoff: broker reiniciando não vira laço apertado.
+      if (running) await sleepUnlessStopped(backoffMs(Math.max(1, failures), { baseMs: 1_000, maxMs: 30_000 }));
     }
-
     logger.info("worker encerrado", { workerId });
   })();
 
   return { stop, done };
+}
+
+function startPeriodic(options: WorkerOptions, workerId: string): NodeJS.Timeout[] {
+  const tasks = [
+    { name: "relay", everyMs: options.relayEveryMs ?? 500, run: () => relayAll() },
+    ...(options.periodic ?? []),
+  ];
+  return tasks.map((task) => {
+    let busy = false;
+    return setInterval(() => {
+      if (busy) return; // tarefa lenta não empilha execução
+      busy = true;
+      task
+        .run()
+        .catch((error) => logger.warn(`tarefa periódica falhou: ${task.name}`, { workerId, error: errorMessage(error) }))
+        .finally(() => {
+          busy = false;
+        });
+    }, task.everyMs);
+  });
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }

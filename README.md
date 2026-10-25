@@ -2,37 +2,42 @@
 
 Loja de peças de PC e serviços técnicos (montagem, manutenção, formatação e
 desenvolvimento de software), projetada e construída por **Flávio Victor** como
-projeto de portfólio. Por fora, uma identidade distópica fria e rigorosa; por
-baixo, um checkout orquestrado por **SAGA** com fila durável, compensação e
-reconciliação.
+projeto de portfólio. O foco técnico é o checkout: uma **SAGA** orquestrada
+sobre **RabbitMQ**, com outbox transacional, retentativa planejada, DLQ e
+compensação — o pedido nunca fica pela metade.
 
 **Demo:** <https://dystopia-wheat.vercel.app> — conta de cliente
 `cliente@dystopia.dev` / `cliente123`. Peças reais, preços fictícios, nada é
-cobrado.
+cobrado. No checkout, o modo demonstração deixa escolher o que o gateway
+responde (aprovar, recusar, instável, fora do ar) para ver a saga reagir.
 
 ![Home da loja](docs/screenshots/home.webp)
 
-## Em 30 segundos
+## Destaques
 
-- **Checkout que não deixa pedido pela metade.** Seis passos atômicos (estoque,
-  pagamento, cupom, confirmação, carrinho, aviso), cada um num serviço. Se um
-  falha de vez, os anteriores são desfeitos em ordem reversa.
-- **Fila durável no próprio Postgres**, sem broker: outbox, `SKIP LOCKED`,
-  lease, retry com backoff, dead-letter e reconciliação automática.
-- **Testado contra banco real**: compensação, retry, crash no meio do passo e
-  concorrência — e um teste de arquitetura que impede serviço de importar
-  serviço.
-- **Pronto pra ficar exposto**: limite de tentativas contado no banco, login
-  que não revela quais e-mails existem, CSRF e headers de segurança
-  ([detalhes](#segurança)).
-- Loja completa em volta: inventário de hardware com ficha técnica, busca,
-  carrinho persistente, cupons, avaliações com compra verificada, favoritos,
-  endereços e painel admin.
-- **Serviços com orçamento** (o foco da home): pedido registrado com protocolo
-  (`DYS-S000000`), acompanhado pelo admin em `/admin/orcamentos`.
-- **Portfólio** (`/portfolio`): os projetos públicos do GitHub, com capturas
-  reais quando dá pra mostrar sem inventar resultado e diagrama de arquitetura
-  quando não.
+- **Checkout em seis passos atômicos** (estoque, pagamento, cupom,
+  confirmação, carrinho, aviso), cada um num serviço. Se um falha de vez, os
+  anteriores são desfeitos em ordem reversa.
+- **RabbitMQ com outbox transacional**: a mensagem nasce no mesmo commit do
+  pedido e um relay publica com *publisher confirm*. Retry com backoff em
+  filas de espera (TTL + dead-letter exchange), DLQ com reprocessamento no
+  painel admin, reconciliação automática.
+- **Pagamentos em processo próprio**, falando com a saga só por mensagem;
+  cartão real pelo Stripe em modo de teste.
+- **Concorrência tratada no banco**: carrinho e cadastro são uma instrução
+  atômica (`INSERT … ON CONFLICT`), estoque sai com `UPDATE` condicional.
+- **Busca full-text** do Postgres (português, sem acento, por prefixo,
+  ordenada por relevância) com índice GIN; listagens paginadas.
+- **Testado de verdade**: unitários, integração contra Postgres e RabbitMQ
+  reais (broker fora, reconexão, consumidor que morre sem `ack`, estoque e
+  carrinho sob concorrência, migrations com dados antigos) e navegador com
+  Playwright em desktop e celular: compras (aprovada, recusada, instável, com
+  cupom), conta, carrinho, orçamento, admin, isolamento entre clientes e
+  acessibilidade (axe, WCAG 2.1 AA). Testes de arquitetura impedem serviço de
+  importar serviço, Server Action de escrever no banco e action do admin sem
+  checagem de papel.
+- **Pronto para ficar exposto**: CSP com nonce por request, limite de
+  tentativas no login, login que não revela quais e-mails existem.
 
 ## Telas
 
@@ -60,504 +65,115 @@ Os prints são gerados contra um banco populado só pelo seed, com pedidos feito
 pelo próprio fluxo da loja num navegador de verdade (Playwright) — o recusado
 usa o gateway simulado (`ALLOW_CHECKOUT_SIMULATION`).
 
-## Identidade visual
-
-O design system "DYSTOPIA" trata a marca como uma instituição que já é dona da
-cidade: contenção, disciplina, permanência. No código, isso vira regra:
-
-- **Cinco cores** (`globals.css`): obsidian e graphite no fundo, steel e bone
-  no neutro e **signal-red como cor de ação** — botões, faixas, índices, estado
-  ativo. Texto vermelho pequeno usa um tom mais claro (`signal-text`, 5,5:1) pra
-  passar contraste. Sem gradiente, brilho ou sombra; camadas se separam por régua.
-- **Cantos retos** em tudo (os raios do Tailwind são zerados no tema).
-- **Tipografia**: Michroma em caixa alta pra nomear, Inter Tight pra ler, IBM
-  Plex Mono pra código, serial, preço e rótulo — auto-hospedadas.
-- **Marca desenhada**, nunca digitada: o emblema "The Gate" e o nome vêm da
-  geometria original (`src/lib/brand-geometry.ts`, `src/components/Logo.tsx`).
-- **Voz** declarativa e sem exclamação ("A ordem é um serviço.", "Aquisição
-  registrada."). Estado é dito por palavra num rótulo, não só por cor.
-- **Imagens de produto**: foto real quando a Wikimedia Commons tem o **modelo
-  exato** sob licença livre (com crédito na página do produto e em `/creditos`);
-  senão, placa técnica gerada (`npm run art`). Nunca foto de outro modelo.
-- **Movimento** mecânico e curto: blocos revelados ao rolar, o emblema montado
-  na abertura (a vinheta do design system), faixa contínua, contadores e linha
-  vermelha no hover — tudo desligado com `prefers-reduced-motion`.
-
-O kit da linguagem gráfica (régua com índice, rótulo de classificação, botões,
-grade com régua, campos de formulário) mora em `src/components/Kit.tsx`.
-
-## Stack
-
-- **Framework**: Next.js 16 (App Router, Server Actions, TypeScript)
-- **Estilo**: Tailwind CSS v4
-- **Banco de dados**: PostgreSQL
-- **ORM**: [Drizzle ORM](https://orm.drizzle.team/) + `drizzle-kit` (migrations)
-- **Orquestração**: SAGA + fila, implementadas no projeto (sem broker externo)
-- **Testes**: `node:test` + `tsx` (254 testes, unitários e de integração)
-
-Dependências de runtime: `next`, `react`, `drizzle-orm`, `pg`, `jose`,
-`bcryptjs`, `dotenv`. Nada além disso — fila, orquestrador, logger e runner de
-teste são do projeto, de propósito (ver [Decisões](#decisões-técnicas)).
-
 ## Arquitetura
 
-### Camadas
-
 ```
-src/app, src/components     UI e rotas (Server Components)
-src/lib/actions             borda HTTP (Server Actions): valida entrada, nada de regra
-src/saga                    orquestração: ordem, retry, compensação, reconciliação
-src/services/*              regra de negócio — uma responsabilidade por serviço
-src/queue                   fila genérica: claim, backoff, dead-letter
-src/db                      schema Drizzle + pool
+app/ + components/     UI e rotas (Server Components)
+lib/actions            borda HTTP (Server Actions): valida (Zod) e chama o serviço
+saga/                  orquestração: ordem dos passos, retry, compensação
+services/*             regra de negócio, uma responsabilidade por serviço
+queue/                 outbox, relay, RabbitMQ, política de retry, DLQ
+db/                    schema Drizzle + migrations
 ```
 
-A dependência só aponta pra baixo (**borda → saga → serviços → db**) e isso é
-testado: `tests/unit/architecture.test.ts` falha se um serviço importar outro
-serviço, importar `next/*` ou conhecer a borda HTTP. É o que mantém cada
-serviço pronto pra ser extraído num processo separado sem reescrever regra.
-
-### O checkout como SAGA
-
-Antes, `placeOrder` fazia tudo numa transação só: pedido, pagamento, cupom,
-estoque, carrinho. Funciona — até o "pagamento" deixar de ser um `insert` e
-virar uma chamada HTTP pra um provedor, que não participa do `COMMIT`.
-
-Hoje o fluxo é:
-
-```
-placeOrder (Server Action)
-  └─ 1 transação: endereço + pedido(pending) + itens + saga + job   ← outbox
-         │
-         ├─ caminho rápido: o próprio request avança a saga até o
-         │                  pagamento (remoto) — a página do pedido mostra
-         │                  "processando" e se atualiza sozinha
-         └─ caminho durável: o worker pega o job da fila
-                            (se o processo do Next morrer, ele termina)
-
-            o lease da saga garante que só um dos dois avança por vez
-```
-
-| # | Passo | Serviço | Compensação |
-|---|---|---|---|
-| 1 | `reserve-stock` | `services/inventory` | devolve as unidades |
-| 2 | `authorize-payment` | `services/payments` — **processo próprio**, por mensagem | estorna a cobrança (também por mensagem) |
-| 3 | `consume-coupon` | `services/coupons` | devolve o uso do cupom |
-| 4 | `confirm-order` | `services/orders` | cancela o pedido |
-| 5 | `clear-cart` | `services/carts` | restaura os itens do carrinho |
-| 6 | `notify-customer` | `services/notifications` | — (só avisa) |
+A dependência só aponta para baixo (borda → saga → serviços → banco), e isso
+é verificado por teste. O caminho de um pedido:
 
 ```mermaid
 flowchart LR
-    S1[1 · reserva estoque] --> S2[2 · autoriza pagamento] --> S3[3 · consome cupom]
+    REQ(["request do checkout<br/>(responde depois do passo 1)"]) --> S1[1 · reserva estoque]
+    S1 -- "comando por mensagem<br/>(fila payments)" --> S2[2 · autoriza pagamento<br/>processo próprio]
+    S2 -- "resposta por mensagem<br/>(fila saga)" --> S3[3 · consome cupom]
     S3 --> S4[4 · confirma pedido] --> S5[5 · limpa carrinho] --> S6[6 · avisa cliente] --> OK([pedido pago])
 
     S3 -. falha permanente .-> C2[estorna cobrança]
     C2 -.-> C1[devolve estoque] -.-> X([pedido cancelado])
 
-    S3 -. falha transitória .-> Q[(fila: retry com backoff)]
-    Q -. até 3 tentativas .-> S3
+    S3 -. falha transitória .-> Q[(fila de espera<br/>TTL + DLX)]
+    Q -. "até 3 tentativas" .-> S3
 ```
 
-*Exemplo com falha no passo 3: só o que já foi aplicado (2 e 1) é desfeito, do
-mais recente pro mais antigo. Qualquer passo segue o mesmo padrão.*
+*As setas indicam ordem, não chamada síncrona: entre um passo e outro há uma
+mensagem durável. Nada é "fire and forget" — quando o request responde, pedido
+e mensagem já estão commitados juntos.*
 
-- **Falha de negócio** (sem estoque, pagamento recusado, cupom esgotado) →
-  compensa na hora, em ordem reversa, e o pedido vira `cancelled`.
-- **Falha transitória** (provedor fora, deadlock) → volta pra fila com backoff
-  exponencial, até 3 tentativas por passo; depois compensa.
-- O cliente vê isso em `/pedido/[orderNumber]`: pedido "em processamento" com a
-  linha do tempo dos passos (a página se atualiza sozinha), confirmado, ou
-  cancelado com o motivo.
+Detalhes em [`docs/SAGA-E-FILA.md`](docs/SAGA-E-FILA.md) (saga, fila,
+pagamentos, garantias, observabilidade) e
+[`docs/ARQUITETURA.md`](docs/ARQUITETURA.md) (invariantes e como estender).
 
-### Pagamentos em processo próprio
+## Stack
 
-O pagamento é o único passo que fala com o "mundo de fora" (o gateway), então
-é o que foi extraído: roda em outro processo (`npm run worker:payments`),
-consumindo a fila `payments`, e a saga fala com ele **só por mensagem**.
+Next.js 16 (App Router, Server Actions) · TypeScript · PostgreSQL + Drizzle ·
+RabbitMQ (`amqplib`) · Zod · Tailwind CSS v4 · `node:test` + Playwright.
 
-```
-saga ── payments.authorize ──▶ fila payments ──▶ processo de pagamentos
-saga ◀──── saga.reply ──────── fila default  ◀── cobrança + resposta (1 transação)
-```
+Orquestrador, relay da outbox, política de retry e logger são do projeto — é
+onde está o interesse do portfólio. O Stripe é chamado por `fetch`, sem SDK.
 
-- **Contrato** (`services/payments/contract.ts`): nomes dos comandos e formato
-  das mensagens. É tudo que o resto do sistema pode importar de pagamentos — o
-  teste de arquitetura falha se alguém importar a implementação.
-- **Endereço de resposta** (`queue/reply.ts`): o comando leva um `replyTo` e
-  pagamentos responde nele sem saber que existe uma saga.
-- **Outbox dos dois lados**: a saga grava o passo como `waiting` junto com o
-  comando; pagamentos grava a cobrança junto com a resposta.
-- **Resposta aplicada uma vez**: entrega é "pelo menos uma vez", então
-  `applyStepReply` só mexe em passo `waiting`; resposta repetida é no-op. Se a
-  resposta chega com a saga ocupada por outro executor, ela volta pra fila em
-  vez de se perder.
-- **Retry é de quem executa**: falha transitória volta pra fila `payments` com
-  backoff; esgotadas as tentativas, pagamentos **responde com falha** — a saga
-  compensa em vez de esperar pra sempre.
-- **Estorno também é comando**: a compensação espera a resposta do estorno
-  antes de desfazer o passo anterior.
-- **Serviço fora do ar**: a saga só espera (a reconciliação não a trata como
-  parada); passando de 5 min, o alerta de "saga parada" aparece no admin.
+## Rodando
 
-O preço: o pedido deixou de fechar dentro do request — a página mostra
-"processando" por ~1–2 s. E o banco ainda é compartilhado (cada serviço com as
-próprias tabelas); separar o banco seria o próximo passo, e o contrato por
-mensagem é o que torna isso possível sem mexer na saga.
-
-### Cartão pelo Stripe (modo de teste)
-
-Cartão é cobrado de verdade no **Stripe, em modo de teste** — nenhum valor real
-sai de lugar nenhum. Pix e boleto seguem no provedor simulado.
-
-```
-navegador ── Stripe Elements ──▶ Stripe          (número do cartão fica lá)
-navegador ── pm_… ─────────────▶ placeOrder      (só o token chega aqui)
-saga ── payments.authorize { pm_… } ──▶ processo de pagamentos ──▶ Stripe API
-```
-
-- **O cartão nunca passa pelo nosso servidor**: o campo é um iframe do Stripe
-  (Elements), que devolve um token `pm_…`. É o que tira o site do escopo de PCI.
-- **A chave secreta mora só no processo de pagamentos.** O app web conhece
-  apenas a chave pública — mais um ganho de ter extraído o serviço.
-- **Sem SDK**: duas chamadas REST (`payment_intents` com `confirm`, `refunds`)
-  via `fetch` (`services/payments/stripe.ts`).
-- **Idempotência ponta a ponta**: a chave do pedido vai no header
-  `Idempotency-Key`; retry nunca cobra duas vezes.
-- **Erro do Stripe → taxonomia da saga**: cartão recusado compensa na hora;
-  429, 5xx, erro de rede e `processing_error` voltam pra fila com backoff;
-  chave inválida é erro de configuração.
-- **Só chave de teste**: com `sk_live_`, o processo de pagamentos se recusa a
-  subir. Cobrar de verdade pediria webhooks, 3D Secure e conciliação.
-
-Pra testar: `4242 4242 4242 4242` aprova; `4000 0000 0000 0002` é recusado pelo
-Stripe e a saga desfaz a reserva de estoque. Qualquer validade futura e CVC.
-
-### E-mail de confirmação (Resend)
-
-O último passo da saga, `notify-customer`, só **grava** a notificação
-(`pending`) e enfileira a entrega — na mesma transação (outbox). O e-mail sai
-num job à parte (`notifications.deliver`): se saísse de dentro do passo e a
-transação desfizesse, o cliente receberia confirmação de um pedido que não
-existe.
-
-- **Idempotente**: a chave da notificação vai no header `Idempotency-Key` do
-  Resend; job reprocessado depois de um crash não manda dois e-mails.
-- **Falha transitória** (429, 5xx, rede) volta pra fila com backoff; esgotadas
-  as 5 tentativas, dead-letter (alerta no admin) e a notificação fica `failed`.
-  Recusa definitiva (endereço inválido) marca `failed` na hora.
-- **Modo sandbox** (`EMAIL_REDIRECT_TO`): numa demo pública qualquer um se
-  cadastra com o e-mail de outra pessoa, então todo e-mail vai pro dono do
-  projeto, com o destinatário original no assunto
-  (`[demo → cliente@…] Pedido … confirmado`). Com `RESEND_API_KEY` e sem o
-  redirecionamento, o worker se recusa a subir — entregar ao comprador exige
-  `EMAIL_DELIVER_TO_RECIPIENTS=1` (e um domínio verificado no Resend).
-- Sem `RESEND_API_KEY`, a entrega é simulada (só marca como enviada).
-
-`/admin/orquestracao` mostra cada notificação com o status da entrega e pra
-onde ela foi de fato.
-
-### Garantias (e como cada uma é obtida)
-
-| Garantia | Mecanismo |
-|---|---|
-| Nenhum pedido sem orquestração | **Outbox**: pedido + saga + job na mesma transação |
-| Passo nunca aplica pela metade | Passo e seu log (`saga_steps`) commitam juntos |
-| Passo nunca aplica duas vezes | Log `completed` é registro de idempotência; efeito externo usa chave (`payments.idempotency_key`) |
-| Nenhum job processado em paralelo | `claim` com `FOR UPDATE SKIP LOCKED` |
-| Nenhum job duplicado | Índice único **parcial** em `dedupe_key` para status ativos |
-| Worker morto não trava nada | *Lease* com prazo em saga e job + reconciliação |
-| Nada fica parado pra sempre | Reconciliação reenfileira saga em andamento sem job |
-| Sem venda sem estoque | `UPDATE ... WHERE stock_quantity >= quantidade` (0 linhas = erro permanente) |
-| Erro repetido não gira pra sempre | Tentativa contada antes de executar + dead-letter |
-| Resposta de serviço remoto não aplica duas vezes | Só passo `waiting` aceita resposta, com lock na linha do passo |
-
-Estado durável: `sagas` (instância), `saga_steps` (log por passo), `jobs`
-(fila). Tudo visível em **`/admin/orquestracao`**, com botão de reconciliação
-manual e reprocessamento da dead-letter.
-
-### Fluxo de sincronização
-
-O worker roda a reconciliação a cada 30s (ou `npm run reconcile` na mão):
-
-1. lease de saga vencido → libera, outro executor assume;
-2. job `running` com lease vencido → volta pra fila;
-3. saga em andamento **sem job ativo** → enfileira de novo.
-
-O item 3 é a garantia de progresso: por pior que seja o momento do crash,
-sempre volta a existir um job pra terminar a saga.
-
-### Observabilidade
-
-`/admin/orquestracao` abre com a **saúde** da operação (últimas 24 h ou 7
-dias), tudo agregado no Postgres com `GROUP BY` e percentis:
-
-- **taxa de conclusão** das sagas e **tempo até confirmar** (p50/p95 — percentil,
-  não média: um pedido que esperou o backoff aparece no p95 sem esconder o
-  caso típico);
-- **por passo**: execuções, quantas precisaram de retry, quantas falharam e a
-  duração (do primeiro início à conclusão, incluindo a espera entre tentativas);
-- **fila**: jobs prontos e há quanto tempo o mais antigo espera, com o mesmo
-  critério do `claim`.
-
-As métricas moram em `queue/metrics.ts` e `saga/metrics.ts`, genéricas como o
-resto dessas camadas. Os **alertas** são uma função pura
-(`lib/observability.ts`) e aparecem no topo de **toda** página do admin:
-
-| Alerta | Nível | Quando |
-|---|---|---|
-| Compensação falhou | crítico | saga em `failed`: algo aplicado não pôde ser desfeito |
-| Dead-letter | crítico | job esgotou as tentativas |
-| Fila atrasada | aviso | job pronto esperando mais de 60 s — worker parado? |
-| Saga parada | aviso | em andamento sem progresso há mais de 5 min |
-
-Pagamento recusado **não** alerta: é a saga funcionando (e, com o modo
-demonstração, seria ruído o dia inteiro). Alerta é pro que exige alguém agir.
-Fora do painel, o worker registra a ida pra dead-letter em nível `error` — com
-`LOG_FORMAT=json`, é a linha que um alerta de log da plataforma filtra.
-
-## Conta do cliente
-
-| Rota | O que faz |
-|---|---|
-| `/conta` | Dados da conta e histórico de pedidos (com o status real de cada um) |
-| `/conta/enderecos` | Agenda de endereços: cadastrar, definir padrão, remover |
-| `/favoritos` | Arquivo de favoritos ("Salvar" na vitrine e na página do produto) |
-
-- **Avaliações**: quem está logado avalia direto na página do produto (1 a 5
-  estrelas, título e comentário opcionais). Uma avaliação por pessoa por
-  produto — reenviar edita a sua. Quem já comprou o item ganha o selo *compra
-  verificada* (checado contra pedidos pagos), e a média/contagem do produto são
-  recalculadas na mesma transação da escrita.
-- **Endereços**: o endereço digitado no checkout entra na agenda, e os salvos
-  aparecem como opção no próximo pedido. Endereço usado em pedido não pode ser
-  removido (a FK é `RESTRICT` de propósito) — a interface explica em vez de
-  estourar erro.
-- **Favoritos**: o "Salvar" aparece em toda a vitrine com **uma** query por
-  request (React `cache()` + um componente de servidor que resolve o estado),
-  não uma por card.
-
-## Modelagem do banco
-
-19 tabelas: 15 do domínio (loja e serviços) + 4 da orquestração.
-
-| Domínio | Tabelas |
-|---|---|
-| Usuários | `users`, `addresses` |
-| Catálogo | `categories`, `products`, `product_images`, `product_variants` |
-| Carrinho | `carts`, `cart_items` |
-| Pedidos | `orders`, `order_items`, `payments`, `coupons` |
-| Social | `reviews`, `wishlist_items` |
-| Serviços | `service_requests` |
-| Orquestração | `sagas`, `saga_steps`, `jobs`, `notifications` |
-
-Decisões de design:
-
-- **Preços em centavos** (`integer`) em vez de float, pra evitar erro de arredondamento.
-- **Snapshots de preço** em `cart_items` e `order_items` — o preço do produto pode mudar depois da compra, então guardamos o valor no momento da operação.
-- **Ficha técnica em lista** (`products.specs` é `jsonb` com `[{ label, value }]`) — a ordem de exibição importa e cada categoria tem rótulos próprios (VRAM, soquete, TDP…).
-- **Variantes flexíveis** (`product_variants.attributes` é `jsonb`) — um produto pode ter tamanho, cor, ou nenhuma variação, sem precisar de colunas fixas pra cada atributo possível.
-- **Categorias hierárquicas** (`categories.parent_id` auto-referenciado) — dá pra ter subcategorias no futuro sem migrar o schema de novo.
-- **Carrinho de visitante** (`carts.session_token` nullable junto de `user_id` nullable) — permite carrinho antes do login.
-- **Status de pedido é máquina de estados** (`src/lib/order-status.ts`): "entregue → pendente" não existe, nem no admin nem na saga.
-- **Chave de idempotência no pagamento** (`payments.idempotency_key`, unique) — reexecutar o passo não cria segunda cobrança.
-- Ver o schema completo comentado em [`src/db/schema.ts`](./src/db/schema.ts).
-
-## Rodando localmente
+A stack inteira (banco, broker, migrations, app, worker e pagamentos):
 
 ```bash
-cp .env.example .env          # ajuste SESSION_SECRET (openssl rand -base64 32)
-npm install
-docker compose up -d          # Postgres 16 na porta 5544
-npm run db:migrate            # cria o schema
-npm run db:seed               # 28 peças, 10 categorias, usuários e cupom
-npm run dev                   # loja em http://localhost:3000
-npm run worker                # em outro terminal: processa a fila/sagas
-npm run worker:payments       # em outro terminal: processo de pagamentos
+docker compose --profile app up -d --build
+docker compose --profile app run --rm migrate npm run db:seed
+# loja em http://localhost:3000 · painel do RabbitMQ em http://localhost:15672
 ```
 
-O `docker-compose.yml` sobe só o banco (porta **5544** por padrão, pra não
-brigar com um Postgres que já exista na 5432; `POSTGRES_PORT=5600 docker
-compose up -d` muda isso). `docker compose down` para o banco preservando os
-dados; `down -v` apaga o volume.
+Para desenvolver, só a infraestrutura sobe em container:
 
-Sem Docker, basta apontar o `DATABASE_URL` pra qualquer Postgres 15+ e rodar
-os mesmos `db:migrate` / `db:seed`.
+```bash
+cp .env.example .env              # ajuste SESSION_SECRET
+npm install
+docker compose up -d              # Postgres (5544) + RabbitMQ (5672)
+npm run db:migrate && npm run db:seed
+npm run dev                       # app em http://localhost:3000
+npm run worker                    # outro terminal: filas saga e notifications
+npm run worker:payments           # outro terminal: processo de pagamentos
+```
 
-> Sem o worker a loja funciona: o checkout avança a saga no próprio request.
-> O worker é quem cuida de retry, reconciliação e dos pedidos que ficaram no
-> meio do caminho — em produção ele é obrigatório, como processo separado do
-> servidor web.
-
-### Credenciais de teste (após o seed)
-
-| Papel | Email | Senha |
-|---|---|---|
-| Admin | `admin@dystopia.dev` | `admin123` |
-| Cliente | `cliente@dystopia.dev` | `cliente123` |
-
-Essas senhas valem **só no banco local**. Contra um banco remoto o seed se
-recusa a rodar sem `SEED_ALLOW_REMOTE=1` e sem uma `SEED_ADMIN_PASSWORD` de
-pelo menos 16 caracteres — a senha de admin acima é pública, então nunca chega
-a produção.
-
-### Scripts úteis
-
-| Comando | O que faz |
-|---|---|
-| `npm run dev` | Servidor de desenvolvimento |
-| `npm run worker` | Worker da fila (sagas, retry, reconciliação) |
-| `npm run worker:payments` | Processo do serviço de pagamentos (fila `payments`) |
-| `npm run reconcile` | Roda a reconciliação uma vez e imprime o relatório |
-| `npm test` | Suíte completa (cria e migra o banco de teste sozinho) |
-| `npm run test:unit` | Só os testes que não precisam de banco |
-| `npm run lint` | ESLint |
-| `npm run db:generate` | Gera migration a partir de `src/db/schema.ts` |
-| `npm run db:migrate` | Aplica migrations pendentes |
-| `npm run db:studio` | Abre o Drizzle Studio (GUI do banco) |
-| `npm run db:seed` | Popula o banco com dados de exemplo |
-| `npm run art` | Regera as placas técnicas (SVG) de produtos e categorias |
-| `npm run art:portfolio` | Regera os diagramas de arquitetura do portfólio |
-| `npm run catalog:media` | Sincroniza só imagens e vitrine do catálogo (seguro em produção: não apaga contas) |
-
-## Deploy
-
-A demo pública roda **de graça**, em dois lugares:
-
-| Peça | Onde | Por quê |
-|---|---|---|
-| App web + worker embutido | **Vercel** (Hobby) | serverless; drena a fila depois dos requests (ver abaixo) |
-| Postgres | **Neon** (Free) | Postgres gerenciado; só acorda quando alguém usa o site |
-
-Os dois em US East (Neon `us-east-1`, Vercel `iad1`): cada página faz várias
-queries, e a distância até o banco pesa mais que a distância até o visitante.
-
-### Worker embutido (`INLINE_WORKER=1`)
-
-Um worker de pé (`npm run worker` num container) consultaria a fila a cada
-segundo — e banco serverless que recebe query a cada segundo nunca dorme: a
-cota grátis do Neon acaba no meio do mês. Então, na demo, ninguém fica de pé:
-
-- **o checkout** avança a saga até o pagamento (como sempre) e, depois de
-  responder (`after()`), drena a fila: pagamento, resposta, e-mail — e, se o
-  gateway oscilar, espera o retry em backoff (até 45 s, dentro do
-  `maxDuration` da rota);
-- **a página do pedido**, enquanto está "processando", empurra a fila a cada
-  atualização — se o dreno do checkout morrer no meio, ela termina;
-- **o painel de orquestração** reconcilia e drena quando é aberto;
-- **o cron diário** (`vercel.json` → `/api/cron/fila`, protegido por
-  `CRON_SECRET`) é a rede de segurança pro que nenhum request empurrou.
-
-O desenho não muda: o pedido continua nascendo com o job na mesma transação
-(outbox), pagamentos continua falando por mensagem (fila `payments`), e
-vários drenos ao mesmo tempo são seguros (`SKIP LOCKED` + lease na saga). Muda
-só **quem** executa a fila — `src/composition/worker.ts` monta os mesmos
-handlers pros dois executores. Com tráfego de verdade, o caminho é subir o
-`Dockerfile.worker` num container e desligar a flag.
-
-### 1. Neon — banco
-
-1. Novo projeto (plano **Free**), Postgres 18, região
-   **AWS US East 1 (N. Virginia)**.
-2. Em **Connect**, copie as duas strings de conexão:
-   - **pooled** (host com `-pooler`, PgBouncer em modo transação) — Vercel,
-     onde cada instância da função abre o próprio pool. O app não usa nada
-     que dependa de sessão (advisory lock, `LISTEN`, `SET`), então o modo
-     transação serve;
-   - **direta** (host sem `-pooler`) — migrations e seed, da sua máquina.
-
-   Nas duas, troque `sslmode=require` por `sslmode=verify-full`: é o que o
-   `pg` já faz hoje (verifica o certificado), e o `require` vai enfraquecer
-   numa versão futura do driver — ele avisa isso no log.
-3. Migre e popule uma vez, pela string **direta** (a senha de admin fica só
-   com você):
-
-   ```bash
-   export DATABASE_URL='<string direta do Neon>'
-   npm run db:migrate
-   SEED_ALLOW_REMOTE=1 SEED_ADMIN_PASSWORD="$(openssl rand -base64 24)" npm run db:seed
-   ```
-
-   Guarde a senha gerada num gerenciador antes — o seed não a imprime. Toda
-   migration nova depois disso: o mesmo `npm run db:migrate`, antes do deploy
-   que depende dela.
-
-### 2. Vercel — app
-
-1. **Add New → Project** → este repositório (framework detectado: Next.js).
-2. Variáveis de ambiente (Production):
-   - `DATABASE_URL` = a string **pooled** do Neon
-   - `SESSION_SECRET` = `openssl rand -base64 32` (novo, nunca o do `.env` local)
-   - `PG_POOL_MAX` = `3` (cada instância da função tem o próprio pool)
-   - `INLINE_WORKER` = `1` e `CRON_SECRET` = `openssl rand -base64 32`
-   - `ALLOW_CHECKOUT_SIMULATION` = `1` — liga o **modo demonstração** no
-     checkout (ver abaixo)
-   - Opcionais (sem elas, cartão e e-mail são simulados):
-     - `STRIPE_PUBLISHABLE_KEY` + `STRIPE_SECRET_KEY` — chaves de **teste**
-       (`pk_test_…`/`sk_test_…`). Com o worker embutido, pagamentos roda no
-       mesmo runtime do app, então a secreta vai pra Vercel também — por isso
-       só chave de teste é aceita.
-     - `RESEND_API_KEY` + `EMAIL_REDIRECT_TO` = **o e-mail da sua conta no
-       Resend** (modo sandbox: sem domínio próprio, o Resend só entrega pra
-       ele).
-     - `SERVICE_ALERT_TO` — quem recebe o aviso de cada pedido de orçamento
-       (gravado na mesma transação do pedido e entregue pela fila).
-3. Deploy. O `vercel.json` fixa as funções em `iad1` e registra o cron.
-4. Com o repositório conectado (Settings → Git, ou `vercel git connect`), cada
-   push na `main` publica sozinho. Migration nova continua manual: rode
-   `npm run db:migrate` contra o Neon **antes** do push que depende dela.
-5. **Analytics**: aba *Analytics* do projeto → *Enable* (grátis no Hobby). O
-   script já está no layout e só carrega na Vercel.
-
-Nunca reaproveite o `.env` local nem a senha `dystopia_dev_pw` do compose.
-
-**Modo demonstração.** Com `ALLOW_CHECKOUT_SIMULATION=1`, o checkout mostra um
-seletor pro visitante escolher o que o gateway responde — aprovar, recusar,
-instável ou fora do ar — e ver a saga compensar ou tentar de novo. É seguro
-porque nada é cobrado de verdade: o simulado não cobra, e o Stripe só aceita
-chave de teste. A falha é injetada antes do provedor. No dia em que houver
-cobrança real (chave de produção), a flag sai: cliente não pode escolher o
-resultado da própria cobrança. Os modos "instável" e "fora do ar" dependem de
-alguém drenar a fila (o retry sai dela): o worker de pé ou, na demo, o
-embutido.
+Contas do seed local: `admin@dystopia.dev` / `admin123` e
+`cliente@dystopia.dev` / `cliente123`. Contra banco remoto o seed se recusa a
+rodar sem confirmação explícita e senha de admin forte.
 
 ## Testes
 
 ```bash
-npm test          # 254 testes
-npm run test:unit # subconjunto sem banco
+npm test             # unitários + integração (Postgres e RabbitMQ reais)
+npm run test:unit    # só o que não precisa de banco
+npm run test:e2e     # navegador, contra a loja rodando (ver playwright.config.ts)
 ```
 
-`node:test` + `tsx`, sem framework extra. O runner (`tests/run.ts`) deriva o
-banco de teste do `DATABASE_URL` (`dystopia` → `dystopia_test`), cria e migra
-antes de rodar, e executa os arquivos em série.
+O runner cria e migra um banco próprio (`dystopia_test`) e isola as filas num
+prefixo próprio, com filas de espera de milissegundos — o retry passa de
+verdade pelo broker. Os testes verificam efeito, não chamada: depois de um
+caminho triste, a asserção é "o estoque voltou, a cobrança foi estornada, o
+pedido está cancelado".
 
-- **`tests/unit/`** — regra de cupom, backoff, validação de produto, máquina de
-  estados, payload da saga, taxonomia de erro e **fronteiras de arquitetura**.
-- **`tests/integration/`** — Postgres real: caminho feliz do checkout,
-  compensação (sem estoque, pagamento recusado, cupom esgotado), retry
-  transitório terminado **pelo worker**, idempotência (reexecução e retomada
-  pós-crash não duplicam efeito), concorrência da fila (`SKIP LOCKED`),
-  dead-letter, reconciliação, avaliações, favoritos, agenda de endereços,
-  catálogo (slug/SKU único, variantes) e administração de cupons.
+O CI (`.github/workflows/ci.yml`) roda tipos, lint, migrations em banco limpo,
+testes e build, e depois os testes de navegador contra a stack do compose.
 
-Os testes verificam **efeito**, não chamada: depois de um caminho triste, a
-asserção é "o estoque voltou, a cobrança foi estornada, o pedido está
-cancelado, o carrinho continua lá".
+## Decisões técnicas
 
-Para ver um caminho triste na mão, suba o app com
-`ALLOW_CHECKOUT_SIMULATION=1`: o checkout ganha o seletor do modo
-demonstração (recusar, instável, fora do ar).
+**SAGA em vez de uma transação só.** A transação cobre só o banco; pagamento,
+e-mail e integrações não fazem `ROLLBACK`. Cada passo é atômico e tem
+compensação explícita — em vez de pedido pago sem estoque ou estoque baixado
+sem cobrança.
 
-### CI
+**RabbitMQ com outbox.** A saga precisa de fila de trabalho: `ack` por
+mensagem, reentrega quando o consumidor morre, atraso para retry e DLQ — o
+modelo nativo do RabbitMQ. Kafka é um log (ótimo para stream com replay), sem
+`ack` por mensagem nem atraso nativo. E publicar a partir de uma transação
+exige outbox com qualquer broker; sem ela é *dual write*.
 
-`.github/workflows/ci.yml` roda a cada push/PR, com um Postgres de verdade
-como *service container*: tipos → lint → **migrations num banco limpo** →
-testes → build de produção. É a mesma sequência que vale localmente:
+**Drizzle.** SQL explícito e tipado a partir do schema, sem engine binária, e
+migrations geradas em SQL que dá para revisar — o que importa num projeto que
+depende de `FOR UPDATE SKIP LOCKED`, índice parcial, `NULLS NOT DISTINCT` e
+índice GIN sobre expressão.
 
-```bash
-npx tsc --noEmit && npm run lint && npm test && npm run build
-```
+**Serviços no mesmo deploy.** O custo de operar cada serviço separado não se
+paga aqui; o de não ter fronteira, sim. As fronteiras são reais (sem import
+cruzado, verificado por teste) e pagamentos já roda em processo próprio — o
+próximo passo seria banco próprio para ele.
 
 ## Segurança
 
@@ -565,7 +181,7 @@ O que protege a loja exposta na internet, e onde cada coisa mora:
 
 | Ameaça | Defesa |
 |---|---|
-| Força bruta de senha | Limite por IP no login (10 / 15 min) e no cadastro (5 / h), contado no Postgres com UPSERT atômico (`services/rate-limit`) — em serverless um contador em memória seria dividido entre instâncias |
+| Força bruta de senha | Limite por IP no login (10 / 15 min) e no cadastro (5 / h), contado no Postgres com UPSERT atômico (`services/rate-limit`) — em serverless um contador em memória seria dividido entre instâncias. O IP só vem de header escrito pela borda da Vercel ou pelo proxy do compose (`TRUST_PROXY_HEADERS`): o cliente não forja um contador novo |
 | Descobrir quais e-mails têm conta | Login responde a mesma mensagem e no mesmo tempo: e-mail inexistente compara contra um hash bcrypt real |
 | CSRF | Server Actions só aceitam POST e o Next compara `Origin` com `Host`; cookie `SameSite=lax` |
 | Sessão forjada | JWT HS256 em cookie `httpOnly`/`secure`; sem `SESSION_SECRET` o app não sobe |
@@ -579,83 +195,9 @@ trancaria a conta demo (cujo e-mail é público) errando a senha. O cadastro
 ainda diz "já existe uma conta com esse e-mail" — é a troca usual por uma
 mensagem útil, e o limite de 5 por hora torna a varredura impraticável.
 
-## Painel admin
+## Documentação
 
-Entre com o usuário admin do seed e acesse [`/admin`](http://localhost:3000/admin)
-(o link também aparece em `/conta`). Visitante ou cliente que tentar entrar é
-redirecionado pra `/entrar`, e as Server Actions do painel checam `role` antes
-de escrever.
-
-| Rota | O que faz |
-|---|---|
-| `/admin` | Receita, nº de pedidos, produtos ativos, estoque baixo + últimos pedidos |
-| `/admin/pedidos` | Todos os pedidos (cliente, data, itens, status, total) |
-| `/admin/pedidos/[orderNumber]` | Itens, totais, endereço, pagamento, troca de status e a saga do pedido |
-| `/admin/produtos` | Lista com preço/estoque e toggles de "ativo" e "destaque" |
-| `/admin/produtos/novo` · `/admin/produtos/[id]` | Criar e editar produto, com variantes (tamanho/cor, SKU, preço e estoque próprios) |
-| `/admin/cupons` · `/admin/cupons/novo` · `/admin/cupons/[id]` | Cupons: percentual ou valor fixo, pedido mínimo, limite de usos e validade |
-| `/admin/orquestracao` | Sagas, fila, dead-letter, notificações e reconciliação |
-
-## Decisões técnicas
-
-### Por que Drizzle em vez de Prisma?
-
-A ideia inicial era Prisma, mas o ambiente de build usado neste projeto bloqueia
-o download dos binários de engine do Prisma (`binaries.prisma.sh`). Drizzle é
-TypeScript puro — sem engine nativo — e resolve isso sem abrir mão de
-migrations tipadas e um query builder relacional forte. Em produção (Vercel,
-por exemplo) isso não seria um problema, mas Drizzle é uma escolha sólida de
-qualquer forma: mais leve, SQL-first, ótimo DX.
-
-### Por que SAGA, se dá pra fazer tudo numa transação?
-
-Porque a transação só cobre o que está no banco. Confirmação de pagamento,
-e-mail e integração com ERP/antifraude não fazem `ROLLBACK`. A saga troca
-"atomicidade" por "compensação": cada passo é atômico e reversível, e o
-fracasso tem um caminho de volta explícito e auditável — em vez de um pedido
-pago sem estoque, ou estoque baixado sem cobrança.
-
-### Por que fila no Postgres em vez de Kafka/RabbitMQ?
-
-O produtor da mensagem é sempre uma transação de negócio. Gravando o job na
-mesma transação (**outbox**), a entrega é garantida sem commit distribuído.
-Com broker externo, seria necessário outbox + relay de qualquer forma — ou seja,
-o Postgres entraria no caminho mesmo assim, só com uma peça de infra a mais pra
-operar. Em escala de portfólio (e de muitas lojas reais), `FOR UPDATE SKIP
-LOCKED` resolve: é a mesma técnica usada por filas como `pgmq` e `Que`.
-
-Quando valeria trocar: múltiplos consumidores independentes do mesmo evento,
-fan-out alto, retenção/replay de eventos, ou throughput que o Postgres não
-sustente. O desenho atual não impede a troca — `src/queue` é a única peça que
-muda; serviços e saga não sabem onde a mensagem trafega.
-
-### Por que "serviços" se tudo roda num deploy só?
-
-Porque o custo de operar 5 processos + broker não se paga neste projeto, mas o
-custo de **não ter fronteira** se paga rápido: é o que transforma um checkout em
-bola de barro. Então as fronteiras são reais (responsabilidade única, contrato
-explícito via `Executor`, proibição de import cruzado verificada por teste) e a
-separação física fica como passo seguinte, não como pré-requisito.
-
-Pra extrair um serviço: ele já não importa `next/*` nem outro serviço, então
-vira um processo que consome a mesma fila (ou expõe HTTP) e a saga passa a
-chamá-lo por rede, trocando só o `invoke`/`compensate` do passo.
-
-## Próximos passos
-
-- [x] Layout base (header, footer, identidade visual)
-- [x] Catálogo, busca e página de produto
-- [x] Carrinho persistente (`carts`/`cart_items`)
-- [x] Autenticação (login/cadastro)
-- [x] Checkout + criação de pedido
-- [x] Painel admin (produtos/pedidos)
-- [x] SAGA + fila + compensação + reconciliação
-- [x] Gateway de pagamento real: cartão pelo Stripe (modo de teste)
-- [x] E-mail de verdade no passo `notify-customer` (Resend, por outbox, com modo sandbox)
-- [x] Avaliações e lista de desejos na interface
-- [x] Agenda de endereços reaproveitada no checkout
-- [x] Admin de cupons e de variantes
-- [x] Observabilidade: métricas de fila/saga e alertas no admin
-- [x] Extrair `payments` pra um serviço próprio consumindo a fila
-- [x] Pivô pra loja de hardware + serviços técnicos, com identidade visual própria
-- [ ] Banco próprio pro serviço de pagamentos (hoje: tabelas próprias, banco compartilhado)
+- [`docs/SAGA-E-FILA.md`](docs/SAGA-E-FILA.md) — checkout, fila, pagamentos, garantias e observabilidade
+- [`docs/ARQUITETURA.md`](docs/ARQUITETURA.md) — camadas, invariantes, convenções e como estender
+- [`docs/DEPLOY.md`](docs/DEPLOY.md) — Vercel + Neon + CloudAMQP, custo zero
+- [`docs/FUNCIONALIDADES.md`](docs/FUNCIONALIDADES.md) — identidade visual, conta, painel admin e modelagem do banco

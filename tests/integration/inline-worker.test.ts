@@ -1,31 +1,36 @@
 /**
  * Worker embutido (deploy só-Vercel): sem processo de fila de pé, uma rodada
  * de `runInlineWorker` depois do request tem que levar o pedido até o fim —
- * pagamento remoto, resposta, e-mail e, se o gateway oscilar, o retry em
- * backoff (que a rodada espera, em vez de largar pra um worker que não existe).
+ * outbox publicada, pagamento remoto, resposta, e-mail e, se o gateway
+ * oscilar, o retry que passa pela fila de espera do RabbitMQ (que a rodada
+ * espera, em vez de largar pra um worker que não existe).
  */
 
 import assert from "node:assert/strict";
 import { after, beforeEach, describe, it } from "node:test";
-import { eq, inArray } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { runInlineWorker } from "@/composition/worker";
 import { db } from "@/db";
-import { jobs, notifications, orders } from "@/db/schema";
-import * as queue from "@/queue";
-import { drainQueue } from "@/queue/worker";
+import { notifications, orders } from "@/db/schema";
+import { enqueue } from "@/queue";
+import { getBroker, names, purgeQueues } from "@/queue/broker";
+import { relayOutbox } from "@/queue/relay";
+import { drainQueues } from "@/queue/worker";
 import { tryRunSagaInline } from "@/saga/runner";
 import { closeDatabase, resetDatabase, seedCheckoutFixture } from "../helpers/db";
 import { startCheckout } from "../helpers/checkout";
+import { IDLE, pendingWork } from "../helpers/saga";
 
 // Entrega de e-mail simulada mesmo que o .env tenha a chave do Resend.
 delete process.env.RESEND_API_KEY;
 
-beforeEach(resetDatabase);
-after(closeDatabase);
+const Q = "teste";
 
-async function activeJobs() {
-  return db.query.jobs.findMany({ where: inArray(jobs.status, ["queued", "running", "failed"]) });
-}
+beforeEach(async () => {
+  await resetDatabase();
+  await purgeQueues([Q]);
+});
+after(closeDatabase);
 
 /** O que o placeOrder faz no request: avança até o passo remoto e para. */
 async function checkoutRequest(simulate?: "flaky_once" | "decline") {
@@ -35,73 +40,77 @@ async function checkoutRequest(simulate?: "flaky_once" | "decline") {
   return checkout;
 }
 
+const orderStatus = async (orderId: string) =>
+  (await db.query.orders.findFirst({ where: eq(orders.id, orderId) }))?.status;
+
 describe("worker embutido", () => {
   it("uma rodada depois do request fecha o pedido e entrega o e-mail", async () => {
     const checkout = await checkoutRequest();
     // O request parou no pagamento (remoto): sem worker, ficaria assim pra sempre.
-    assert.equal((await db.query.orders.findFirst({ where: eq(orders.id, checkout.orderId) }))?.status, "pending");
+    assert.equal(await orderStatus(checkout.orderId), "pending");
 
     await runInlineWorker({ budgetMs: 10_000, waitForScheduled: true });
 
-    const order = await db.query.orders.findFirst({ where: eq(orders.id, checkout.orderId) });
-    assert.equal(order?.status, "paid");
+    assert.equal(await orderStatus(checkout.orderId), "paid");
     const [notification] = await db.select().from(notifications);
     assert.equal(notification?.status, "sent");
-    assert.deepEqual(await activeJobs(), [], "nada sobra pra um worker que não existe");
+    assert.deepEqual(await pendingWork(), IDLE, "nada sobra pra um worker que não existe");
   });
 
-  it("espera o retry em backoff do pagamento em vez de largar a fila", async () => {
+  it("espera o retry do pagamento voltar da fila de espera em vez de largar a fila", async () => {
     const checkout = await checkoutRequest("flaky_once");
 
     const report = await runInlineWorker({ budgetMs: 15_000, waitForScheduled: true });
 
-    assert.ok(report.failed >= 1, "a primeira tentativa do gateway falhou");
-    const order = await db.query.orders.findFirst({ where: eq(orders.id, checkout.orderId) });
-    assert.equal(order?.status, "paid");
-    assert.deepEqual(await activeJobs(), []);
+    assert.ok(report.retried >= 1, "a primeira tentativa do gateway falhou");
+    assert.equal(await orderStatus(checkout.orderId), "paid");
+    assert.deepEqual(await pendingWork(), IDLE);
   });
 
   it("sem waitForScheduled, larga o retry pra próxima rodada (e a próxima termina)", async () => {
     const checkout = await checkoutRequest("flaky_once");
 
     await runInlineWorker({ budgetMs: 15_000 });
-    assert.equal((await db.query.orders.findFirst({ where: eq(orders.id, checkout.orderId) }))?.status, "pending");
-    const pending = await queue.nextScheduledAt(["default", "payments"]);
-    assert.ok(pending && pending.getTime() > Date.now() - 1_000, "o retry ficou agendado");
+    assert.equal(await orderStatus(checkout.orderId), "pending");
+    assert.equal((await pendingWork()).retrying, 1, "o retry ficou na fila de espera do broker");
 
     await runInlineWorker({ budgetMs: 15_000, waitForScheduled: true });
-    assert.equal((await db.query.orders.findFirst({ where: eq(orders.id, checkout.orderId) }))?.status, "paid");
+    assert.equal(await orderStatus(checkout.orderId), "paid");
   });
 
-  it("não desiste enquanto outro executor segura um job que pode virar retry", async () => {
+  it("não desiste enquanto outro consumidor segura uma mensagem que pode voltar", async () => {
     // O caso da Vercel: o redirect do placeOrder renderiza a página do pedido
-    // no mesmo request, e o dreno dela (que não espera) pega o pagamento antes
-    // do dreno do checkout. Se este saísse por ver a fila "vazia", o retry
-    // ficava órfão.
-    await queue.enqueue(db, { type: "teste.instavel", payload: {} });
-    const [held] = await queue.claim({ workerId: "outro-executor" });
-    assert.ok(held);
+    // no mesmo request, e o dreno dela pega o pagamento antes do dreno do
+    // checkout. Mensagem sem ack não aparece em contagem nenhuma do broker;
+    // se este saísse por ver tudo "vazio", ela ficava órfã.
+    await enqueue(db, { type: "teste.instavel", queue: Q });
+    await relayOutbox();
+    const broker = await getBroker();
+    const other = await broker.connection.createChannel();
+    assert.ok(await other.get(names(Q, broker.config).work, { noAck: false }), "o outro executor pegou");
 
     let handled = 0;
-    const drain = drainQueue({
+    const drain = drainQueues({
+      queues: [Q],
       budgetMs: 5_000,
       waitForScheduled: true,
-      handlers: { "teste.instavel": async () => ((handled += 1), { settled: false }) },
+      handlers: { "teste.instavel": async () => void (handled += 1) },
     });
     await new Promise((resolve) => setTimeout(resolve, 400));
-    await queue.fail(held.id, "gateway instável", { runAt: new Date(Date.now() + 300) });
+    await other.close(); // o outro executor morreu sem ack: a mensagem volta
 
     const report = await drain;
-    assert.equal(handled, 1, "o dreno que espera pegou o retry");
-    assert.equal(report.completed, 1);
-    assert.deepEqual(await activeJobs(), []);
+    assert.equal(handled, 1, "o dreno que espera pegou a mensagem");
+    assert.equal(report.acked, 1);
   });
 
-  it("não espera retry que cai fora do orçamento", async () => {
-    await queue.enqueue(db, { type: "teste.noop", runAt: new Date(Date.now() + 60_000), payload: {} });
+  it("não espera retry que só volta depois do orçamento", async () => {
+    // Fila de espera de 400 ms, orçamento de 200 ms.
+    await enqueue(db, { type: "teste.noop", queue: Q, delayMs: 400 });
+    await relayOutbox();
 
     const startedAt = Date.now();
-    await drainQueue({ budgetMs: 2_000, waitForScheduled: true, handlers: {} });
-    assert.ok(Date.now() - startedAt < 1_500, "saiu na hora em vez de dormir até o job");
+    await drainQueues({ queues: [Q], budgetMs: 200, waitForScheduled: true, handlers: {} });
+    assert.ok(Date.now() - startedAt < 350, "saiu em vez de dormir até o retry");
   });
 });

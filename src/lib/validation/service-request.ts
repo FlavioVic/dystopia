@@ -1,27 +1,13 @@
 /**
- * Validação do pedido de orçamento (/servicos). Função pura — arquivo
- * `"use server"` só exporta async, então a regra mora aqui e é testada à parte.
+ * Pedido de orçamento (/servicos).
  */
 
+import { z } from "zod";
 import { isServiceKind, type ServiceKind } from "@/lib/services-catalog";
+import { email, formStrings, parseForm } from "./form";
 
 export const MIN_DETAILS_LENGTH = 20;
 export const MAX_DETAILS_LENGTH = 2_000;
-
-export type ServiceRequestValues = {
-  kind: ServiceKind | "";
-  name: string;
-  email: string;
-  phone: string | null;
-  details: string;
-};
-
-export type ServiceRequestParse = {
-  errors: Record<string, string>;
-  values: ServiceRequestValues;
-};
-
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /** Telefone brasileiro: DDD + 8 ou 9 dígitos. Guarda só os dígitos. */
 export function normalizePhone(raw: string): string | null {
@@ -29,28 +15,32 @@ export function normalizePhone(raw: string): string | null {
   return /^\d{10,11}$/.test(digits) ? digits : null;
 }
 
-export function parseServiceRequestForm(formData: FormData): ServiceRequestParse {
-  const field = (name: string) => String(formData.get(name) ?? "").trim();
-  const kindRaw = field("kind");
-  const name = field("name").replace(/\s+/g, " ");
-  const email = field("email").toLowerCase();
-  const phoneRaw = field("phone");
-  const details = field("details");
+const serviceRequestSchema = z.object({
+  kind: z
+    .string()
+    .trim()
+    .refine((value): value is ServiceKind => isServiceKind(value), "Selecione o serviço.")
+    .transform((value) => value as ServiceKind),
+  name: z.string().trim().transform((value) => value.replace(/\s+/g, " ")).pipe(z.string().min(2, "Informe seu nome.")),
+  email: email("E-mail inválido."),
+  phone: z.string().transform((value, ctx) => {
+    if (!value.trim()) return null;
+    const phone = normalizePhone(value);
+    if (!phone) {
+      ctx.addIssue("Telefone inválido. Use DDD + número.");
+      return z.NEVER;
+    }
+    return phone;
+  }),
+  details: z
+    .string()
+    .trim()
+    .min(MIN_DETAILS_LENGTH, `Descreva a necessidade em pelo menos ${MIN_DETAILS_LENGTH} caracteres.`)
+    .max(MAX_DETAILS_LENGTH, `Máximo de ${MAX_DETAILS_LENGTH} caracteres.`),
+});
 
-  const errors: Record<string, string> = {};
-  const kind = isServiceKind(kindRaw) ? kindRaw : "";
-  if (!kind) errors.kind = "Selecione o serviço.";
-  if (name.length < 2) errors.name = "Informe seu nome.";
-  if (!EMAIL_RE.test(email)) errors.email = "E-mail inválido.";
+export type ServiceRequestValues = z.output<typeof serviceRequestSchema>;
 
-  const phone = phoneRaw ? normalizePhone(phoneRaw) : null;
-  if (phoneRaw && !phone) errors.phone = "Telefone inválido. Use DDD + número.";
-
-  if (details.length < MIN_DETAILS_LENGTH) {
-    errors.details = `Descreva a necessidade em pelo menos ${MIN_DETAILS_LENGTH} caracteres.`;
-  } else if (details.length > MAX_DETAILS_LENGTH) {
-    errors.details = `Máximo de ${MAX_DETAILS_LENGTH} caracteres.`;
-  }
-
-  return { errors, values: { kind, name, email, phone, details } };
+export function parseServiceRequestForm(formData: FormData) {
+  return parseForm(serviceRequestSchema, formStrings(formData, ["kind", "name", "email", "phone", "details"]));
 }

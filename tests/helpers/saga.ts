@@ -1,23 +1,30 @@
 /**
  * Roda uma saga como produção roda: o avanço no request (inline) e depois os
- * workers das duas filas — `default` (saga) e `payments` (processo de
- * pagamentos) — até ela terminar.
+ * consumidores do RabbitMQ — `saga`, `payments` (processo de pagamentos) e
+ * `notifications` — até ela terminar.
  *
- * Adianta o relógio dos jobs agendados (backoff) pra o teste não esperar.
+ * Nada de relógio adiantado: o retry passa de verdade pelas filas de espera
+ * do broker, só que com TTL de milissegundos (o runner configura). O backoff
+ * de passo da saga (lease segurado até o retry) é real também: ~1 s.
  */
 
-import { eq, inArray } from "drizzle-orm";
+import { eq, isNull } from "drizzle-orm";
+import { ALL_QUEUES } from "@/composition/worker";
 import { db } from "@/db";
-import { jobs, sagas } from "@/db/schema";
-import { DEFAULT_QUEUE } from "@/queue";
-import { processOnce, type TickReport } from "@/queue/worker";
+import { outbox, sagas } from "@/db/schema";
+import { queueDepths } from "@/queue/broker";
+import { sagaHandlers } from "@/queue/handlers";
+import { drainQueues, type DrainReport } from "@/queue/worker";
+import { SAGA_QUEUE } from "@/saga/messaging";
 import { runSagaInline } from "@/saga/runner";
-import { PAYMENTS_QUEUE } from "@/services/payments/contract";
 import { createNotificationHandlers } from "@/services/notifications/delivery";
+import { NOTIFICATIONS_QUEUE } from "@/services/notifications";
 import { paymentHandlers } from "@/services/payments/consumer";
+import { PAYMENTS_QUEUE } from "@/services/payments/contract";
 
 // Entrega de e-mail sempre simulada nos testes — mesmo com RESEND_API_KEY no .env.
-const handlers = {
+export const testHandlers = {
+  ...sagaHandlers,
   ...paymentHandlers,
   ...createNotificationHandlers({ email: null, fetch: () => Promise.reject(new Error("rede proibida em teste")) }),
 };
@@ -26,33 +33,55 @@ export type SagaRow = typeof sagas.$inferSelect;
 
 const TERMINAL = ["completed", "compensated", "failed"];
 
-/** Um tick de worker numa fila (ou nas duas), com os handlers de pagamento. */
-export async function work(queue: "default" | "payments" | "all" = "all"): Promise<TickReport> {
-  const queues = queue === "all" ? [DEFAULT_QUEUE, PAYMENTS_QUEUE] : [queue === "default" ? DEFAULT_QUEUE : PAYMENTS_QUEUE];
-  return processOnce({ workerId: "worker-de-teste", queues, handlers, batchSize: 10 });
+const QUEUES = { saga: SAGA_QUEUE, payments: PAYMENTS_QUEUE, notifications: NOTIFICATIONS_QUEUE } as const;
+
+/**
+ * Publica a outbox e consome o que estiver PRONTO numa fila (ou em todas),
+ * sem esperar retry. Devolve o que aconteceu.
+ */
+export async function work(queue: keyof typeof QUEUES | "all" = "all"): Promise<DrainReport> {
+  const queues = queue === "all" ? ALL_QUEUES : [QUEUES[queue]];
+  return drainQueues({ queues, handlers: testHandlers, budgetMs: 5_000 });
 }
 
-/** Faz os jobs agendados pro futuro (backoff) ficarem prontos agora. */
-export async function fastForwardJobs(): Promise<void> {
-  await db.update(jobs).set({ runAt: new Date() }).where(inArray(jobs.status, ["queued", "failed"]));
+/** Espera as mensagens das filas de espera (retry) voltarem pra fila de trabalho. */
+export async function waitForRetries(timeoutMs = 3_000): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const waiting = (await queueDepths(ALL_QUEUES)).reduce((sum, depth) => sum + depth.retrying, 0);
+    if (waiting === 0) return;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  throw new Error("mensagens presas nas filas de espera");
 }
 
-export async function settleSaga(sagaId: string, options: { inline?: boolean; maxTicks?: number } = {}): Promise<SagaRow> {
+export async function settleSaga(sagaId: string, options: { inline?: boolean; timeoutMs?: number } = {}): Promise<SagaRow> {
   if (options.inline !== false) await runSagaInline(sagaId);
 
-  for (let tick = 0; tick < (options.maxTicks ?? 40); tick += 1) {
+  const deadline = Date.now() + (options.timeoutMs ?? 15_000);
+  while (Date.now() < deadline) {
     const saga = await db.query.sagas.findFirst({ where: eq(sagas.id, sagaId) });
     if (!saga) throw new Error(`saga ${sagaId} sumiu`);
     if (TERMINAL.includes(saga.status)) return saga;
 
-    await fastForwardJobs();
-    await work("all");
+    const report = await work("all");
+    if (report.received === 0) await new Promise((resolve) => setTimeout(resolve, 50));
   }
 
-  throw new Error(`saga ${sagaId} não terminou — workers parados ou passo esperando pra sempre`);
+  throw new Error(`saga ${sagaId} não terminou — consumidores parados ou passo esperando pra sempre`);
 }
 
 /** Código de erro gravado em `lastError` ("payment_declined: ..."). */
 export function lastErrorCode(saga: SagaRow): string | null {
   return saga.lastError?.split(":")[0] ?? null;
 }
+
+/** O que ainda falta fazer em algum lugar: outbox não publicada e filas do broker. */
+export async function pendingWork(): Promise<{ outbox: number; ready: number; retrying: number; dead: number }> {
+  const depths = await queueDepths(ALL_QUEUES);
+  const sum = (key: "ready" | "retrying" | "dead") => depths.reduce((total, depth) => total + depth[key], 0);
+  const unpublished = await db.select({ id: outbox.id }).from(outbox).where(isNull(outbox.publishedAt));
+  return { outbox: unpublished.length, ready: sum("ready"), retrying: sum("retrying"), dead: sum("dead") };
+}
+
+export const IDLE = { outbox: 0, ready: 0, retrying: 0, dead: 0 };

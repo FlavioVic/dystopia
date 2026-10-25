@@ -38,7 +38,8 @@ function productImage(slug: string) {
   return `/images/products/${slug}.svg`;
 }
 
-const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
+// `db` é o serviço do docker-compose: só existe na rede interna do Docker.
+const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "[::1]", "db"]);
 
 /**
  * O seed apaga tudo e cria um admin. Contra o banco local isso é conveniência;
@@ -78,7 +79,7 @@ async function main() {
   console.log("🧹 Limpando tabelas...");
   await db.execute(sql`
     TRUNCATE TABLE
-      service_requests, notifications, saga_steps, sagas, jobs,
+      service_requests, notifications, saga_steps, sagas, outbox,
       wishlist_items, reviews, payments, order_items, orders,
       cart_items, carts, coupons, product_variants, product_images,
       products, categories, addresses, users

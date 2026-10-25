@@ -1,14 +1,17 @@
 /**
- * Utilidades de banco pros testes de integração.
+ * Utilidades de banco (e de broker) pros testes de integração.
  *
- * Usa o MESMO `db` da aplicação (o runner aponta `DATABASE_URL` pro banco de
- * teste antes de subir o processo), então o que os testes exercitam é o código
- * de produção de verdade — não um mock.
+ * Usa o MESMO `db` e o MESMO RabbitMQ da aplicação (o runner aponta
+ * `DATABASE_URL` pro banco de teste e `RABBITMQ_PREFIX` pras filas de teste
+ * antes de subir o processo), então o que os testes exercitam é o código de
+ * produção de verdade — não um mock.
  */
 
 import { randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
+import { ALL_QUEUES } from "@/composition/worker";
 import { db, pgPool } from "@/db";
+import { closeBroker, purgeQueues } from "@/queue/broker";
 import {
   cartItems,
   carts,
@@ -25,7 +28,7 @@ const TABLES = [
   "notifications",
   "saga_steps",
   "sagas",
-  "jobs",
+  "outbox",
   "wishlist_items",
   "service_requests",
   "reviews",
@@ -45,9 +48,11 @@ const TABLES = [
 
 export async function resetDatabase(): Promise<void> {
   await db.execute(sql.raw(`truncate table ${TABLES.join(", ")} restart identity cascade`));
+  await purgeQueues(ALL_QUEUES);
 }
 
 export async function closeDatabase(): Promise<void> {
+  await closeBroker();
   await pgPool.end();
 }
 

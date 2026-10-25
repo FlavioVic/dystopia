@@ -1,9 +1,9 @@
 # Worker da fila (sagas) — processo separado do servidor web.
 #
 # O app web vai pra Vercel (serverless, sem processo de longa duração); o
-# worker precisa ficar vivo fazendo polling na fila, então roda como container
+# worker precisa ficar vivo consumindo o RabbitMQ, então roda como container
 # (Fly.io, Render…). Mesmo repo, mesmo código: só muda o entrypoint. A demo
-# pública dispensa o container: ver INLINE_WORKER no README › Deploy.
+# pública dispensa o container: ver INLINE_WORKER em docs/DEPLOY.md.
 #
 #   docker build -f Dockerfile.worker -t dystopia-worker .
 #   docker run --env-file .env dystopia-worker
@@ -22,11 +22,12 @@ COPY drizzle ./drizzle
 COPY src ./src
 
 ENV NODE_ENV=production
-# Um container só consome a fila da saga E a de pagamentos — sem isso, um
-# deploy que esquecesse a variável deixaria todo pedido "processando". Pra
-# pagamentos em serviço próprio: WORKER_QUEUES=default aqui e um segundo
-# serviço com `npx tsx src/scripts/payments-worker.ts`.
-ENV WORKER_QUEUES=default,payments
+# Um container só consome as três filas (saga, e-mail e pagamentos) — sem
+# isso, um deploy que esquecesse a variável deixaria todo pedido
+# "processando". Pra pagamentos em serviço próprio:
+# WORKER_QUEUES=saga,notifications aqui e um segundo serviço com
+# `npx tsx src/scripts/payments-worker.ts`. RABBITMQ_URL é obrigatória.
+ENV WORKER_QUEUES=saga,notifications,payments
 USER node
 
 # SIGTERM chega direto no node (sem npm no meio), e o worker termina o tick

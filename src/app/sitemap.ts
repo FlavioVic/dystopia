@@ -1,12 +1,13 @@
 import type { MetadataRoute } from "next";
-import { getAllProducts, getCategories } from "@/lib/data/products";
+import { getCategories, getProductSitemapEntries } from "@/lib/data/products";
 import { SITE_URL } from "@/lib/site";
 
-// Gerado no build e refeito a cada hora: produto novo entra sem novo deploy.
-export const revalidate = 3600;
+// Gerado na hora: o build não depende do banco (imagem Docker, deploy com o
+// banco fora), e a consulta é leve — só slug e data dos produtos ativos.
+export const dynamic = "force-dynamic";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const [categories, products] = await Promise.all([getCategories(), getAllProducts()]);
+  const [categories, products] = await Promise.all([getCategories(), getProductSitemapEntries()]);
   const now = new Date();
   const page = (path: string, priority: number, changeFrequency: "weekly" | "monthly" = "monthly") => ({
     url: `${SITE_URL}${path}`,
