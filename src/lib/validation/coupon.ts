@@ -45,7 +45,7 @@ const common = {
   maxUsage: z
     .string()
     .transform((value) => value.trim())
-    .pipe(z.union([z.literal("").transform(() => null), wholeNumber("Deixe vazio pra ilimitado, ou informe 1 ou mais.", 1)])),
+    .pipe(z.union([z.literal("").transform(() => null), wholeNumber("Deixe vazio para ilimitado, ou informe 1 ou mais.", 1)])),
   validFrom: dateInput(() => new Date()),
   validUntil: dateInput(() => null),
   isActive: z.boolean(),

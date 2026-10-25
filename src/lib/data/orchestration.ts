@@ -10,7 +10,7 @@ import { getSagaMetrics } from "@/saga/metrics";
 
 /**
  * Leituras do painel de orquestração (admin). Separado de `@/saga` de
- * propósito: aqui é só consulta pra tela, sem regra nenhuma.
+ * propósito: aqui é só consulta para a tela, sem regra nenhuma.
  */
 
 export const getSagasOverview = cache(async (limit = 20) => {

@@ -2,12 +2,12 @@
  * Processo do worker: `npm run worker`.
  *
  * Consome o RabbitMQ (push, com prefetch), publica a outbox (relay) e roda a
- * reconciliação e a faxina periodicamente. Dá pra subir vários em paralelo: o
+ * reconciliação e a faxina periodicamente. Dá para subir vários em paralelo: o
  * broker entrega cada mensagem a um consumidor só, o relay usa SKIP LOCKED e
  * a saga tem lease. Encerra limpo em Ctrl+C / SIGTERM: para de receber,
  * termina (e confirma) o que já pegou, fecha broker e pool.
  *
- * Pagamentos roda em processo próprio (`npm run worker:payments`). Pra um
+ * Pagamentos roda em processo próprio (`npm run worker:payments`). Para um
  * deploy com um container só, `WORKER_QUEUES=saga,notifications,payments`
  * faz este processo consumir as três filas.
  */

@@ -3,7 +3,7 @@ import { formatPriceCents } from "@/lib/format";
 /**
  * Regras de cupom — funções PURAS (sem banco, sem Next). São a fonte da
  * verdade do desconto, usadas tanto no preview do checkout quanto no passo da
- * saga que consome o cupom. Por serem puras, dá pra testar todos os cantos.
+ * saga que consome o cupom. Por serem puras, dá para testar todos os cantos.
  */
 
 export type CouponLike = {

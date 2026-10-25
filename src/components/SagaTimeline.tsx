@@ -10,7 +10,7 @@ export type SagaTimelineStep = {
 
 /**
  * Linha do tempo dos passos da saga. É o que torna a orquestração visível —
- * tanto pro cliente (página do pedido) quanto pro admin.
+ * tanto para o cliente (página do pedido) quanto para o admin.
  */
 export function SagaTimeline({
   steps,

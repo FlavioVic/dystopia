@@ -18,7 +18,7 @@ describe("status de pedido", () => {
     assert.deepEqual([...ORDER_STATUSES], [...orderStatusEnum.enumValues]);
   });
 
-  it("tem rótulo, cor e transições pra todo status", () => {
+  it("tem rótulo, cor e transições para todo status", () => {
     for (const status of ORDER_STATUSES) {
       assert.ok(ORDER_STATUS_LABELS[status], `sem rótulo: ${status}`);
       assert.ok(orderStatusClass(status).length > 0);
@@ -74,7 +74,7 @@ describe("máquina de estados", () => {
     }
   });
 
-  it("nenhum status permite transição pra si mesmo (quem trata isso é o serviço)", () => {
+  it("nenhum status permite transição para si mesmo (quem trata isso é o serviço)", () => {
     for (const status of ORDER_STATUSES) {
       assert.equal(canTransition(status, status), false, `${status} → ${status}`);
     }

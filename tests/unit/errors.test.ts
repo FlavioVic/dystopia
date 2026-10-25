@@ -38,7 +38,7 @@ describe("taxonomia de erro da saga", () => {
     assert.equal(errorMessage(undefined), "undefined");
   });
 
-  it("traduz o código pro cliente sem vazar detalhe técnico", () => {
+  it("traduz o código para o cliente sem vazar detalhe técnico", () => {
     assert.match(customerFacingMessage("out_of_stock"), /estoque/i);
     assert.match(customerFacingMessage("payment_declined"), /recusado/i);
     assert.match(customerFacingMessage("coupon_exhausted"), /cupom/i);

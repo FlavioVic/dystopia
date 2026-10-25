@@ -35,7 +35,7 @@ export function ProductCard({ product, priority = false }: { product: ProductCar
 
   return (
     <article className={`sweep group relative flex flex-col bg-background transition-colors hover:bg-background-elevated ${gridCell}`}>
-      {/* Nome no próprio link: produto sem imagem deixaria um link vazio pro leitor de tela. */}
+      {/* Nome no próprio link: produto sem imagem deixaria um link vazio para o leitor de tela. */}
       <Link href={`/produto/${product.slug}`} aria-label={product.name} className="relative block aspect-square overflow-hidden">
         {image ? (
           <Image

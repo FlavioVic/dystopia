@@ -5,7 +5,7 @@
  * action figures, roupas, acessórios).
  *
  * Convenções:
- * - Valores monetários são armazenados em CENTAVOS (integer) pra evitar
+ * - Valores monetários são armazenados em CENTAVOS (integer) para evitar
  *   problemas de arredondamento com float.
  * - `slug` é usado nas URLs públicas (/produto/[slug], /categoria/[slug]).
  * - Tabelas de junção/snapshot (orderItems, cartItems) guardam uma cópia do
@@ -140,7 +140,7 @@ export type ProductSpec = { label: string; value: string };
  * (`f_unaccent`, criada na migration 0008 — a `unaccent` pura não é
  * IMMUTABLE e índice exige). Uma definição só, usada pelo índice e pela
  * consulta: é a expressão igual que deixa o Postgres usar o índice. Índice
- * sobre expressão, e não coluna gerada, pra o vetor não vir junto em toda
+ * sobre expressão, e não coluna gerada, para o vetor não vir junto em toda
  * consulta de produto.
  */
 export function productSearchDocument(t: {
@@ -201,8 +201,8 @@ export const productImages = pgTable("product_images", {
 ]);
 
 // Variantes: ex. tamanho/cor de uma camiseta geek. `attributes` guarda
-// pares livres tipo { "size": "M", "color": "Preto" } pra não engessar o
-// schema em atributos fixos que não fazem sentido pra todo produto.
+// pares livres tipo { "size": "M", "color": "Preto" } para não engessar o
+// schema em atributos fixos que não fazem sentido para todo produto.
 export const productVariants = pgTable("product_variants", {
   id: uuid("id").primaryKey().defaultRandom(),
   productId: uuid("product_id")
@@ -505,7 +505,7 @@ export const notificationStatusEnum = pgEnum("notification_status", [
   "failed", // recusada de vez pelo provedor (ex.: destinatário inválido)
 ]);
 
-// Saída do serviço de notificações. `dedupeKey` existe pra provar (e testar)
+// Saída do serviço de notificações. `dedupeKey` existe para provar (e testar)
 // que o passo é idempotente: reenviar a mesma notificação não duplica linha.
 // A entrega é uma mensagem separada (outbox): o e-mail nunca sai de dentro da
 // transação do passo — se ela desfizesse, o cliente receberia confirmação de
@@ -521,7 +521,7 @@ export const notifications = pgTable("notifications", {
   status: notificationStatusEnum("status").notNull().default("pending"),
   provider: text("provider"), // "resend" | "simulado"
   providerMessageId: text("provider_message_id"),
-  /** Pra onde foi de fato — difere do `recipient` no modo sandbox (EMAIL_REDIRECT_TO). */
+  /** Para onde foi de fato — difere do `recipient` no modo sandbox (EMAIL_REDIRECT_TO). */
   deliveredTo: text("delivered_to"),
   lastError: text("last_error"),
   sentAt: timestamp("sent_at", { withTimezone: true }),

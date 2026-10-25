@@ -1,6 +1,6 @@
 /**
  * Formulário de avaliação. Nota é estrita de propósito: `parseInt("3.5x")`
- * daria 3, e nota não é campo pra adivinhar.
+ * daria 3, e nota não é campo para adivinhar.
  */
 
 import { z } from "zod";

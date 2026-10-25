@@ -29,8 +29,8 @@ export type NewServiceRequest = {
 };
 
 /**
- * Protocolo curto e legível pra pessoa citar na conversa. Aleatório (não
- * sequencial) pra não expor quantos pedidos existem; o índice único pega a
+ * Protocolo curto e legível para a pessoa citar na conversa. Aleatório (não
+ * sequencial) para não expor quantos pedidos existem; o índice único pega a
  * colisão rara e a gente sorteia de novo.
  */
 export function generateProtocol(random: (max: number) => number = randomInt): string {

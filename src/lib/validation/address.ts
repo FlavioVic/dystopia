@@ -8,7 +8,7 @@ import { formStrings, optionalText, parseForm, requiredText } from "./form";
 export const ZIP_PATTERN = /^\d{5}-?\d{3}$/;
 export const UF_PATTERN = /^[A-Z]{2}$/;
 
-/** Normaliza pra `00000-000` — o banco guarda um formato só. */
+/** Normaliza para `00000-000` — o banco guarda um formato só. */
 export function normalizeZipCode(raw: string): string {
   const digits = raw.replace(/\D/g, "");
   if (digits.length !== 8) return raw.trim();

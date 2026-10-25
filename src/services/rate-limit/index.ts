@@ -24,7 +24,7 @@ export type RateLimitResult = {
   retryAfterSeconds: number;
 };
 
-/** Conta uma tentativa pra `key` e diz se ela está dentro do limite. */
+/** Conta uma tentativa para `key` e diz se ela está dentro do limite. */
 export async function consumeRateLimit(
   executor: Executor,
   key: string,

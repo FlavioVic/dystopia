@@ -4,7 +4,7 @@ import { getCurrentUser } from "@/lib/data/auth";
 import { listWishlist, wishlistProductIds } from "@/services/wishlist";
 
 /**
- * Leituras da lista de desejos pra UI. O `cache()` do React é o que permite o
+ * Leituras da lista de desejos para UI. O `cache()` do React é o que permite o
  * coração aparecer em N cards da vitrine com UMA query por request.
  */
 

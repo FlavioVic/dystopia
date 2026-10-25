@@ -21,7 +21,7 @@ export type AuthState = {
 
 // Por IP, não por e-mail: limite por e-mail deixaria qualquer um trancar a
 // conta demo (cujo e-mail é público) errando a senha de propósito. O número
-// muda por variável só pra stack de teste (vários cadastros do mesmo IP); o
+// muda por variável só para a stack de teste (vários cadastros do mesmo IP); o
 // padrão é o de produção.
 const LOGIN_RULE: RateLimitRule = { limit: limitFromEnv("LOGIN_LIMIT_PER_15MIN", 10), windowSeconds: 15 * 60 };
 const SIGNUP_RULE: RateLimitRule = { limit: limitFromEnv("SIGNUP_LIMIT_PER_HOUR", 5), windowSeconds: 60 * 60 };
@@ -42,7 +42,7 @@ async function signIn(account: Account): Promise<never> {
 }
 
 export async function signup(_prev: AuthState, formData: FormData): Promise<AuthState> {
-  // O que a pessoa digitou volta pro formulário (a senha nunca).
+  // O que a pessoa digitou volta para o formulário (a senha nunca).
   const echo = { name: String(formData.get("name") ?? ""), email: String(formData.get("email") ?? "") };
   const parsed = parseSignupForm(formData);
   if (!parsed.ok) return { errors: parsed.errors, values: echo };

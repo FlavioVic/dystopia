@@ -5,7 +5,7 @@ import { useEffect, useImperativeHandle, useRef, useState, type Ref } from "reac
 /**
  * Campo de cartão do Stripe (Elements). O número digitado fica num iframe do
  * próprio Stripe: o nosso código nunca vê o cartão, só recebe um token
- * (`pm_…`) pra mandar no formulário — é o que tira o site do escopo de PCI.
+ * (`pm_…`) para mandar no formulário — é o que tira o site do escopo de PCI.
  *
  * O Stripe.js é carregado de js.stripe.com por exigência do Stripe (não pode
  * ser empacotado), então não entra como dependência npm.
@@ -131,8 +131,8 @@ export function StripeCardField({ publishableKey, ref }: { publishableKey: strin
       {error ? <p className="mt-1.5 text-xs text-foreground">{error}</p> : null}
       <p className="mt-2 text-[11px] leading-relaxed text-foreground-muted">
         Stripe em modo de teste — nenhum cartão real é cobrado. Use{" "}
-        <span className="font-mono text-foreground">4242 4242 4242 4242</span> pra aprovar ou{" "}
-        <span className="font-mono text-foreground">4000 0000 0000 0002</span> pra ver a recusa, com qualquer
+        <span className="font-mono text-foreground">4242 4242 4242 4242</span> para aprovar ou{" "}
+        <span className="font-mono text-foreground">4000 0000 0000 0002</span> para ver a recusa, com qualquer
         validade futura e qualquer CVC.
       </p>
     </div>

@@ -1,5 +1,5 @@
 /**
- * Os serviços prestados — fonte única pra página /servicos, o rodapé, o
+ * Os serviços prestados — fonte única para a página /servicos, o rodapé, o
  * formulário de orçamento e o admin. `kind` é o valor do enum `service_kind`
  * no banco.
  */

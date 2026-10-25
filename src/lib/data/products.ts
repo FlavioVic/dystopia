@@ -47,7 +47,7 @@ export const getProductsByCategorySlug = cache(async (slug: string, page: Page) 
   return { category, products: list, total };
 });
 
-/** Uma página do inventário ativo, mais o total (pra paginação). */
+/** Uma página do inventário ativo, mais o total (para paginação). */
 export const listActiveProducts = cache(async (page: Page) => {
   const [items, total] = await Promise.all([
     db.query.products.findMany({

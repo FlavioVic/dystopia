@@ -5,8 +5,8 @@
  * manda pelo provedor e marca o resultado. Sem `RESEND_API_KEY`, a entrega é
  * simulada (só marca como enviada) — é assim que dev e testes rodam.
  *
- * Falha transitória volta pra fila de espera com backoff; esgotadas as
- * tentativas, a mensagem vai pra DLQ (alerta no admin) e a notificação fica
+ * Falha transitória volta para a fila de espera com backoff; esgotadas as
+ * tentativas, a mensagem vai para DLQ (alerta no admin) e a notificação fica
  * `failed`. Recusa definitiva do provedor (destinatário inválido…) marca
  * `failed` na hora. Reentrega é segura: notificação `sent` não sai de novo, e
  * o Resend recebe `Idempotency-Key`.
@@ -27,7 +27,7 @@ export const SIMULATED_PROVIDER = "simulado";
 export type DeliveryDeps = { email: EmailConfig | null; fetch: FetchLike };
 const defaultDeps = (): DeliveryDeps => ({ email: emailConfigFromEnv(), fetch });
 
-/** Quem entrega neste processo; chamado na subida pra falhar cedo com config errada. */
+/** Quem entrega neste processo; chamado na subida para falhar cedo com config errada. */
 export function emailProvider(): string {
   const config = emailConfigFromEnv();
   if (!config) return SIMULATED_PROVIDER;
@@ -51,7 +51,7 @@ export async function deliverNotification(
     return "sent";
   }
 
-  // Sandbox: tudo vai pro dono do projeto, e o assunto diz pra quem seria.
+  // Sandbox: tudo vai para o dono do projeto, e o assunto diz para quem seria.
   const to = deps.email.redirectTo ?? row.recipient;
   const subject = deps.email.redirectTo ? `[demo → ${row.recipient}] ${row.subject}` : row.subject;
 
@@ -74,7 +74,7 @@ export async function deliverNotification(
       logger.warn("e-mail recusado pelo provedor", { notificationId: row.id, error: message });
       return "failed";
     }
-    throw error; // a fila tenta de novo (ou manda pra DLQ na última)
+    throw error; // a fila tenta de novo (ou manda para DLQ na última)
   }
 }
 
@@ -96,7 +96,7 @@ async function markSent(
     .where(eq(notifications.id, id));
 }
 
-/** Handlers que o worker registra; os testes passam `deps` pra não tocar a rede. */
+/** Handlers que o worker registra; os testes passam `deps` para não tocar a rede. */
 export function createNotificationHandlers(deps?: DeliveryDeps) {
   return {
     [NOTIFICATION_DELIVER]: async (message: QueueMessage) => {

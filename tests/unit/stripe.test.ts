@@ -69,7 +69,7 @@ describe("cobrança no Stripe", () => {
     assert.equal(call.params.get("metadata[order_id]"), "o1");
   });
 
-  it("cartão recusado é falha de negócio (compensa já), com mensagem pro comprador", async () => {
+  it("cartão recusado é falha de negócio (compensa já), com mensagem para o comprador", async () => {
     const fetch = fakeFetch({
       status: 402,
       body: { error: { type: "card_error", code: "card_declined", decline_code: "insufficient_funds" } },
@@ -130,7 +130,7 @@ describe("roteamento do gateway", () => {
   const base = { amountCents: 5_000, method: "credit_card", idempotencyKey: "order:DYS-2:payment" };
   const withStripe = (fetch: FetchLike): GatewayDeps => ({ stripe: config, fetch });
 
-  it("cartão tokenizado vai pro Stripe", async () => {
+  it("cartão tokenizado vai para o Stripe", async () => {
     const fetch = fakeFetch({ status: 200, body: { id: "pi_9", status: "succeeded" } });
     const result = await charge({ ...base, cardPaymentMethodId: "pm_card_visa" }, withStripe(fetch));
     assert.deepEqual([result.provider, result.transactionId], ["stripe", "pi_9"]);
@@ -159,7 +159,7 @@ describe("roteamento do gateway", () => {
     assert.equal(fetch.calls.length, 0, "o Stripe nem foi chamado");
   });
 
-  it("estorno vai pro provedor que cobrou", async () => {
+  it("estorno vai para o provedor que cobrou", async () => {
     const fetch = fakeFetch({ status: 200, body: { id: "re_2" } });
     await reverse({ transactionId: "pi_9", provider: "stripe", idempotencyKey: "order:DYS-2:payment" }, withStripe(fetch));
     assert.equal(fetch.calls.length, 1);

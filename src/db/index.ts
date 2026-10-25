@@ -16,7 +16,7 @@ const pool = new Pool({
 
 export const db = drizzle(pool, { schema });
 
-/** Pool do `pg` — exposto só pra quem precisa encerrar conexões (scripts, testes). */
+/** Pool do `pg` — exposto só para quem precisa encerrar conexões (scripts, testes). */
 export const pgPool = pool;
 
 export type Database = typeof db;

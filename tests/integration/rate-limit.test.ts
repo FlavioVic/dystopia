@@ -13,7 +13,7 @@ import { closeDatabase, resetDatabase } from "../helpers/db";
 
 const RULE = { limit: 3, windowSeconds: 60 };
 
-/** Empurra a janela da chave pro passado, como se o tempo tivesse corrido. */
+/** Empurra a janela da chave para o passado, como se o tempo tivesse corrido. */
 async function ageWindow(key: string, seconds: number): Promise<void> {
   await db
     .update(rateLimits)

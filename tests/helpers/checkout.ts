@@ -2,7 +2,7 @@
  * Monta um checkout igual ao que a Server Action monta (pedido `pending` +
  * saga + job na mesma transação), mas sem precisar de request HTTP.
  *
- * Os testes de integração usam isso pra exercitar exatamente o caminho de
+ * Os testes de integração usam isso para exercitar exatamente o caminho de
  * produção: `createOrder` + `startSaga` + `runSagaInline`/worker.
  */
 

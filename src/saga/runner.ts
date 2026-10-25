@@ -3,7 +3,7 @@
  * handler. `retry`/`busy` voltam pela fila de espera sem gastar tentativa da
  * mensagem (quem conta tentativa é o passo); o resto é `ack`.
  *
- * Dois caminhos pro mesmo código — o request do checkout (`runSagaInline`,
+ * Dois caminhos para o mesmo código — o request do checkout (`runSagaInline`,
  * até o passo remoto) e o consumidor (`handleSagaAdvance`, o durável). O
  * lease da saga deixa os dois, e mensagem repetida, rodarem ao mesmo tempo.
  */
@@ -19,7 +19,7 @@ import { parseStepReply, SAGA_ADVANCE, SAGA_QUEUE } from "./messaging";
 
 const logger = createLogger("saga:runner");
 
-/** Folga mínima pra reolhar uma saga ocupada. */
+/** Folga mínima para reolhar uma saga ocupada. */
 const BUSY_RECHECK_MS = 1_000;
 
 export type StartSagaInput = {
@@ -92,7 +92,7 @@ export async function handleSagaAdvance(message: QueueMessage, options: AdvanceO
 
 /**
  * Handler de `saga.reply`: a resposta de um passo remoto. Aplica (uma vez só)
- * e avança a saga. Se outro executor estiver com a saga, a resposta volta pra
+ * e avança a saga. Se outro executor estiver com a saga, a resposta volta para
  * espera em vez de se perder — ele pode já ter olhado o passo antes de a
  * resposta chegar e ido embora com `waiting`. Reaplicar é no-op.
  */

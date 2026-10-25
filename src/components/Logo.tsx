@@ -67,7 +67,7 @@ export function Lockup({ size = 32, className, title = "DYSTOPIA" }: MarkProps &
   );
 }
 
-/** O lockup como link pra home (cabeçalho, rodapé). */
+/** O lockup como link para a home (cabeçalho, rodapé). */
 export function Logo({ href = "/", size = 28, className = "" }: { href?: string | null; size?: number; className?: string }) {
   const mark = <Lockup size={size} className={`shrink-0 text-foreground ${className}`} />;
   if (href === null) return mark;
@@ -81,7 +81,7 @@ export function Logo({ href = "/", size = 28, className = "" }: { href?: string 
 /**
  * Vinheta do emblema (design system: MotionSting). Os três círculos da
  * construção são desenhados em steel, as duas linhas do seam são riscadas e,
- * em 1,68 s, corte seco pro emblema sólido. As folhas nunca se mexem.
+ * em 1,68 s, corte seco para o emblema sólido. As folhas nunca se mexem.
  */
 export function EmblemSting({ size = 240, className, title }: MarkProps & { size?: number }) {
   const circle = (r: number, delay: number) => (

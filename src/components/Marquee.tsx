@@ -1,5 +1,5 @@
 /**
- * Faixa contínua. O conteúdo vai duas vezes pra animação fechar o laço em
+ * Faixa contínua. O conteúdo vai duas vezes para a animação fechar o laço em
  * -50%; a segunda cópia é escondida de leitor de tela.
  */
 export function Marquee({ items }: { items: string[] }) {

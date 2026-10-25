@@ -6,11 +6,11 @@
  * - `PermanentError`  → regra de negócio violada (sem estoque, pagamento
  *   recusado, cupom esgotado). Não existe "tentar de novo": compensa agora.
  * - `RetryableError`  → falha transitória (rede, deadlock, provedor fora).
- *   Volta pra fila com backoff até esgotar as tentativas do passo.
+ *   Volta para a fila com backoff até esgotar as tentativas do passo.
  *
  * Erro desconhecido é tratado como transitório de propósito: é mais seguro
  * tentar de novo algumas vezes do que cancelar um pedido por um soluço de
- * infraestrutura. O limite de tentativas garante que não roda pra sempre.
+ * infraestrutura. O limite de tentativas garante que não roda para sempre.
  */
 
 export type ErrorDetails = Record<string, unknown>;
@@ -58,7 +58,7 @@ export function errorMessage(error: unknown): string {
   return String(error);
 }
 
-/** Mensagem curta pro cliente final — sem vazar detalhe de infraestrutura. */
+/** Mensagem curta para o cliente final — sem vazar detalhe de infraestrutura. */
 export function customerFacingMessage(code: string): string {
   switch (code) {
     case "out_of_stock":

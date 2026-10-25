@@ -1,8 +1,8 @@
 /**
- * Utilidades de banco (e de broker) pros testes de integração.
+ * Utilidades de banco (e de broker) para os testes de integração.
  *
  * Usa o MESMO `db` e o MESMO RabbitMQ da aplicação (o runner aponta
- * `DATABASE_URL` pro banco de teste e `RABBITMQ_PREFIX` pras filas de teste
+ * `DATABASE_URL` para o banco de teste e `RABBITMQ_PREFIX` para as filas de teste
  * antes de subir o processo), então o que os testes exercitam é o código de
  * produção de verdade — não um mock.
  */

@@ -1,6 +1,6 @@
 /**
  * Reconciliação periódica: libera lease vencido e recria o avanço de saga
- * parada há mais de 1 min (a mensagem dela pode ter ido pra DLQ). Avanço a
+ * parada há mais de 1 min (a mensagem dela pode ter ido para DLQ). Avanço a
  * mais é inofensivo — o lease e o log de passos ignoram o que já foi feito.
  */
 

@@ -1,6 +1,6 @@
 /**
  * Modo demonstração do checkout: deixa quem está comprando escolher o
- * resultado do gateway simulado (recusar, instável, fora do ar) pra ver a
+ * resultado do gateway simulado (recusar, instável, fora do ar) para ver a
  * saga compensar ou tentar de novo.
  *
  * Seguro aqui porque nada é cobrado de verdade: o provedor simulado não cobra

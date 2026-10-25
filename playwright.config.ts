@@ -8,7 +8,7 @@ import { defineConfig, devices } from "@playwright/test";
  *   docker compose --profile app run --rm migrate npm run db:seed
  *   npm run test:e2e
  *
- * `E2E_BASE_URL` aponta pra outro endereço (ex.: `npm run dev` + workers).
+ * `E2E_BASE_URL` aponta para outro endereço (ex.: `npm run dev` + workers).
  * O checkout usa o modo demonstração, então o app precisa de
  * `ALLOW_CHECKOUT_SIMULATION=1` (o compose já liga).
  */

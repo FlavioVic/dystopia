@@ -26,7 +26,7 @@ export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   refunded: "Reembolsado",
 };
 
-/** Classe de cor (Tailwind) pro badge de status. */
+/** Classe de cor (Tailwind) para o badge de status. */
 export function orderStatusClass(status: string): string {
   switch (status) {
     case "delivered":
@@ -65,7 +65,7 @@ export function canTransition(from: OrderStatus, to: OrderStatus): boolean {
   return ALLOWED_TRANSITIONS[from].includes(to);
 }
 
-/** Próximos status possíveis — usado pro select do admin não oferecer bobagem. */
+/** Próximos status possíveis — usado para o select do admin não oferecer bobagem. */
 export function nextStatuses(from: OrderStatus): OrderStatus[] {
   return [...ALLOWED_TRANSITIONS[from]];
 }

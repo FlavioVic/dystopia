@@ -21,13 +21,13 @@ function form(values: Record<string, string | undefined>): FormData {
 }
 
 describe("CEP", () => {
-  it("normaliza pra 00000-000", () => {
+  it("normaliza para 00000-000", () => {
     assert.equal(normalizeZipCode("01310100"), "01310-100");
     assert.equal(normalizeZipCode("01310-100"), "01310-100");
     assert.equal(normalizeZipCode(" 01310.100 "), "01310-100");
   });
 
-  it("devolve o original quando não tem 8 dígitos (pra virar erro de validação)", () => {
+  it("devolve o original quando não tem 8 dígitos (para virar erro de validação)", () => {
     assert.equal(normalizeZipCode("123"), "123");
     assert.equal(normalizeZipCode(""), "");
   });
@@ -36,7 +36,7 @@ describe("CEP", () => {
 describe("validação de endereço", () => {
   it("aceita endereço completo e normaliza UF e CEP", () => {
     const values = valuesOf(parseAddressForm(form({ zipCode: "01310100", complement: "Apto 42" })));
-    assert.equal(values.state, "SP", "UF vai pra maiúscula");
+    assert.equal(values.state, "SP", "UF vai para maiúscula");
     assert.equal(values.zipCode, "01310-100");
     assert.equal(values.complement, "Apto 42");
     assert.equal(values.label, "Entrega", "apelido tem padrão");

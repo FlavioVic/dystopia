@@ -58,7 +58,7 @@ export async function isInWishlist(
   return row != null;
 }
 
-/** Ids favoritados — uma query só, pra marcar o coração na vitrine. */
+/** Ids favoritados — uma query só, para marcar o coração na vitrine. */
 export async function wishlistProductIds(executor: Executor, userId: string): Promise<string[]> {
   const rows = await executor
     .select({ productId: wishlistItems.productId })
@@ -67,7 +67,7 @@ export async function wishlistProductIds(executor: Executor, userId: string): Pr
   return rows.map((row) => row.productId);
 }
 
-/** Lista completa (com produto e imagens) pra página de favoritos. */
+/** Lista completa (com produto e imagens) para a página de favoritos. */
 export async function listWishlist(executor: Executor, userId: string) {
   return executor.query.wishlistItems.findMany({
     where: eq(wishlistItems.userId, userId),

@@ -1,6 +1,6 @@
 /**
  * Consumidor da fila. `handleDelivery` é a política de retentativa, igual
- * pra toda mensagem (tabela em docs/ARQUITETURA.md › A fila): ok → ack;
+ * para toda mensagem (tabela em docs/ARQUITETURA.md › A fila): ok → ack;
  * transitório → fila de espera do backoff; permanente/esgotado/ilegível/sem
  * handler → DLQ. O `ack` vem DEPOIS de encaminhar com confirmação: crash =
  * reentrega, nunca perda.
@@ -50,8 +50,8 @@ export async function handleDelivery(
   const envelope = readEnvelope(queue, raw);
 
   if (!envelope) {
-    // Ilegível não melhora com retry: vai direto pro parking lot como veio.
-    logger.error("mensagem ilegível foi pra DLQ", { queue, messageId: raw.properties.messageId });
+    // Ilegível não melhora com retry: vai direto para o parking lot como veio.
+    logger.error("mensagem ilegível foi para DLQ", { queue, messageId: raw.properties.messageId });
     const n = names(queue, broker.config);
     broker.publisher.publish(n.deadExchange, queue, raw.content, { ...raw.properties, persistent: true });
     await broker.publisher.waitForConfirms();
@@ -66,7 +66,7 @@ export async function handleDelivery(
   const handler = handlers[envelope.type];
   if (!handler) {
     const error = `Nenhum handler registrado para "${envelope.type}" na fila ${queue}`;
-    logger.error("mensagem sem handler foi pra DLQ", { messageId: envelope.id, type: envelope.type });
+    logger.error("mensagem sem handler foi para DLQ", { messageId: envelope.id, type: envelope.type });
     await route({ ...envelope, lastError: error }, "dead");
     return "dead";
   }
@@ -97,7 +97,7 @@ export async function handleDelivery(
     if (!isRetryable(error) || message.attempt >= envelope.maxAttempts) {
       await route({ ...envelope, attempts: message.attempt, lastError: reason }, "dead");
       // Nível error de propósito: é a linha que um alerta de log filtra.
-      logger.error("mensagem foi pra DLQ", fields);
+      logger.error("mensagem foi para DLQ", fields);
       return "dead";
     }
 
@@ -156,7 +156,7 @@ export async function drainQueues(options: DrainOptions): Promise<DrainReport> {
 
     while (elapsed() < budgetMs && report.received < maxMessages) {
       // Handler grava mensagem nova na outbox (resposta, próximo passo): o
-      // relay roda a cada volta pra ela entrar no mesmo dreno.
+      // relay roda a cada volta para ela entrar no mesmo dreno.
       await relayAll();
 
       let got = 0;
@@ -194,7 +194,7 @@ export async function drainQueues(options: DrainOptions): Promise<DrainReport> {
   return report;
 }
 
-/** Processa e dá `ack`; se o encaminhamento falhar, devolve a mensagem pro broker. */
+/** Processa e dá `ack`; se o encaminhamento falhar, devolve a mensagem para o broker. */
 async function settle(
   channel: Channel,
   raw: ConsumeMessage | GetMessage,
@@ -257,7 +257,7 @@ export function startWorker(options: WorkerOptions): WorkerHandle {
       };
     });
 
-  /** Uma sessão: conecta, consome até a conexão cair ou pedirem pra parar. */
+  /** Uma sessão: conecta, consome até a conexão cair ou pedirem para parar. */
   const session = async () => {
     const broker = await getBroker();
     const channel = await broker.connection.createChannel();

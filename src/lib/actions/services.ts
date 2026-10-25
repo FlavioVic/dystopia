@@ -14,13 +14,13 @@ export type ServiceRequestState =
   | {
       errors?: Record<string, string>;
       message?: string;
-      /** O que a pessoa digitou, pra o formulário voltar preenchido. */
+      /** O que a pessoa digitou, para o formulário voltar preenchido. */
       values?: Partial<Record<"kind" | "name" | "email" | "phone" | "details", string>>;
       protocol?: string;
     }
   | undefined;
 
-// Formulário público sem login: limite por IP pra ninguém encher a caixa do
+// Formulário público sem login: limite por IP para ninguém encher a caixa do
 // admin com pedido falso em loop.
 const REQUEST_RULE: RateLimitRule = { limit: limitFromEnv("SERVICE_REQUEST_LIMIT_PER_HOUR", 5), windowSeconds: 60 * 60 };
 

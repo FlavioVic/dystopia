@@ -4,7 +4,7 @@
  * Mensagem só cai na DLQ quando retry não resolveu (tentativas esgotadas) ou
  * não resolveria (erro permanente, mensagem ilegível, tipo sem handler).
  * Reprocessar é decisão de gente: depois de corrigir a causa, a mensagem
- * volta pra fila de trabalho com as tentativas zeradas.
+ * volta para a fila de trabalho com as tentativas zeradas.
  */
 
 import { declareQueue, getBroker, names, publishEnvelope, readEnvelope, HEADER_ERROR, HEADER_FAILED_AT } from "./broker";
@@ -22,7 +22,7 @@ export type DeadLetter = {
 
 /**
  * Lista sem consumir: pega até `limit` mensagens e devolve todas com `nack`
- * + requeue ao fechar o canal. Pra painel, com DLQ pequena — não é pra lote.
+ * + requeue ao fechar o canal. Para painel, com DLQ pequena — não é para lote.
  */
 export async function peekDeadLetters(queue: string, limit = 20): Promise<DeadLetter[]> {
   const broker = await getBroker();
@@ -54,8 +54,8 @@ export async function peekDeadLetters(queue: string, limit = 20): Promise<DeadLe
 }
 
 /**
- * Devolve mensagens da DLQ pra fila de trabalho, tentativas zeradas. Com
- * `messageId`, só aquela (as outras voltam pra DLQ intactas). Retorna quantas
+ * Devolve mensagens da DLQ para a fila de trabalho, tentativas zeradas. Com
+ * `messageId`, só aquela (as outras voltam para DLQ intactas). Retorna quantas
  * foram reprocessadas.
  */
 export async function replayDeadLetters(queue: string, options: { messageId?: string; limit?: number } = {}): Promise<number> {
@@ -68,7 +68,7 @@ export async function replayDeadLetters(queue: string, options: { messageId?: st
       const raw = await channel.get(names(queue, broker.config).dead, { noAck: false });
       if (!raw) break;
       const envelope = readEnvelope(queue, raw);
-      // Não é a pedida: fica sem ack (não volta pra este canal) e é devolvida
+      // Não é a pedida: fica sem ack (não volta para este canal) e é devolvida
       // no fim. `nack` agora a poria na cabeça da fila e o próximo `get`
       // pegaria ela de novo.
       if (!envelope || (options.messageId && envelope.id !== options.messageId)) continue;

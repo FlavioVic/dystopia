@@ -6,7 +6,7 @@ import { toggleWishlistItem } from "@/lib/actions/wishlist";
 
 /**
  * Coração de favoritar. Atualiza na hora (otimista) e volta atrás se o
- * servidor recusar; visitante não logado é mandado pro /entrar.
+ * servidor recusar; visitante não logado é mandado para o /entrar.
  */
 export function WishlistToggle({
   productId,

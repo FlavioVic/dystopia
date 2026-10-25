@@ -128,8 +128,8 @@ describe("fronteiras da arquitetura", () => {
   });
 
   it("Server Action não escreve no banco: valida a entrada e chama o serviço", () => {
-    // Leitura pra decidir a resposta (guarda, redirect) é ok, e abrir uma
-    // transação pra compor serviços também (é o outbox do checkout). Mutação
+    // Leitura para decidir a resposta (guarda, redirect) é ok, e abrir uma
+    // transação para compor serviços também (é o outbox do checkout). Mutação
     // na borda não: vira regra fora do serviço, sem teste, e com o "lê,
     // decide, escreve" que dá corrida.
     for (const file of sourceFiles(path.join("src", "lib", "actions"))) {
@@ -138,7 +138,7 @@ describe("fronteiras da arquitetura", () => {
       assert.deepEqual(
         writes.map((match) => match[1]),
         [],
-        `${file} escreve no banco direto — mova a escrita pra um serviço`,
+        `${file} escreve no banco direto — mova a escrita para um serviço`,
       );
     }
   });

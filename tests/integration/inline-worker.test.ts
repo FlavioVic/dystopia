@@ -3,7 +3,7 @@
  * de `runInlineWorker` depois do request tem que levar o pedido até o fim —
  * outbox publicada, pagamento remoto, resposta, e-mail e, se o gateway
  * oscilar, o retry que passa pela fila de espera do RabbitMQ (que a rodada
- * espera, em vez de largar pra um worker que não existe).
+ * espera, em vez de largar para um worker que não existe).
  */
 
 import assert from "node:assert/strict";
@@ -46,7 +46,7 @@ const orderStatus = async (orderId: string) =>
 describe("worker embutido", () => {
   it("uma rodada depois do request fecha o pedido e entrega o e-mail", async () => {
     const checkout = await checkoutRequest();
-    // O request parou no pagamento (remoto): sem worker, ficaria assim pra sempre.
+    // O request parou no pagamento (remoto): sem worker, ficaria assim para sempre.
     assert.equal(await orderStatus(checkout.orderId), "pending");
 
     await runInlineWorker({ budgetMs: 10_000, waitForScheduled: true });
@@ -54,7 +54,7 @@ describe("worker embutido", () => {
     assert.equal(await orderStatus(checkout.orderId), "paid");
     const [notification] = await db.select().from(notifications);
     assert.equal(notification?.status, "sent");
-    assert.deepEqual(await pendingWork(), IDLE, "nada sobra pra um worker que não existe");
+    assert.deepEqual(await pendingWork(), IDLE, "nada sobra para um worker que não existe");
   });
 
   it("espera o retry do pagamento voltar da fila de espera em vez de largar a fila", async () => {
@@ -67,7 +67,7 @@ describe("worker embutido", () => {
     assert.deepEqual(await pendingWork(), IDLE);
   });
 
-  it("sem waitForScheduled, larga o retry pra próxima rodada (e a próxima termina)", async () => {
+  it("sem waitForScheduled, larga o retry para a próxima rodada (e a próxima termina)", async () => {
     const checkout = await checkoutRequest("flaky_once");
 
     await runInlineWorker({ budgetMs: 15_000 });

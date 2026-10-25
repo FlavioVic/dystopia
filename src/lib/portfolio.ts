@@ -1,6 +1,6 @@
 /**
  * Portfólio de Flávio Victor — projetos públicos do GitHub (FlavioVic).
- * Imagem: captura real quando o projeto tem tela que dá pra mostrar sem
+ * Imagem: captura real quando o projeto tem tela que dá para mostrar sem
  * inventar resultado; senão, diagrama da arquitetura real (`npm run art:portfolio`).
  */
 

@@ -13,7 +13,7 @@ export type OwnReview = {
 
 /**
  * Formulário de avaliação. Quem já avaliou vê a própria nota carregada —
- * enviar de novo edita (é o mesmo `upsert` do serviço), e dá pra excluir.
+ * enviar de novo edita (é o mesmo `upsert` do serviço), e dá para excluir.
  */
 export function ReviewForm({
   productId,
@@ -36,7 +36,7 @@ export function ReviewForm({
           <Link href="/entrar" className="font-semibold text-accent hover:underline">
             Entre na sua conta
           </Link>{" "}
-          pra avaliar este produto.
+          para avaliar este produto.
         </p>
       </div>
     );

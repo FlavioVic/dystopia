@@ -175,7 +175,7 @@ describe("métricas refletem checkouts de verdade", () => {
 
     const flaky = await startCheckout(await seedCheckoutFixture(), { simulate: "flaky_once" });
     assert.equal((await runSagaInline(flaky.sagaId)).status, "waiting");
-    await work("payments"); // 1ª tentativa falha: o comando vai pra fila de espera
+    await work("payments"); // 1ª tentativa falha: o comando vai para a fila de espera
 
     const during = await getQueueMetrics(db, { queues: [PAYMENTS_QUEUE] });
     assert.equal(during.retrying, 1, "o comando do pedido instável aguarda nova tentativa");

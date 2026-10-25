@@ -37,7 +37,7 @@ export type CreateOrderInput = {
 
 export type CreateOrderResult = { orderId: string; addressId: string };
 
-/** Número de pedido no formato DYS-<ano>-<6 dígitos>. Puro pra poder testar. */
+/** Número de pedido no formato DYS-<ano>-<6 dígitos>. Puro para poder testar. */
 export function generateOrderNumber(now: Date = new Date(), random: () => number = Math.random): string {
   const digits = String(Math.floor(random() * 1_000_000)).padStart(6, "0");
   return `DYS-${now.getFullYear()}-${digits}`;
@@ -93,7 +93,7 @@ export async function createOrder(executor: Executor, input: CreateOrderInput): 
 
 /**
  * Move o status respeitando a máquina de estados. Idempotente: pedir a
- * transição pro status atual não é erro (a saga pode ser reexecutada).
+ * transição para o status atual não é erro (a saga pode ser reexecutada).
  */
 export async function transitionOrder(
   executor: Executor,

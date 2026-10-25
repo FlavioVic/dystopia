@@ -123,7 +123,7 @@ describe("avaliação", () => {
     assert.equal(await hasPurchasedProduct(db, fixture.userId, fixture.product.id), false);
   });
 
-  it("excluir devolve o agregado pro estado anterior", async () => {
+  it("excluir devolve o agregado para o estado anterior", async () => {
     const primeiro = await seedCheckoutFixture();
     const segundo = await seedCheckoutFixture();
 
@@ -155,7 +155,7 @@ describe("avaliação", () => {
     );
   });
 
-  it("produto sem avaliação volta pra média zero", async () => {
+  it("produto sem avaliação volta para média zero", async () => {
     const fixture = await seedCheckoutFixture();
     await upsertReview(db, {
       productId: fixture.product.id,

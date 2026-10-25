@@ -3,7 +3,7 @@ import "dotenv/config";
 /**
  * URL do banco de TESTE. Derivada do `DATABASE_URL` de dev trocando o nome do
  * banco por `<nome>_test`, então o mesmo Postgres serve os dois e nenhum teste
- * encosta nos dados de desenvolvimento. Dá pra sobrescrever com
+ * encosta nos dados de desenvolvimento. Dá para sobrescrever com
  * `TEST_DATABASE_URL`.
  */
 export function testDatabaseUrl(): string {
@@ -11,7 +11,7 @@ export function testDatabaseUrl(): string {
 
   const base = process.env.DATABASE_URL;
   if (!base) {
-    throw new Error("Defina DATABASE_URL (ou TEST_DATABASE_URL) pra rodar os testes.");
+    throw new Error("Defina DATABASE_URL (ou TEST_DATABASE_URL) para rodar os testes.");
   }
 
   const url = new URL(base);
@@ -21,7 +21,7 @@ export function testDatabaseUrl(): string {
   return url.toString();
 }
 
-/** URL administrativa (banco `postgres`) pra poder criar o banco de teste. */
+/** URL administrativa (banco `postgres`) para poder criar o banco de teste. */
 export function adminDatabaseUrl(): string {
   const url = new URL(testDatabaseUrl());
   url.pathname = "/postgres";

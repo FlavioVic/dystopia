@@ -1,7 +1,7 @@
 /**
  * Serviço de catálogo — responsabilidade única: manter produto e variante.
  *
- * Existe pra tirar escrita de banco da Server Action do admin: a action vira
+ * Existe para tirar escrita de banco da Server Action do admin: a action vira
  * borda (sessão + validação) e a regra — incluindo traduzir violação de índice
  * único em erro de negócio — fica aqui, testável.
  */

@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { carts, cartItems } from "@/db/schema";
 
-/** Cookie do carrinho de visitante (não logado). Aponta pra carts.session_token. */
+/** Cookie do carrinho de visitante (não logado). Aponta para carts.session_token. */
 export const CART_COOKIE = "cart_session";
 
 export async function getCartToken(): Promise<string | null> {

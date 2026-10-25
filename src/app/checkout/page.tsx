@@ -10,7 +10,7 @@ import { formatAddress } from "@/lib/validation/address";
 import { listAddresses } from "@/services/addresses";
 
 export const metadata: Metadata = { title: "Finalizar compra" };
-// Vale pra Server Action do formulário também: com o worker embutido, o
+// Vale para Server Action do formulário também: com o worker embutido, o
 // `after` do placeOrder drena a fila (até 45 s) dentro desta função.
 export const maxDuration = 60;
 

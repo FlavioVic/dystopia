@@ -1,6 +1,6 @@
 /**
  * Código que o Next põe no erro de Server Component em produção (a mensagem
- * original não vai pro navegador). Lido de qualquer objeto: o erro nem sempre
+ * original não vai para o navegador). Lido de qualquer objeto: o erro nem sempre
  * chega como instância de `Error` no boundary.
  */
 export function errorDigest(error: unknown): string | null {

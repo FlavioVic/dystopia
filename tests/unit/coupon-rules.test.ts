@@ -21,7 +21,7 @@ function coupon(overrides: Partial<CouponLike> = {}): CouponLike {
 }
 
 describe("cálculo do desconto", () => {
-  it("aplica percentual arredondando pra baixo", () => {
+  it("aplica percentual arredondando para baixo", () => {
     assert.equal(computeDiscountCents(coupon({ discountValue: 10 }), 9_999), 999);
     assert.equal(computeDiscountCents(coupon({ discountValue: 15 }), 10_000), 1_500);
   });

@@ -6,7 +6,7 @@ import { SERVICES } from "@/lib/services-catalog";
 
 /**
  * Prévia do link (LinkedIn, WhatsApp, X…). Gerada no build a partir daqui,
- * então muda junto com o código — não é um PNG solto pra lembrar de refazer.
+ * então muda junto com o código — não é um PNG solto para lembrar de refazer.
  *
  * O renderizador do `next/og` não lê CSS vars nem WOFF2: as cores repetem a
  * paleta de globals.css e as fontes vêm dos TTF ao lado dos WOFF2.

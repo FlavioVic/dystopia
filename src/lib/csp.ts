@@ -6,7 +6,7 @@
 export function buildCsp(nonce: string, options: { dev?: boolean } = {}): string {
   const directives: Record<string, string[]> = {
     "default-src": ["'self'"],
-    // Em dev o React usa eval pra reconstruir stack de erro do servidor.
+    // Em dev o React usa eval para reconstruir stack de erro do servidor.
     "script-src": ["'self'", `'nonce-${nonce}'`, "'strict-dynamic'", ...(options.dev ? ["'unsafe-eval'"] : [])],
     "style-src": ["'self'", "'unsafe-inline'"],
     "img-src": ["'self'", "data:", "blob:", "https://*.stripe.com"],

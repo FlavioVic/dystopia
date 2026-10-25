@@ -44,7 +44,7 @@ export const metadata: Metadata = {
 };
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
-  // Nonce da CSP (src/proxy.ts) pros <script> escritos à mão aqui.
+  // Nonce da CSP (src/proxy.ts) para os <script> escritos à mão aqui.
   const nonce = (await headers()).get("x-nonce") ?? undefined;
   const [categories, cartCount, user, favorites] = await Promise.all([
     getCategories(),
