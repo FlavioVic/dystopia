@@ -10,7 +10,7 @@ export function Footer({ categories }: { categories: Category[] }) {
   const item = "inline-block py-0.5 text-sm text-foreground-muted hover:text-foreground";
   return (
     <footer className="mt-24 border-t border-border">
-      <div className="mx-auto grid max-w-7xl gap-12 px-4 py-14 sm:px-6 lg:grid-cols-12 lg:px-8">
+      <div className="mx-auto grid max-w-site gap-12 px-4 py-14 sm:px-6 lg:grid-cols-12 lg:px-8">
         <div className="lg:col-span-5">
           <Logo href="/" size={32} />
           <p className="display-4 mt-8 text-[12px] text-foreground">A ordem é um serviço.</p>
@@ -94,7 +94,7 @@ export function Footer({ categories }: { categories: Category[] }) {
       </div>
 
       <div className="border-t border-border-faint">
-        <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-6 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
+        <div className="mx-auto flex max-w-site flex-col gap-3 px-4 py-6 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
           <p className="text-[13px] text-foreground-muted">
             Projetado e construído por <span className="text-foreground">Flávio Victor</span>.{" "}
             <Link href="/sobre" className="underline underline-offset-4 hover:text-foreground">

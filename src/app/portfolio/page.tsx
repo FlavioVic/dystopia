@@ -15,7 +15,7 @@ export const metadata: Metadata = {
 export default function PortfolioPage() {
   return (
     <>
-      <div className="mx-auto max-w-7xl px-4 pt-12 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-site px-4 pt-12 sm:px-6 lg:px-8">
         <PageHeader
           label="Portfólio / Arquivo de projetos"
           title="Projetos entregues"
@@ -44,7 +44,7 @@ export default function PortfolioPage() {
             // Faixas alternadas: cada projeto é um setor, não um bloco no mesmo preto.
             className={`scroll-mt-16 ${i % 2 === 1 ? "sector-graphite border-y border-border-faint" : "border-b border-border-faint"}`}
           >
-            <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
+            <div className="mx-auto max-w-site px-4 py-14 sm:px-6 lg:px-8">
               <Reveal immediate={i === 0} className="group grid items-start gap-10 lg:grid-cols-12">
                 <div className={`min-w-0 lg:col-span-7 ${i % 2 === 1 ? "lg:order-2" : ""}`}>
                   <a href={p.live ?? p.repo} target="_blank" rel="noreferrer" aria-label={`Abrir ${p.name}`}>

@@ -33,7 +33,7 @@ export default async function ServicesPage(props: PageProps<"/servicos">) {
           ],
         }}
       />
-      <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-site px-4 py-12 sm:px-6 lg:px-8">
         <PageHeader
           label="Serviços / Protocolo técnico"
           title="Intervenção técnica"

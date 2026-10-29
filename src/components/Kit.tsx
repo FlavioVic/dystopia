@@ -109,7 +109,7 @@ export function Sector({
   const edge = tone === "graphite" ? "border-y border-border-faint" : "";
   return (
     <section id={id} className={`scroll-mt-24 ${surface} ${edge}`}>
-      <div className={`mx-auto w-full ${narrow ? "max-w-4xl" : "max-w-7xl"} px-4 ${compact ? "py-10 sm:py-12" : "py-16 sm:py-20"} sm:px-6 lg:px-8 ${className}`}>
+      <div className={`mx-auto w-full ${narrow ? "max-w-4xl" : "max-w-site"} px-4 ${compact ? "py-10 sm:py-12" : "py-16 sm:py-20"} sm:px-6 lg:px-8 ${className}`}>
         {children}
       </div>
     </section>

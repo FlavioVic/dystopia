@@ -18,7 +18,7 @@ const FONTS = [
 
 export default function CreditsPage() {
   return (
-    <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+    <div className="mx-auto max-w-site px-4 py-12 sm:px-6 lg:px-8">
       <PageHeader
         label="Registro / Créditos"
         title="Créditos"

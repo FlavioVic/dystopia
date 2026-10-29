@@ -53,7 +53,7 @@ export default async function ProductsPage(props: PageProps<"/produtos">) {
         />
       </Sector>
 
-      <div className="mx-auto max-w-7xl px-4 pb-16 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-site px-4 pb-16 sm:px-6 lg:px-8">
         {products.length === 0 ? (
           <div className="mt-16 flex flex-col items-start gap-6">
             <p className="text-base text-foreground-muted">Nenhum registro corresponde a “{query}”.</p>
