@@ -325,6 +325,11 @@ revise o SQL → `npm run db:migrate`. Nunca edite migration já aplicada.
   usa `main().catch(...)`).
 - `generateOrderNumber` usa o ano **local** — teste com `new Date(2026, 0, 1)`,
   não com string UTC.
+- **Hora gravada pelo banco se compara com o relógio do banco.** Coluna com
+  `defaultNow()` (ex.: `outbox.next_attempt_at`) tem microssegundos do
+  Postgres; `new Date()` do Node tem milissegundos e pode ser de outra
+  máquina. O relay comparava com o Node e pulava a mensagem gravada no mesmo
+  milissegundo — no CI, um teste falhava de vez em quando. Use `sql\`now()\``.
 - **Playwright compila os testes como CommonJS**: em `tests/e2e`, use
   `__dirname`, não `import.meta`.
 - **Admin no e2e**: cada código TOTP vale uma vez, então os testes não logam o
