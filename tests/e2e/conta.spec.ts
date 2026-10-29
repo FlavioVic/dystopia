@@ -91,7 +91,7 @@ test.describe("acesso", () => {
 
 test.describe("carrinho", () => {
   test("aumentar, diminuir e remover item", async ({ page }) => {
-    await addFirstProductToCart(page);
+    await addFirstProductToCart(page, "/produtos", { skipLowStock: true });
     await page.goto("/carrinho");
 
     await page.getByRole("button", { name: "Aumentar quantidade" }).first().click();
