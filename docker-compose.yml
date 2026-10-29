@@ -12,7 +12,7 @@
 # RabbitMQ 5672 + painel http://localhost:15672 (dystopia / dystopia_dev_pw),
 # app 3000. Tudo configurável por variável (POSTGRES_PORT, WEB_PORT…).
 #
-# Senhas e segredo de sessão daqui são de DESENVOLVIMENTO — nunca use em
+# Senhas e chave do MFA daqui são de DESENVOLVIMENTO — nunca use em
 # produção (ver docs/DEPLOY.md).
 
 services:
@@ -66,7 +66,8 @@ services:
     environment: &app-env
       DATABASE_URL: postgresql://${POSTGRES_USER:-dystopia}:${POSTGRES_PASSWORD:-dystopia_dev_pw}@db:5432/${POSTGRES_DB:-dystopia}
       RABBITMQ_URL: amqp://${RABBITMQ_USER:-dystopia}:${RABBITMQ_PASSWORD:-dystopia_dev_pw}@rabbitmq:5672
-      SESSION_SECRET: ${SESSION_SECRET:-somente-desenvolvimento-troque-em-producao}
+      # Chave de DESENVOLVIMENTO para cifrar o segredo do autenticador do admin.
+      MFA_ENCRYPTION_KEY: ${MFA_ENCRYPTION_KEY:-ZGVzZW52b2x2aW1lbnRvLXNvbWVudGUtdHJvcXVlLWo=}
       ALLOW_CHECKOUT_SIMULATION: ${ALLOW_CHECKOUT_SIMULATION:-1}
       # O app só está acessível pelo `proxy`, que sobrescreve os headers de IP.
       TRUST_PROXY_HEADERS: "1"
@@ -81,6 +82,8 @@ services:
       CART_LIMIT_PER_10MIN: ${CART_LIMIT_PER_10MIN:-1000}
       REVIEW_LIMIT_PER_HOUR: ${REVIEW_LIMIT_PER_HOUR:-1000}
       WISHLIST_LIMIT_PER_10MIN: ${WISHLIST_LIMIT_PER_10MIN:-1000}
+      MFA_LIMIT_PER_15MIN: ${MFA_LIMIT_PER_15MIN:-1000}
+      MFA_LIMIT_PER_DAY: ${MFA_LIMIT_PER_DAY:-1000}
       # Assistente: sem chave, o botão nem aparece. Com chave da Groq (ou outro
       # provedor Chat Completions via CHAT_API_URL/CHAT_MODEL), ele responde.
       CHAT_API_KEY: ${CHAT_API_KEY:-}

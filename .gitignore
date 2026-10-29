@@ -46,6 +46,7 @@ next-env.d.ts
 CLAUDE.md
 AGENTS.md
 
-# playwright
+# playwright (`.auth`: sessão e segredo do autenticador do admin da stack de teste)
 /test-results/
 /playwright-report/
+/playwright/.auth/

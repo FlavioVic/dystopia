@@ -24,8 +24,12 @@ export default defineConfig({
     trace: "retain-on-failure",
     locale: "pt-BR",
   },
+  // `setup` faz o login do admin (senha + autenticador) uma vez e guarda a
+  // sessão: cada código do autenticador vale uma vez, então os testes do
+  // painel não podem logar em paralelo cada um por si.
   projects: [
-    { name: "desktop", use: { ...devices["Desktop Chrome"] } },
-    { name: "celular", use: { ...devices["Pixel 7"] } },
+    { name: "setup", testMatch: /\.setup\.ts$/, use: { ...devices["Desktop Chrome"] } },
+    { name: "desktop", use: { ...devices["Desktop Chrome"] }, dependencies: ["setup"] },
+    { name: "celular", use: { ...devices["Pixel 7"] }, dependencies: ["setup"] },
   ],
 });

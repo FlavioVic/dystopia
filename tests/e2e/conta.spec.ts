@@ -23,6 +23,47 @@ test.describe("acesso", () => {
     await expect(page.getByRole("heading", { name: "Comando" })).toHaveCount(0);
   });
 
+  test("sair derruba o login de verdade: o cookie copiado antes não vale mais", async ({ page, browser }) => {
+    await signUp(page);
+    const copied = await page.context().cookies();
+
+    await page.getByRole("button", { name: "Encerrar sessão" }).click();
+    await expect(page).toHaveURL(/\/entrar/);
+
+    const elsewhere = await browser.newContext();
+    await elsewhere.addCookies(copied);
+    const stolen = await elsewhere.newPage();
+    await stolen.goto("/conta");
+    await expect(stolen).toHaveURL(/\/entrar/);
+    await elsewhere.close();
+  });
+
+  test("sair dos outros aparelhos: o outro navegador cai, este continua", async ({ page, browser }) => {
+    const customer = await signUp(page);
+    const otherDevice = await browser.newContext();
+    const phone = await otherDevice.newPage();
+    await logIn(phone, customer.email, customer.password);
+    await expect(phone).toHaveURL(/\/conta/);
+
+    await page.goto("/conta/seguranca");
+    await expect(page.getByText("2 sessões abertas, contando esta.")).toBeVisible();
+    await page.getByRole("button", { name: "Sair dos outros aparelhos" }).click();
+    await expect(page.getByText("1 sessão encerrada.")).toBeVisible();
+
+    await phone.goto("/conta");
+    await expect(phone).toHaveURL(/\/entrar/);
+    await page.goto("/conta");
+    await expect(page.getByRole("heading", { name: customer.name })).toBeVisible();
+    await otherDevice.close();
+  });
+
+  test("cliente não vê o cadastro de autenticador (só o painel exige)", async ({ page }) => {
+    await signUp(page);
+    await page.goto("/conta/seguranca");
+    await expect(page.getByRole("button", { name: "Sair dos outros aparelhos" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Configurar autenticador" })).toHaveCount(0);
+  });
+
   test("cadastro com e-mail já usado avisa no campo", async ({ page }) => {
     await page.goto("/cadastro");
     await page.locator('input[name="name"]').fill("Outra Pessoa");

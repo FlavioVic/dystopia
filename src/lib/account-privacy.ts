@@ -22,6 +22,7 @@ import {
   reviews,
   sagas,
   serviceRequests,
+  sessions,
   users,
   wishlistItems,
 } from "@/db/schema";
@@ -35,7 +36,7 @@ export async function exportAccountData(executor: Executor, userId: string) {
   });
   if (!user) return null;
 
-  const [userAddresses, userOrders, userReviews, wishlist, requests] = await Promise.all([
+  const [userAddresses, userOrders, userReviews, wishlist, requests, logins] = await Promise.all([
     executor.query.addresses.findMany({
       where: eq(addresses.userId, userId),
       columns: { id: false, userId: false },
@@ -62,6 +63,11 @@ export async function exportAccountData(executor: Executor, userId: string) {
       where: or(eq(serviceRequests.userId, userId), eq(serviceRequests.email, user.email)),
       columns: { protocol: true, kind: true, name: true, email: true, phone: true, details: true, status: true, createdAt: true },
     }),
+    // Só quando entrou e até quando vale: o hash do token não é dado da pessoa e não sai daqui.
+    executor.query.sessions.findMany({
+      where: eq(sessions.userId, userId),
+      columns: { createdAt: true, expiresAt: true },
+    }),
   ]);
 
   return {
@@ -72,6 +78,7 @@ export async function exportAccountData(executor: Executor, userId: string) {
     avaliacoes: userReviews,
     favoritos: wishlist,
     orcamentos: requests,
+    sessoes: logins,
   };
 }
 

@@ -87,6 +87,50 @@ export const users = pgTable("users", {
   uniqueIndex("users_email_unique_idx").on(table.email),
 ]);
 
+// Sessão no banco (não JWT): sair apaga a linha e o cookie copiado morre junto.
+// O cookie leva um token aleatório; aqui fica só o SHA-256 dele — quem lê o
+// banco não consegue se passar por ninguém.
+export const sessions = pgTable("sessions", {
+  id: text("id").primaryKey(), // SHA-256 (hex) do token do cookie
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  // Senha conferida, falta o código do autenticador: não vale como login.
+  mfaPending: boolean("mfa_pending").notNull().default(false),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+}, (table) => [
+  index("sessions_user_id_idx").on(table.userId),
+  index("sessions_expires_at_idx").on(table.expiresAt),
+]);
+
+// Segundo fator (TOTP, RFC 6238). Obrigatório para admin.
+export const mfaCredentials = pgTable("mfa_credentials", {
+  userId: uuid("user_id")
+    .primaryKey()
+    .references(() => users.id, { onDelete: "cascade" }),
+  // Cifrado (AES-256-GCM, chave MFA_ENCRYPTION_KEY) — vazar o banco não
+  // entrega o gerador de códigos.
+  secret: text("secret").notNull(),
+  // null = QR mostrado, código ainda não confirmado (não vale como MFA).
+  confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
+  // Último passo de 30 s aceito: o mesmo código não entra duas vezes.
+  lastUsedStep: integer("last_used_step"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const mfaRecoveryCodes = pgTable("mfa_recovery_codes", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  codeHash: text("code_hash").notNull(), // SHA-256 — o código só aparece uma vez, na tela
+  usedAt: timestamp("used_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("mfa_recovery_codes_user_code_idx").on(table.userId, table.codeHash),
+]);
+
 export const addresses = pgTable("addresses", {
   id: uuid("id").primaryKey().defaultRandom(),
   userId: uuid("user_id")

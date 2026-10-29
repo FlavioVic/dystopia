@@ -1,70 +1,52 @@
 import { cookies } from "next/headers";
-import { SignJWT, jwtVerify } from "jose";
+import { db } from "@/db";
+import * as sessionsService from "@/services/sessions";
 
 /**
- * Sessão stateless: um JWT assinado (HS256) guardado num cookie httpOnly.
- * Payload mínimo (userId + role) — sem dados sensíveis. Estratégia recomendada
- * pelos docs do Next; não precisa de tabela de sessões no banco.
+ * Cookie da sessão. O cookie leva só o token aleatório; quem a pessoa é, se
+ * é admin e se a sessão ainda vale, quem diz é a tabela `sessions` (ver
+ * `services/sessions`). Escrever cookie só funciona em Server Action e Route
+ * Handler — por isso abrir e fechar sessão moram aqui, e ler mora em
+ * `lib/data/auth.ts`.
  */
 
-const SESSION_COOKIE = "session";
-const MAX_AGE_S = 60 * 60 * 24 * 7; // 7 dias
+export const SESSION_COOKIE = "session";
 
-export type SessionPayload = {
-  userId: string;
-  role: "customer" | "admin";
-};
-
-const secret = process.env.SESSION_SECRET;
-if (!secret) {
-  throw new Error("SESSION_SECRET não está definida. Veja .env.example.");
-}
-const encodedKey = new TextEncoder().encode(secret);
-
-/** Token assinado da sessão. Puro (sem cookie) — exportado para os testes. */
-export async function signSessionToken(payload: SessionPayload): Promise<string> {
-  return new SignJWT(payload)
-    .setProtectedHeader({ alg: "HS256" })
-    .setIssuedAt()
-    .setExpirationTime("7d")
-    .sign(encodedKey);
+/** Token do cookie atual (sem conferir no banco). */
+export async function readSessionToken(): Promise<string | undefined> {
+  return (await cookies()).get(SESSION_COOKIE)?.value;
 }
 
-/** Sessão do token, ou `null` se inválido, adulterado, expirado ou com papel desconhecido. */
-export async function verifySessionToken(token: string | undefined): Promise<SessionPayload | null> {
-  if (!token) return null;
-  try {
-    const { payload } = await jwtVerify(token, encodedKey, { algorithms: ["HS256"] });
-    if (typeof payload.userId === "string" && (payload.role === "customer" || payload.role === "admin")) {
-      return { userId: payload.userId, role: payload.role };
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
-
-/** Cria a sessão e seta o cookie (usar só em Server Action / Route Handler). */
-export async function createSession(payload: SessionPayload): Promise<void> {
-  const token = await signSessionToken(payload);
-  const store = await cookies();
-  store.set(SESSION_COOKIE, token, {
+async function writeCookie(token: string, expiresAt: Date): Promise<void> {
+  (await cookies()).set(SESSION_COOKIE, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
-    maxAge: MAX_AGE_S,
+    expires: expiresAt,
   });
 }
 
-/** Lê e valida a sessão atual (ou null). Seguro em Server Components. */
-export async function getSession(): Promise<SessionPayload | null> {
-  const token = (await cookies()).get(SESSION_COOKIE)?.value;
-  return verifySessionToken(token);
+/** Abre a sessão (pendente de MFA ou completa) e grava o cookie. */
+export async function startSession(input: { userId: string; mfaPending: boolean }): Promise<void> {
+  const { token, expiresAt } = await sessionsService.createSession(db, input);
+  await writeCookie(token, expiresAt);
 }
 
-/** Remove a sessão (logout). Usar só em Server Action / Route Handler. */
-export async function deleteSession(): Promise<void> {
+/** Código do autenticador conferido: a sessão pendente vira login. */
+export async function completeMfaSession(): Promise<boolean> {
+  const token = await readSessionToken();
+  if (!token) return false;
+  const completed = await sessionsService.completeMfa(db, token);
+  if (!completed) return false;
+  await writeCookie(token, completed.expiresAt);
+  return true;
+}
+
+/** Sair: apaga a sessão no banco (o token deixa de valer em qualquer lugar) e o cookie. */
+export async function endSession(): Promise<void> {
   const store = await cookies();
+  const token = store.get(SESSION_COOKIE)?.value;
+  if (token) await sessionsService.revokeSession(db, token);
   store.delete(SESSION_COOKIE);
 }

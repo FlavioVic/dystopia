@@ -77,6 +77,8 @@ async function main(): Promise<void> {
   process.env.RABBITMQ_RETRY_TIERS_MS = "50,100,200,400";
   process.env.NODE_OPTIONS = ["--import", "tsx", process.env.NODE_OPTIONS ?? ""].join(" ").trim();
   process.env.LOG_LEVEL = process.env.LOG_LEVEL ?? "error";
+  // Chave só de teste para o MFA (o .env de dev pode não ter uma).
+  process.env.MFA_ENCRYPTION_KEY ??= Buffer.from("chave-de-teste-do-mfa-32-bytes!!").toString("base64");
 
   let failures = 0;
   const stream = run({ files, concurrency: 1, timeout: 120_000 });

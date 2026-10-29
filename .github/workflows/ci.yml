@@ -50,8 +50,8 @@ jobs:
     env:
       DATABASE_URL: postgresql://dystopia:dystopia_dev_pw@localhost:5432/dystopia
       RABBITMQ_URL: amqp://dystopia:dystopia_dev_pw@localhost:5672
-      # Segredo de CI: serve só para o app subir (sessão é JWT assinado).
-      SESSION_SECRET: ci-somente-para-verificacao-nao-use-em-producao
+      # Chave de CI para os testes do MFA (nunca use em produção).
+      MFA_ENCRYPTION_KEY: Y2ktc29tZW50ZS1wYXJhLXZlcmlmaWNhY2FvLW1mYSE=
       LOG_LEVEL: error
 
     steps:

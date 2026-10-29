@@ -1,10 +1,9 @@
-import { expect, logIn, test } from "./fixtures";
+import { ADMIN_STATE } from "./admin-auth";
+import { expect, test } from "./fixtures";
 
 test.describe("painel admin", () => {
-  test.beforeEach(async ({ page }) => {
-    await logIn(page);
-    await expect(page).toHaveURL(/\/conta/);
-  });
+  // Sessão do admin já com segundo fator (feita pelo `admin.setup.ts`).
+  test.use({ storageState: ADMIN_STATE });
 
   test("cria um produto e ele aparece na loja", async ({ page }) => {
     const id = Date.now().toString(36);

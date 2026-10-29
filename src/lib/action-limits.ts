@@ -21,6 +21,10 @@ export const ACTION_LIMITS = {
   wishlist: { limit: limitFromEnv("WISHLIST_LIMIT_PER_10MIN", 60), windowSeconds: 10 * 60 },
   // Exclusão pede a senha de novo: sem limite, viraria força bruta por dentro da sessão.
   accountDelete: { limit: 5, windowSeconds: 60 * 60 },
+  // Código do autenticador (login, cadastro, códigos novos). Duas janelas: a
+  // curta segura a rajada, a diária é a que faz o chute levar anos.
+  mfa: { limit: limitFromEnv("MFA_LIMIT_PER_15MIN", 5), windowSeconds: 15 * 60 },
+  mfaDaily: { limit: limitFromEnv("MFA_LIMIT_PER_DAY", 20), windowSeconds: 24 * 60 * 60 },
 } satisfies Record<string, RateLimitRule>;
 
 export type LimitedAction = keyof typeof ACTION_LIMITS;

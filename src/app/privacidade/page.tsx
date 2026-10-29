@@ -18,12 +18,12 @@ export const metadata: Metadata = {
  * bater com o código: se mudar o que o site coleta, guarda ou com quem
  * compartilha, esta página muda junto. Data da última revisão em UPDATED_AT.
  */
-const UPDATED_AT = "25 de outubro de 2026";
+const UPDATED_AT = "29 de outubro de 2026";
 
 const DATA = [
   {
     what: "Conta",
-    data: "Nome, e-mail e senha. A senha é guardada só como hash bcrypt: nem a loja consegue lê-la.",
+    data: "Nome, e-mail e senha. A senha é guardada só como hash bcrypt: nem a loja consegue lê-la. Cada login aberto vira um registro com a data de entrada e a validade (sem IP e sem identificar o aparelho).",
     why: "Criar a conta, entrar e mostrar seus pedidos.",
     basis: "Execução de contrato (art. 7º, V)",
   },
@@ -147,8 +147,8 @@ export default function PrivacyPage() {
         <p>Só os necessários para o site funcionar, sem publicidade e sem rastreamento entre sites:</p>
         <ul className="flex list-disc flex-col gap-2 pl-5 text-sm">
           <li>
-            <span className="text-foreground">session</span>: mantém você logado, por até 7 dias. Assinado e inacessível a
-            scripts da página.
+            <span className="text-foreground">session</span>: mantém você logado, por até 7 dias. Leva só um código
+            aleatório, inacessível a scripts da página; ao sair, o código deixa de valer na hora, em qualquer lugar.
           </li>
           <li>
             <span className="text-foreground">cart_session</span>: guarda o carrinho de quem ainda não entrou, por até 30
@@ -198,6 +198,7 @@ export default function PrivacyPage() {
           </li>
           <li>Pedido de orçamento sem conta: até o atendimento terminar ou até você pedir a exclusão.</li>
           <li>Endereço IP do limite de tentativas: até 48 horas.</li>
+          <li>Registro de login: até você sair ou ele vencer (7 dias); os vencidos são apagados.</li>
           <li>Registros técnicos de acesso da hospedagem: pelo prazo da política da Vercel.</li>
         </ul>
       </Section>
@@ -229,9 +230,10 @@ export default function PrivacyPage() {
 
       <Section id="seguranca" title="Segurança">
         <p>
-          Conexão sempre criptografada (HTTPS com HSTS), senha guardada como hash bcrypt, sessão em cookie assinado e
-          inacessível a scripts, limite de tentativas contra força bruta, política de conteúdo (CSP) contra injeção de
-          script e painel administrativo restrito a quem tem o papel de administrador. Se houver um incidente que possa
+          Conexão sempre criptografada (HTTPS com HSTS), senha guardada como hash bcrypt, sessão em cookie
+          inacessível a scripts e encerrada no servidor ao sair, limite de tentativas contra força bruta, política de
+          conteúdo (CSP) contra injeção de script, e painel administrativo que exige, além da senha, o código de um app
+          autenticador. Se houver um incidente que possa
           causar risco ou dano relevante a você, você e a ANPD serão avisados (art. 48).
         </p>
       </Section>
