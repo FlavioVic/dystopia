@@ -33,7 +33,9 @@ export default async function Home() {
             </Reveal>
             <Reveal immediate delay={80}>
               <h1 className="display-1 mt-6 3xl:text-[80px] 3xl:leading-[88px]">
-                A ordem é um <span className="text-primary">serviço.</span>
+                {/* Em 80px "A ORDEM É UM" cabe numa linha: a quebra fica fixa depois do "é", como em todo tamanho. */}
+                A ordem é <br className="hidden 3xl:inline" />
+                um <span className="text-primary">serviço.</span>
                 <span aria-hidden="true" className="caret ml-1 inline-block h-[0.8em] w-[0.35em] translate-y-[0.1em] bg-primary" />
               </h1>
             </Reveal>
