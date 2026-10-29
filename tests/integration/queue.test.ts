@@ -77,6 +77,20 @@ describe("outbox", () => {
 });
 
 describe("relay", () => {
+  it("decide o que já pode sair pelo relógio do banco: Node atrasado não segura mensagem recém-gravada", async (t) => {
+    // A linha nasce com o `now()` do Postgres (microssegundos). Se o relay
+    // comparasse com o `Date` do Node (milissegundos, às vezes de outra
+    // máquina), a mensagem gravada no mesmo milissegundo ficava "no futuro" e
+    // pulava a rodada. Aqui o Node fica uma hora atrás — o caso extremo do mesmo erro.
+    await enqueue(db, { type: "teste.job", queue: Q });
+    t.mock.timers.enable({ apis: ["Date"], now: Date.now() - 60 * 60 * 1000 });
+    try {
+      assert.deepEqual(await relayOutbox(), { published: 1, failed: 0 });
+    } finally {
+      t.mock.timers.reset();
+    }
+  });
+
   it("publica com confirmação, marca como publicada e preserva o id da mensagem", async () => {
     const { id } = await enqueue(db, { type: "teste.job", queue: Q, payload: { a: 1 }, maxAttempts: 3 });
 

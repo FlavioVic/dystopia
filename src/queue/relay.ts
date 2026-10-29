@@ -12,7 +12,7 @@
  * é idempotente. Perda não é possível.
  */
 
-import { and, asc, eq, inArray, isNull, lt, lte } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, lt, lte, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { outbox } from "@/db/schema";
 import { createLogger } from "@/lib/logger";
@@ -31,11 +31,19 @@ export async function relayOutbox(options: { limit?: number; now?: Date } = {}):
   const now = options.now ?? new Date();
   const limit = options.limit ?? 100;
 
+  // "Já pode publicar?" pelo relógio do BANCO, o mesmo que gravou o
+  // `next_attempt_at` (default `now()`, em microssegundos). Com o `Date` do
+  // Node (milissegundos, e às vezes de outra máquina), uma linha gravada no
+  // mesmo milissegundo do relay ficava alguns microssegundos "no futuro" e
+  // pulava a rodada — no checkout da Vercel, o pedido esperava a próxima
+  // drenagem. `options.now` continua valendo para teste com relógio fixo.
+  const due = options.now ? lte(outbox.nextAttemptAt, options.now) : lte(outbox.nextAttemptAt, sql`now()`);
+
   const report = await db.transaction(async (tx) => {
     const rows = await tx
       .select()
       .from(outbox)
-      .where(and(isNull(outbox.publishedAt), lte(outbox.nextAttemptAt, now)))
+      .where(and(isNull(outbox.publishedAt), due))
       .orderBy(asc(outbox.createdAt))
       .limit(limit)
       .for("update", { skipLocked: true });
