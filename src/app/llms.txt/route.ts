@@ -47,7 +47,7 @@ export async function GET(): Promise<Response> {
     "",
     "## Opcional",
     "",
-    link("Sobre o projeto", "/sobre", "arquitetura: Next.js, PostgreSQL, checkout orquestrado por SAGA sobre RabbitMQ"),
+    link("Sobre a loja", "/sobre", "o que a loja vende, como o atendimento funciona, compromissos e contato"),
     link("Política de privacidade", "/privacidade", "dados coletados e direitos do titular (LGPD)"),
     link("Créditos", "/creditos", "fotos e fontes"),
     "",

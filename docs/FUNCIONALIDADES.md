@@ -16,15 +16,31 @@ cidade: contenção, disciplina, permanência. No código, isso vira regra:
   geometria original (`src/lib/brand-geometry.ts`, `src/components/Logo.tsx`).
 - **Voz** declarativa e sem exclamação ("A ordem é um serviço.", "Aquisição
   registrada."). Estado é dito por palavra num rótulo, não só por cor.
-- **Imagens de produto**: foto real quando a Wikimedia Commons tem o **modelo
-  exato** sob licença livre (com crédito na página do produto e em `/creditos`);
-  senão, placa técnica gerada (`npm run art`). Nunca foto de outro modelo.
+- **Imagens de produto**: no catálogo inicial, foto real quando a Wikimedia
+  Commons tem o **modelo exato** sob licença livre (com crédito na página do
+  produto e em `/creditos`); senão, placa técnica gerada (`npm run art`). Pelo
+  painel, o admin envia as fotos que quiser (galeria de até 10).
 - **Movimento** mecânico e curto: blocos revelados ao rolar, o emblema montado
-  na abertura (a vinheta do design system), faixa contínua, contadores e linha
-  vermelha no hover — tudo desligado com `prefers-reduced-motion`.
+  na abertura (a vinheta do design system), faixa contínua e linha vermelha no
+  hover — tudo desligado com `prefers-reduced-motion`.
+- **Ação nunca é texto solto**: o que leva a algum lugar é botão (com borda, o
+  `buttonSecondary`/`buttonCompact` do kit); link de referência é sublinhado.
 
 O kit da linguagem gráfica (régua com índice, rótulo de classificação, botões,
 grade com régua, campos de formulário) mora em `src/components/Kit.tsx`.
+
+# Páginas da loja
+
+- **`/sobre`** fala da **loja**, não do projeto: o que ela vende (categorias e
+  os quatro serviços), como o atendimento funciona (solicitação, diagnóstico,
+  execução com aprovação, entrega), os compromissos — com os valores das
+  mesmas regras do checkout (frete grátis, parcelas) —, quem atende e o
+  contato. No fim, o aviso de loja de demonstração e como testar uma compra.
+  Como a loja foi construída fica no portfólio (`/portfolio#dystopia`) e no
+  README.
+- **Página do produto**: galeria com tela cheia; logo abaixo do botão de
+  comprar, os **cupons em vigor** com "copiar código" (no fim da página,
+  depois da ficha técnica, ninguém via).
 
 # Conta do cliente
 
@@ -36,7 +52,8 @@ grade com régua, campos de formulário) mora em `src/components/Kit.tsx`.
 | `/favoritos` | Arquivo de favoritos ("Salvar" na vitrine e na página do produto) |
 
 - **Avaliações**: quem está logado avalia direto na página do produto (1 a 5
-  estrelas, título e comentário opcionais). Uma avaliação por pessoa por
+  estrelas, título e comentário opcionais). As estrelas ficam vermelhas ao
+  passar o mouse e ao escolher, com "N de 5" ao lado. Uma avaliação por pessoa por
   produto — reenviar edita a sua. Quem já comprou o item ganha o selo *compra
   verificada* (checado contra pedidos pagos), e a média/contagem do produto são
   recalculadas na mesma transação da escrita.

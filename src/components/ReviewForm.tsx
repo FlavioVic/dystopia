@@ -26,6 +26,9 @@ export function ReviewForm({
 }) {
   const [state, formAction, pending] = useActionState<ReviewState, FormData>(submitReview, undefined);
   const [rating, setRating] = useState(own?.rating ?? 0);
+  // Prévia ao passar o mouse: mostra a nota que o clique vai dar.
+  const [hovered, setHovered] = useState(0);
+  const shown = hovered || rating;
   const [removing, startRemoving] = useTransition();
   const [removeError, setRemoveError] = useState<string | null>(null);
 
@@ -51,21 +54,28 @@ export function ReviewForm({
         <span className="label text-foreground-muted">
           {own ? "Sua avaliação" : "Avaliar este produto"}
         </span>
-        <span className="flex items-center gap-0.5">
-          {[1, 2, 3, 4, 5].map((value) => (
-            <button
-              key={value}
-              type="button"
-              aria-label={`${value} estrela${value > 1 ? "s" : ""}`}
-              aria-pressed={rating === value}
-              onClick={() => setRating(value)}
-              className={`text-xl leading-none transition-colors ${
-                value <= rating ? "text-foreground-muted" : "text-border-hover hover:text-foreground-muted"
-              }`}
-            >
-              ★
-            </button>
-          ))}
+        <span className="flex items-center gap-3">
+          {/* Vermelho (primary) só a partir de 24px, regra do design system: as estrelas têm 24px. */}
+          <span className="flex items-center gap-0.5" onMouseLeave={() => setHovered(0)}>
+            {[1, 2, 3, 4, 5].map((value) => (
+              <button
+                key={value}
+                type="button"
+                aria-label={`${value} estrela${value > 1 ? "s" : ""}`}
+                aria-pressed={rating === value}
+                onClick={() => setRating(value)}
+                onMouseEnter={() => setHovered(value)}
+                onFocus={() => setHovered(value)}
+                onBlur={() => setHovered(0)}
+                className={`text-2xl leading-none transition-colors ${value <= shown ? "text-primary" : "text-border-hover"}`}
+              >
+                ★
+              </button>
+            ))}
+          </span>
+          <span className="label min-w-[5.5rem] text-foreground" aria-live="polite">
+            {shown ? `${shown} de 5` : "Escolha a nota"}
+          </span>
         </span>
       </div>
 
