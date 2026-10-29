@@ -1,5 +1,6 @@
 "use client";
 
+import { buttonCompact } from "@/components/Kit";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -122,8 +123,8 @@ export function HeaderNav({ categories }: { categories: Category[] }) {
             </ul>
             <div className="mt-5 grid grid-cols-[1fr_auto] items-center gap-4">
               <StoreSearch />
-              <Link href="/produtos" className="label text-signal-text hover:text-foreground">
-                Inventário completo
+              <Link href="/produtos" className={buttonCompact}>
+                Inventário completo <span aria-hidden="true">→</span>
               </Link>
             </div>
           </div>

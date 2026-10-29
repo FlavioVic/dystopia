@@ -23,7 +23,7 @@ export default async function Home() {
       {/* ---------------------------------------------------------- abertura */}
       {/* Em monitor grande (3xl, ≥1800px, junto com a largura do site) o hero ocupa a
           primeira tela e cresce, com o emblema sempre ao lado do texto. */}
-      <section className="bg-grid relative flex overflow-hidden border-b border-border 3xl:min-h-[calc(100svh-9.25rem)] 3xl:items-center">
+      <section className="bg-grid relative flex overflow-hidden border-b border-border 3xl:min-h-[calc(85svh-9.25rem)] 3xl:items-center">
         <div className="mx-auto grid w-full max-w-site items-center gap-12 px-4 py-16 sm:px-6 sm:py-20 lg:grid-cols-12 lg:px-8 lg:py-24">
           <div className="lg:col-span-7 3xl:col-span-8">
             <Reveal immediate>
@@ -32,7 +32,7 @@ export default async function Home() {
               </p>
             </Reveal>
             <Reveal immediate delay={80}>
-              <h1 className="display-1 mt-6 3xl:text-[92px] 3xl:leading-[100px]">
+              <h1 className="display-1 mt-6 3xl:text-[80px] 3xl:leading-[88px]">
                 A ordem é um <span className="text-primary">serviço.</span>
                 <span aria-hidden="true" className="caret ml-1 inline-block h-[0.8em] w-[0.35em] translate-y-[0.1em] bg-primary" />
               </h1>
@@ -57,7 +57,7 @@ export default async function Home() {
 
           <div className="hidden lg:col-span-5 lg:flex lg:justify-end 3xl:col-span-4">
             <div className="dys-frame flex flex-col items-center gap-8 bg-background px-14 py-12">
-              <EmblemSting size={248} className="text-primary 3xl:size-[340px]" title="Emblema DYSTOPIA" />
+              <EmblemSting size={248} className="text-primary 3xl:size-[296px]" title="Emblema DYSTOPIA" />
               <p className="serial text-foreground-muted">
                 EMISSÃO OFICIAL / <span className="text-signal-text">DYS-0001</span>
               </p>
@@ -76,8 +76,8 @@ export default async function Home() {
             label="Serviços"
             title="Intervenção técnica"
             action={
-              <Link href="/servicos" className="label shrink-0 text-signal-text hover:text-foreground">
-                Todos os serviços
+              <Link href="/servicos" className={`shrink-0 ${buttonSecondary}`}>
+                Todos os serviços <span aria-hidden="true">→</span>
               </Link>
             }
           />
@@ -125,8 +125,8 @@ export default async function Home() {
             label="Portfólio"
             title="Projetos entregues"
             action={
-              <Link href="/portfolio" className="label shrink-0 text-signal-text hover:text-foreground">
-                Portfólio completo
+              <Link href="/portfolio" className={`shrink-0 ${buttonSecondary}`}>
+                Portfólio completo <span aria-hidden="true">→</span>
               </Link>
             }
           />
@@ -158,8 +158,8 @@ export default async function Home() {
                 <Link href={`/portfolio#${lead.slug}`} className={buttonSecondary}>
                   Ver projeto
                 </Link>
-                <a href={lead.repo} target="_blank" rel="noreferrer" className="label self-center text-foreground-muted hover:text-foreground">
-                  Código no GitHub
+                <a href={lead.repo} target="_blank" rel="noreferrer" className={buttonSecondary}>
+                  Código no GitHub <span aria-hidden="true">↗</span>
                 </a>
               </div>
             </div>
@@ -200,9 +200,9 @@ export default async function Home() {
               label="Loja"
               title="Hardware registrado"
               action={
-                <Link href="/produtos" className="label shrink-0 text-signal-text hover:text-foreground">
-                  Inventário completo
-                </Link>
+                <Link href="/produtos" className={`shrink-0 ${buttonSecondary}`}>
+                Inventário completo <span aria-hidden="true">→</span>
+              </Link>
               }
             />
           </Reveal>
