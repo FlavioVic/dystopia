@@ -17,6 +17,7 @@
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "db:seed": "tsx src/db/seed.ts",
+    "db:app-role": "tsx src/scripts/db-app-role.ts",
     "art": "tsx src/scripts/product-art.ts",
     "art:portfolio": "tsx src/scripts/portfolio-art.ts",
     "catalog:media": "tsx src/scripts/sync-catalog-media.ts",

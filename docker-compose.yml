@@ -58,13 +58,11 @@ services:
 
 
   # ---------------------------------------------------------------- stack (--profile app)
-  # Aplica as migrations e sai; app e workers só sobem depois que ela terminou.
-  migrate:
+  web:
     profiles: [app]
-    build: { context: ., dockerfile: Dockerfile.worker }
-    command: ["npm", "run", "db:migrate"]
+    build: { context: ., dockerfile: Dockerfile.web }
     environment: &app-env
-      DATABASE_URL: postgresql://${POSTGRES_USER:-dystopia}:${POSTGRES_PASSWORD:-dystopia_dev_pw}@db:5432/${POSTGRES_DB:-dystopia}
+      DATABASE_URL: postgresql://dystopia_app:${APP_DB_PASSWORD:-dystopia_app_dev_pw}@db:5432/${POSTGRES_DB:-dystopia}
       RABBITMQ_URL: amqp://${RABBITMQ_USER:-dystopia}:${RABBITMQ_PASSWORD:-dystopia_dev_pw}@rabbitmq:5672
       # Chave de DESENVOLVIMENTO para cifrar o segredo do autenticador do admin.
       MFA_ENCRYPTION_KEY: ${MFA_ENCRYPTION_KEY:-ZGVzZW52b2x2aW1lbnRvLXNvbWVudGUtdHJvcXVlLWo=}
@@ -89,14 +87,6 @@ services:
       CHAT_API_KEY: ${CHAT_API_KEY:-}
       CHAT_API_URL: ${CHAT_API_URL:-}
       CHAT_MODEL: ${CHAT_MODEL:-}
-    depends_on:
-      db: { condition: service_healthy }
-    restart: "no"
-
-  web:
-    profiles: [app]
-    build: { context: ., dockerfile: Dockerfile.web }
-    environment: *app-env
     # Sem porta publicada: só o `proxy` fala com ele (ver docker/Caddyfile).
     # Pronto = responde uma página que consulta o banco (não só "processo de pé").
     healthcheck:
@@ -108,6 +98,22 @@ services:
       migrate: { condition: service_completed_successfully }
       rabbitmq: { condition: service_healthy }
     restart: unless-stopped
+
+  # Aplica as migrations, cria/atualiza o usuário do app e sai; app e workers
+  # só sobem depois que ela terminou. Migration e seed rodam como DONO do
+  # banco; app e workers, como `dystopia_app` (só lê e grava linha — ver
+  # src/db/app-role.ts).
+  migrate:
+    profiles: [app]
+    build: { context: ., dockerfile: Dockerfile.worker }
+    command: ["sh", "-c", "npm run db:migrate && npm run db:app-role"]
+    environment:
+      <<: *app-env
+      DATABASE_URL: postgresql://${POSTGRES_USER:-dystopia}:${POSTGRES_PASSWORD:-dystopia_dev_pw}@db:5432/${POSTGRES_DB:-dystopia}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:-dystopia_app_dev_pw}
+    depends_on:
+      db: { condition: service_healthy }
+    restart: "no"
 
   # Porta de entrada: sobrescreve X-Real-IP/X-Forwarded-For com o IP real da
   # conexão — sem isso o cliente forjaria o IP e furaria o limite de tentativas.
