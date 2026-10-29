@@ -128,11 +128,14 @@ test.describe("conta do cliente", () => {
     await page.getByRole("button", { name: "Adicionar aos favoritos" }).first().click();
     await expect(page.getByRole("button", { name: "Remover dos favoritos" }).first()).toBeVisible();
 
+    // Título único: o produto do catálogo acumula avaliações de outras rodadas e
+    // do outro tamanho de tela (rodam juntos).
+    const title = `Cumpre o que promete ${Date.now().toString(36)}`;
     await page.getByRole("button", { name: "4 estrelas" }).click();
-    await page.locator('input[name="title"]').fill("Cumpre o que promete");
+    await page.locator('input[name="title"]').fill(title);
     await page.locator('textarea[name="comment"]').fill("Montado e testado, sem surpresa.");
     await page.getByRole("button", { name: "Publicar avaliação" }).click();
-    await expect(page.getByText("Cumpre o que promete")).toBeVisible();
+    await expect(page.getByText(title)).toBeVisible();
 
     await page.goto("/favoritos");
     await expect(page.locator(`a[href="${productPath}"]`).first()).toBeVisible();
