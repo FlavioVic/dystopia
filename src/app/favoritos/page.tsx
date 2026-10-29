@@ -16,7 +16,7 @@ export default async function WishlistPage() {
   const items = await getWishlist();
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+    <div className="mx-auto max-w-site px-4 py-10 sm:px-6 lg:px-8">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="display-2 text-[26px] leading-[34px] sm:text-[32px] sm:leading-[40px]">Arquivo</h1>

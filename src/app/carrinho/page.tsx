@@ -17,7 +17,7 @@ export default async function CartPage() {
 
   if (!cart || cart.lines.length === 0) {
     return (
-      <div className="mx-auto flex max-w-7xl flex-col items-start gap-6 px-4 py-24 sm:px-6 lg:px-8">
+      <div className="mx-auto flex max-w-site flex-col items-start gap-6 px-4 py-24 sm:px-6 lg:px-8">
         <p className="label text-foreground-muted">Carrinho / 00 itens</p>
         <h1 className="display-2 text-[26px] leading-[34px] sm:text-[40px] sm:leading-[48px]">Nenhum item registrado.</h1>
         <p className="max-w-md text-base text-foreground-muted">
@@ -31,7 +31,7 @@ export default async function CartPage() {
   }
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+    <div className="mx-auto max-w-site px-4 py-12 sm:px-6 lg:px-8">
       <p className="label text-foreground-muted">
         Carrinho / {String(cart.count).padStart(2, "0")} {cart.count === 1 ? "item" : "itens"}
       </p>

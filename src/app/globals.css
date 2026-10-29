@@ -116,6 +116,11 @@
   color-scheme: light;
 }
 
+/* Monitor grande (Full HD, QHD): o site vai a 1600px e o hero cresce. */
+@theme {
+  --breakpoint-3xl: 112.5rem;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-background-elevated: var(--background-elevated);
@@ -201,6 +206,17 @@
   ::selection {
     background: var(--foreground);
     color: var(--background);
+  }
+}
+
+/* Largura do conteúdo do site: 1280px até 1799px de tela; em monitor grande
+   (Full HD, QHD) vai a 1600px — a 1280px o site virava uma faixa estreita no
+   meio da tela. Um lugar só, para cabeçalho, seções e rodapé mudarem juntos e
+   continuarem alinhados. */
+@utility max-w-site {
+  max-width: 80rem;
+  @media (width >= theme(--breakpoint-3xl)) {
+    max-width: 100rem;
   }
 }
 

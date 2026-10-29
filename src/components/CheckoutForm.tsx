@@ -104,7 +104,7 @@ export function CheckoutForm({
   const err = state?.errors ?? {};
 
   return (
-    <form action={formAction} onSubmit={handleSubmit} className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+    <form action={formAction} onSubmit={handleSubmit} className="mx-auto max-w-site px-4 py-12 sm:px-6 lg:px-8">
       <p className="label text-foreground-muted">Aquisição / Protocolo de compra</p>
       <h1 className="display-2 mt-4 text-[26px] leading-[34px] sm:text-[40px] sm:leading-[48px]">Aquisição</h1>
 

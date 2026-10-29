@@ -21,22 +21,24 @@ export default async function Home() {
   return (
     <div className="flex flex-col">
       {/* ---------------------------------------------------------- abertura */}
-      <section className="bg-grid relative overflow-hidden border-b border-border">
-        <div className="mx-auto grid max-w-7xl items-center gap-12 px-4 py-16 sm:px-6 sm:py-20 lg:grid-cols-12 lg:px-8 lg:py-24">
-          <div className="lg:col-span-7">
+      {/* Em monitor grande (3xl, ≥1800px, junto com a largura do site) o hero ocupa a
+          primeira tela e cresce, com o emblema sempre ao lado do texto. */}
+      <section className="bg-grid relative flex overflow-hidden border-b border-border 3xl:min-h-[calc(100svh-9.25rem)] 3xl:items-center">
+        <div className="mx-auto grid w-full max-w-site items-center gap-12 px-4 py-16 sm:px-6 sm:py-20 lg:grid-cols-12 lg:px-8 lg:py-24">
+          <div className="lg:col-span-7 3xl:col-span-8">
             <Reveal immediate>
-              <p className="label text-foreground-muted">
+              <p className="label text-foreground-muted 3xl:text-[13px]">
                 <span className="text-signal-text">{PROFILE.name}</span> / Desenvolvimento e hardware
               </p>
             </Reveal>
             <Reveal immediate delay={80}>
-              <h1 className="display-1 mt-6">
+              <h1 className="display-1 mt-6 3xl:text-[92px] 3xl:leading-[100px]">
                 A ordem é um <span className="text-primary">serviço.</span>
                 <span aria-hidden="true" className="caret ml-1 inline-block h-[0.8em] w-[0.35em] translate-y-[0.1em] bg-primary" />
               </h1>
             </Reveal>
             <Reveal immediate delay={160}>
-              <p className="mt-6 max-w-xl text-lg leading-[28px] text-foreground-muted">
+              <p className="mt-6 max-w-xl text-lg leading-[28px] text-foreground-muted 3xl:mt-8 3xl:max-w-2xl 3xl:text-xl 3xl:leading-[32px]">
                 Software construído sob medida. Computadores montados, mantidos e restaurados. Cada intervenção é
                 registrada do pedido à entrega.
               </p>
@@ -53,9 +55,9 @@ export default async function Home() {
             </Reveal>
           </div>
 
-          <div className="hidden lg:col-span-5 lg:flex lg:justify-end">
+          <div className="hidden lg:col-span-5 lg:flex lg:justify-end 3xl:col-span-4">
             <div className="dys-frame flex flex-col items-center gap-8 bg-background px-14 py-12">
-              <EmblemSting size={248} className="text-primary" title="Emblema DYSTOPIA" />
+              <EmblemSting size={248} className="text-primary 3xl:size-[340px]" title="Emblema DYSTOPIA" />
               <p className="serial text-foreground-muted">
                 EMISSÃO OFICIAL / <span className="text-signal-text">DYS-0001</span>
               </p>
@@ -191,7 +193,7 @@ export default async function Home() {
 
       {/* ---------------------------------------------------------- loja */}
       {featured.length > 0 ? (
-        <section className="mx-auto w-full max-w-7xl px-4 pt-24 sm:px-6 lg:px-8">
+        <section className="mx-auto w-full max-w-site px-4 pt-24 sm:px-6 lg:px-8">
           <Reveal>
             <SectionHeading
               index="04 / 05"
@@ -218,7 +220,7 @@ export default async function Home() {
       <section className="mt-24">
         <div className="hazard" aria-hidden="true" />
         <div className="bg-primary text-primary-foreground">
-          <Reveal className="mx-auto flex max-w-7xl flex-col items-start gap-8 px-4 py-16 sm:px-6 lg:flex-row lg:items-end lg:justify-between lg:px-8">
+          <Reveal className="mx-auto flex max-w-site flex-col items-start gap-8 px-4 py-16 sm:px-6 lg:flex-row lg:items-end lg:justify-between lg:px-8">
             <div>
               <p className="label opacity-80">05 / 05 — Protocolo aberto</p>
               <h2 className="display-2 mt-4 text-[26px] leading-[34px] sm:text-[40px] sm:leading-[48px]">

@@ -77,7 +77,7 @@ export default async function ProductPage(props: PageProps<"/produto/[slug]">) {
           ],
         }}
       />
-      <div className="mx-auto max-w-7xl px-4 pb-16 pt-10 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-site px-4 pb-16 pt-10 sm:px-6 lg:px-8">
         <nav aria-label="Trilha" className="label flex flex-wrap gap-2 text-foreground-muted">
           <Link href="/produtos" className="hover:text-foreground">
             Inventário
@@ -219,7 +219,7 @@ export default async function ProductPage(props: PageProps<"/produto/[slug]">) {
       </Sector>
 
       {related.length > 0 ? (
-        <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+        <section className="mx-auto max-w-site px-4 py-16 sm:px-6 lg:px-8">
           <Rule label="Mesma categoria" index={product.category.name} />
           <ProductGrid>
             {related.map((p) => (
