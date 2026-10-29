@@ -3,9 +3,12 @@ import { notFound } from "next/navigation";
 import { requireAdmin } from "@/lib/data/auth";
 import { getCategoriesSimple, getProductForEdit } from "@/lib/data/admin";
 import { ProductForm } from "@/components/admin/ProductForm";
+import { ProductImages } from "@/components/admin/ProductImages";
 import { VariantCreateForm } from "@/components/admin/VariantCreateForm";
 import { VariantRow } from "@/components/admin/VariantRow";
-import { createVariant, updateProduct, updateVariant } from "@/lib/actions/admin";
+import { createVariant, updateProduct, updateVariant, uploadProductImage } from "@/lib/actions/admin";
+import { mediaStorageFromEnv } from "@/lib/media-storage";
+import { MAX_PRODUCT_IMAGES } from "@/services/catalog";
 
 export const metadata: Metadata = { title: "Editar produto · Admin" };
 
@@ -41,6 +44,24 @@ export default async function EditProductPage(props: PageProps<"/admin/produtos/
           }}
         />
       </div>
+
+      <section className="mt-10 border-t border-border pt-6" aria-labelledby="imagens-titulo">
+        <h3 id="imagens-titulo" className="label text-foreground-muted">
+          Imagens ({product.images.length}/{MAX_PRODUCT_IMAGES})
+        </h3>
+        <p className="mt-1 text-xs text-foreground-muted">
+          A primeira é a principal: aparece no card da loja e no topo da página do produto. Até{" "}
+          {MAX_PRODUCT_IMAGES} fotos; na loja, o cliente vê todas.
+        </p>
+        <div className="mt-4">
+          <ProductImages
+            images={product.images.map((image) => ({ id: image.id, url: image.url, altText: image.altText }))}
+            uploadAction={uploadProductImage.bind(null, id)}
+            storageReady={mediaStorageFromEnv() !== null}
+            full={product.images.length >= MAX_PRODUCT_IMAGES}
+          />
+        </div>
+      </section>
 
       <section className="mt-10 border-t border-border pt-6">
         <h3 className="label text-foreground-muted">

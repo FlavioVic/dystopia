@@ -163,6 +163,14 @@ dead-letter-exchange de volta para a de trabalho) e a DLQ `<p>.<fila>.dlq`. `<p>
 15. **O app conecta como `dystopia_app`** (só DML). Migration, seed e SQL de
     operação usam a conexão do dono. Código do app que precisar de DDL em
     runtime está errado por definição.
+16. **Arquivo enviado é validado pelo conteúdo** (`lib/product-media.ts`:
+    primeiros bytes; nome e `type` do navegador não contam), SVG nunca entra,
+    e a chave do arquivo é gerada no servidor (`produtos/<id>/<uuid>.<ext>`).
+    O armazenamento é uma interface com dois lados (`lib/media-storage.ts`):
+    Vercel Blob com `BLOB_READ_WRITE_TOKEN`, pasta local fora da Vercel. A
+    galeria (`services/catalog/images.ts`) guarda só a URL, com posição
+    0..n-1 (0 = principal) e no máximo 10 fotos, garantido com a linha do
+    produto travada.
 
 ## Como estender
 
@@ -246,8 +254,10 @@ revise o SQL → `npm run db:migrate`. Nunca edite migration já aplicada.
 
 - Código e comentário em **pt-BR**; comentário explica *por quê*, não *o quê*.
 - Sem dependência nova sem motivo forte (hoje: next, react, drizzle, pg,
-  amqplib, zod, bcryptjs, qrcode, dotenv; em dev, Playwright para os testes
-  de navegador). O `jose` saiu com o JWT. O TOTP é o RFC 6238 em cima do
+  amqplib, zod, bcryptjs, qrcode, @vercel/blob, dotenv; em dev, Playwright
+  para os testes de navegador). O `overrides` do package.json força o `zod`
+  do projeto dentro do `@vercel/cli-config` (dependência do Blob, que fixava
+  um 4.1 com vulnerabilidade alta); não remova sem rodar `npm audit`. O `jose` saiu com o JWT. O TOTP é o RFC 6238 em cima do
   HMAC do `node:crypto` (`services/mfa/totp.ts`, com os vetores do RFC no
   teste); QR code é Reed-Solomon, então esse vem de biblioteca. Saga, relay, política de retry, logger e
   runner de teste são caseiros de propósito; o Stripe é chamado via `fetch`

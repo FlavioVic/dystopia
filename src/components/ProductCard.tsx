@@ -5,6 +5,7 @@ import { StarRating } from "@/components/StarRating";
 import { gridCell } from "@/components/Kit";
 import { WishlistHeart } from "@/components/WishlistHeart";
 import { discountPercent, formatPriceCents, installmentText } from "@/lib/format";
+import { isTechnicalPlate } from "@/lib/product-media";
 
 type ProductCardData = {
   id: string;
@@ -44,12 +45,11 @@ export function ProductCard({ product, priority = false }: { product: ProductCar
             fill
             priority={priority}
             sizes="(min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw"
-            // Foto real: inteira, com respiro (cortar uma placa de vídeo no meio
-            // não mostra o produto). Placa técnica: preenche o quadro.
+            // Foto (do catálogo ou do painel): inteira, com respiro. Placa técnica: preenche o quadro.
             className={
-              image.url.startsWith("/images/photos/")
-                ? "object-contain p-5 transition-transform duration-500 group-hover:scale-[1.04]"
-                : "object-cover transition-transform duration-500 group-hover:scale-[1.02]"
+              isTechnicalPlate(image.url)
+                ? "object-cover transition-transform duration-500 group-hover:scale-[1.02]"
+                : "object-contain p-5 transition-transform duration-500 group-hover:scale-[1.04]"
             }
           />
         ) : null}

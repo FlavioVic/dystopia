@@ -11,6 +11,15 @@ const nextConfig: NextConfig = {
     dangerouslyAllowSVG: true,
     contentDispositionType: "attachment",
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
+    /* Fotos enviadas pelo painel (Vercel Blob, store público). */
+    remotePatterns: [{ protocol: "https", hostname: "*.public.blob.vercel-storage.com" }],
+  },
+  experimental: {
+    serverActions: {
+      /* Envio de foto pelo painel: até 3 MB (lib/product-media.ts) mais a folga
+       * do multipart. A Vercel corta o corpo em 4,5 MB de qualquer jeito. */
+      bodySizeLimit: "3.5mb",
+    },
   },
   /* Headers de segurança em toda resposta. A CSP completa (com nonce por
    * request) vem do `src/proxy.ts`; esta `frame-ancestors` cobre o que o proxy
