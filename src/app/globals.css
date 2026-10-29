@@ -228,6 +228,17 @@
   .display-1 { font-size: 34px; line-height: 42px; letter-spacing: 0.08em; }
   .display-2 { font-size: 26px; line-height: 34px; letter-spacing: 0.1em; }
 }
+/* display-2 em coluna estreita (login, cadastro: 352px no desktop, 288px num
+   celular de 320). "IDENTIFICAÇÃO" na Michroma mede 501px em 40px e quebrava
+   no meio da palavra; medido, cabe com 28px no desktop, 26px a partir de
+   360px e 22px abaixo. Vem depois do .display-2 para ganhar dele. */
+.display-2--narrow { font-size: 22px; line-height: 30px; letter-spacing: 0.08em; }
+@media (min-width: 360px) {
+  .display-2--narrow { font-size: 26px; line-height: 34px; letter-spacing: 0.1em; }
+}
+@media (min-width: 641px) {
+  .display-2--narrow { font-size: 28px; line-height: 36px; }
+}
 
 /* Rótulo técnico: mono, caixa alta. */
 .label {
