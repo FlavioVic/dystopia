@@ -89,7 +89,7 @@ fora.
 | `/admin/pedidos` | Todos os pedidos (cliente, data, itens, status, total) |
 | `/admin/pedidos/[orderNumber]` | Itens, totais, endereço, pagamento, troca de status e a saga do pedido |
 | `/admin/produtos` | Lista com preço/estoque e toggles de "ativo" e "destaque" |
-| `/admin/produtos/novo` · `/admin/produtos/[id]` | Criar e editar produto, com variantes (tamanho/cor, SKU, preço e estoque próprios) |
+| `/admin/produtos/novo` · `/admin/produtos/[id]` | Criar e editar produto, com variantes (tamanho/cor, SKU, preço e estoque próprios) e **galeria de até 10 fotos**: enviar (JPEG, PNG, WebP ou AVIF, até 3 MB), escolher a principal, ordenar, descrever e remover |
 | `/admin/cupons` · `/admin/cupons/novo` · `/admin/cupons/[id]` | Cupons: percentual ou valor fixo, pedido mínimo, limite de usos e validade |
 | `/admin/orquestracao` | Sagas, filas do RabbitMQ, outbox, DLQ (com reprocessamento), notificações e reconciliação |
 
@@ -118,3 +118,8 @@ Decisões de design:
 - **Status de pedido é máquina de estados** (`src/lib/order-status.ts`): "entregue → pendente" não existe, nem no admin nem na saga.
 - **Chave de idempotência no pagamento** (`payments.idempotency_key`, unique) — reexecutar o passo não cria segunda cobrança.
 - Ver o schema completo comentado em [`src/db/schema.ts`](./src/db/schema.ts).
+
+**Galeria na loja.** A página do produto mostra todas as fotos: setas e
+contador na foto grande, miniaturas que rolam de lado no celular, e clique na
+foto para tela cheia (setas, ← → do teclado, Esc e deslizar o dedo). Foto
+aparece inteira; só a placa técnica gerada (SVG) preenche o quadro.

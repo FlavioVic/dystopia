@@ -119,6 +119,12 @@ desligar a flag.
      - `SERVICE_ALERT_TO` — quem recebe o aviso de cada pedido de orçamento
        (gravado na mesma transação do pedido e entregue pela fila
        `notifications`).
+     - **Fotos pelo painel** (galeria do produto): aba *Storage* do projeto →
+       *Create* → **Blob**, acesso **público**, ligado ao projeto em
+       Production. A Vercel cria `BLOB_READ_WRITE_TOKEN` sozinha; Redeploy.
+       Grátis no Hobby até 1 GB, 2 mil envios e 10 GB de tráfego por mês — e
+       passando disso o Blob bloqueia, não cobra. Sem o store, o painel avisa
+       que o armazenamento não está configurado (o resto funciona).
 3. Deploy. O `vercel.json` fixa as funções em `iad1` e registra o cron.
 4. Com o repositório conectado (Settings → Git, ou `vercel git connect`), cada
    push na `main` publica sozinho. Migration nova continua manual: rode
