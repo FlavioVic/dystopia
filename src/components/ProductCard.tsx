@@ -53,14 +53,10 @@ export function ProductCard({ product, priority = false }: { product: ProductCar
             }
           />
         ) : null}
-        <div className="absolute left-3 top-3 flex flex-col items-start gap-1.5">
-          {discount ? <span className="dys-label dys-label--classified">-{discount}%</span> : null}
-          {outOfStock ? (
-            <span className="dys-label dys-label--notice bg-background">Sem estoque</span>
-          ) : lowStock ? (
-            <span className="dys-label bg-background">Últimas {String(product.stockQuantity).padStart(2, "0")}</span>
-          ) : null}
-        </div>
+        {/* No canto da foto só o que é curto: no celular o card tem ~179px, e
+            "ÚLTIMAS 01" ao lado do "SALVAR" não cabe (um cobria o outro).
+            Estoque fica junto do preço; esgotado, o próprio botão diz. */}
+        {discount ? <span className="dys-label dys-label--classified absolute left-3 top-3">-{discount}%</span> : null}
       </Link>
 
       {/* Fora do <Link>: botão dentro de âncora não é HTML válido (e o clique navegaria). */}
@@ -91,6 +87,9 @@ export function ProductCard({ product, priority = false }: { product: ProductCar
             {formatPriceCents(product.priceCents)}
           </span>
           {installment ? <span className="text-xs text-foreground-muted">{installment}</span> : null}
+          {lowStock ? (
+            <span className="dys-label mt-1 self-start">Últimas {String(product.stockQuantity).padStart(2, "0")}</span>
+          ) : null}
         </div>
 
         <div className="mt-auto pt-3">
