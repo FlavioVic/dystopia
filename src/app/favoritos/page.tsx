@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ProductGrid, buttonPrimary } from "@/components/Kit";
+import { ProductGrid, buttonCompact, buttonPrimary } from "@/components/Kit";
 import { redirect } from "next/navigation";
 import { ProductCard } from "@/components/ProductCard";
 import { getCurrentUser } from "@/lib/data/auth";
@@ -26,8 +26,8 @@ export default async function WishlistPage() {
               : `${String(items.length).padStart(2, "0")} ${items.length === 1 ? "item arquivado" : "itens arquivados"}.`}
           </p>
         </div>
-        <Link href="/conta" className="label text-foreground-muted hover:text-foreground">
-          Voltar à ficha
+        <Link href="/conta" className={buttonCompact}>
+          <span aria-hidden="true">←</span> Voltar à ficha
         </Link>
       </div>
 

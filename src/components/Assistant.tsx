@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { type FormEvent, useEffect, useRef, useState } from "react";
-import { buttonPrimary, inputClass } from "@/components/Kit";
+import { buttonCompact, buttonPrimary, inputClass } from "@/components/Kit";
 import { parseRichText } from "@/lib/assistant/rich-text";
 
 type Turn = { role: "user" | "assistant"; content: string };
@@ -148,11 +148,11 @@ export function Assistant() {
             </p>
             <div className="flex items-center gap-1">
               {turns.length > 0 && (
-                <button type="button" onClick={clear} className="label px-2 py-1 text-foreground-muted hover:text-foreground">
+                <button type="button" onClick={clear} className={buttonCompact}>
                   Limpar
                 </button>
               )}
-              <button type="button" onClick={close} className="label px-2 py-1 text-foreground-muted hover:text-foreground">
+              <button type="button" onClick={close} className={buttonCompact}>
                 Fechar
               </button>
             </div>

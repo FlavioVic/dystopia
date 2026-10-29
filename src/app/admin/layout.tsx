@@ -1,3 +1,4 @@
+import { buttonCompact } from "@/components/Kit";
 import Link from "next/link";
 import { requireAdmin } from "@/lib/data/auth";
 import { AdminNav } from "@/components/admin/AdminNav";
@@ -19,8 +20,8 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
             overflow-x-auto dela nunca entra — a página estoura no celular. */}
         <div className="flex min-w-0 max-w-full items-center gap-4">
           <AdminNav />
-          <Link href="/" className="label hidden text-foreground-muted hover:text-foreground sm:inline">
-            Voltar à loja
+          <Link href="/" className={`hidden sm:inline-flex ${buttonCompact}`}>
+            <span aria-hidden="true">←</span> Voltar à loja
           </Link>
         </div>
       </div>

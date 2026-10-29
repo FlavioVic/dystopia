@@ -78,18 +78,24 @@ export async function logIn(page: Page, email = "admin@dystopia.dev", password =
 
 /**
  * Um produto com estoque de uma listagem no carrinho; devolve o caminho dele.
- * Os testes rodam em paralelo e compram de verdade: o primeiro da lista pode
- * esgotar no meio (a loja responde "esgotado", corretamente), então tenta o
- * próximo. Quem depende de preço (cupom com mínimo) passa uma busca.
+ * Os testes rodam em paralelo e compram de verdade: o produto é sorteado entre
+ * os da página, e se um esgotar no meio (a loja responde "esgotado",
+ * corretamente), tenta o próximo. Quem depende de preço (cupom com mínimo) passa uma busca.
  *
  * A listagem mostra os mais novos primeiro, e numa stack reaproveitada a 1ª
  * página pode ser só de produtos criados por outros testes: aí segue para a
  * próxima página.
  */
-export async function addFirstProductToCart(page: Page, listing = "/produtos"): Promise<string> {
+export async function addFirstProductToCart(
+  page: Page,
+  listing = "/produtos",
+  // Quem vai aumentar a quantidade pula produto com o selo "Últimas NN" (≤ 3 em
+  // estoque): numa stack reaproveitada, o mais barato pode ter sobrado com 1.
+  options: { skipLowStock?: boolean } = {},
+): Promise<string> {
   await page.goto(listing);
-  for (let pageNumber = 1; pageNumber <= 5; pageNumber += 1) {
-    const added = await addFromCurrentPage(page);
+  for (let pageNumber = 1; pageNumber <= 10; pageNumber += 1) {
+    const added = await addFromCurrentPage(page, options.skipLowStock ?? false);
     if (added) return added;
     const next = page.locator('nav[aria-label="Paginação"] a[rel="next"]');
     if ((await next.count()) === 0) break;
@@ -98,22 +104,26 @@ export async function addFirstProductToCart(page: Page, listing = "/produtos"): 
   throw new Error(`nenhum produto com estoque em ${listing}`);
 }
 
-async function addFromCurrentPage(page: Page): Promise<string | null> {
+async function addFromCurrentPage(page: Page, skipLowStock: boolean): Promise<string | null> {
   const buttons = page.getByRole("button", { name: "Adicionar ao carrinho" });
   const total = await buttons.count();
-  const hrefs: string[] = [];
+  const plenty: string[] = [];
+  const low: string[] = [];
   for (let i = 0; i < total; i += 1) {
-    const href = await buttons
-      .nth(i)
-      .locator('xpath=ancestor::article[1]')
-      .locator('a[href^="/produto/"]')
-      .first()
-      .getAttribute("href");
+    const article = buttons.nth(i).locator("xpath=ancestor::article[1]");
+    const href = await article.locator('a[href^="/produto/"]').first().getAttribute("href");
     // Produto criado por outro teste (slug com `-e2e-`) tem estoque pequeno e
     // vida curta: comprar dele faz um teste esgotar o produto do outro no meio
     // do checkout.
-    if (href && !href.includes("-e2e-")) hrefs.push(href);
+    if (!href || href.includes("-e2e-")) continue;
+    const isLow = (await article.getByText(/^Últimas \d+$/).count()) > 0;
+    if (isLow && skipLowStock) continue;
+    (isLow ? low : plenty).push(href);
   }
+  // Sorteado, não "o primeiro": uma dúzia de compras em paralelo no mesmo
+  // produto esgota o estoque dele no meio do checkout (pedido desfeito, teste
+  // vermelho). Os com estoque folgado vêm antes dos "Últimas NN".
+  const hrefs = [...shuffle(plenty), ...shuffle(low)];
   // O card fica preso ao link (estável): o botão muda de nome depois do clique,
   // e um localizador por "i-ésimo botão Adicionar" passaria a apontar para o próximo.
   for (const href of hrefs) {
@@ -123,4 +133,13 @@ async function addFromCurrentPage(page: Page): Promise<string | null> {
     if (await added.waitFor({ timeout: 5_000 }).then(() => true, () => false)) return href;
   }
   return null;
+}
+
+function shuffle<T>(items: T[]): T[] {
+  const copy = [...items];
+  for (let i = copy.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
 }

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { CartItemRow } from "@/components/CartItemRow";
-import { buttonPrimary } from "@/components/Kit";
+import { buttonCompact, buttonPrimary } from "@/components/Kit";
 import { getCart } from "@/lib/data/cart";
 import { formatPriceCents } from "@/lib/format";
 import { FREE_SHIPPING_MIN_CENTS } from "@/lib/shipping";
@@ -44,8 +44,8 @@ export default async function CartPage() {
               <CartItemRow key={line.itemId} line={line} />
             ))}
           </ul>
-          <Link href="/produtos" className="label mt-6 inline-flex text-foreground-muted hover:text-foreground">
-            Voltar ao inventário
+          <Link href="/produtos" className={`mt-6 ${buttonCompact}`}>
+            <span aria-hidden="true">←</span> Voltar ao inventário
           </Link>
         </section>
 

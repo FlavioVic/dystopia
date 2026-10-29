@@ -39,7 +39,7 @@ export default function CreditsPage() {
                 {photo.license}
               </a>
             </p>
-            <a href={photo.source} target="_blank" rel="noreferrer" className="label mt-auto text-signal-text hover:text-foreground">
+            <a href={photo.source} target="_blank" rel="noreferrer" className="label mt-auto text-signal-text underline underline-offset-4 hover:text-foreground">
               Arquivo original
             </a>
           </li>

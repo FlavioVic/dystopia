@@ -113,10 +113,10 @@ export default async function ServicesPage(props: PageProps<"/servicos">) {
               <Link href="/portfolio" className="label text-foreground underline underline-offset-4 hover:text-signal-text">
                 Portfólio
               </Link>
-              <a href={PROFILE.linkedin} target="_blank" rel="noreferrer" className="label text-foreground-muted hover:text-foreground">
+              <a href={PROFILE.linkedin} target="_blank" rel="noreferrer" className="label text-foreground underline underline-offset-4 hover:text-signal-text">
                 LinkedIn
               </a>
-              <a href={PROFILE.github} target="_blank" rel="noreferrer" className="label text-foreground-muted hover:text-foreground">
+              <a href={PROFILE.github} target="_blank" rel="noreferrer" className="label text-foreground underline underline-offset-4 hover:text-signal-text">
                 GitHub
               </a>
             </div>
