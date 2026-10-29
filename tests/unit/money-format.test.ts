@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { errorDigest } from "@/lib/error-digest";
-import { discountPercent, formatPriceCents, installmentText, isFreeShipping, FREE_SHIPPING_MIN_CENTS, publicName } from "@/lib/format";
+import { discountPercent, formatPriceCents, installmentText, isFreeShipping, publicName } from "@/lib/format";
 import { toCents, toCentsOrDefault } from "@/lib/money";
+import { FREE_SHIPPING_MIN_CENTS } from "@/lib/shipping";
 
 describe("dinheiro digitado → centavos", () => {
   it("vírgula ou ponto, arredondando o centavo", () => {
