@@ -208,36 +208,42 @@
  * Elementos da linguagem gráfica. Cada um tem uma função; use só para ela.
  */
 
-/* Títulos display: Michroma em caixa alta, com tracking. */
-.display-1,
-.display-2,
-.display-3,
-.display-4 {
-  font-family: var(--font-display);
-  font-weight: 400;
-  text-transform: uppercase;
-  /* Fonte larga em caixa alta: palavra longa em tela estreita quebra em vez de
-     empurrar a página para o lado. */
-  overflow-wrap: break-word;
-}
-.display-1 { font-size: 64px; line-height: 72px; letter-spacing: 0.1em; }
-.display-2 { font-size: 40px; line-height: 48px; letter-spacing: 0.12em; }
-.display-3 { font-size: 24px; line-height: 32px; letter-spacing: 0.14em; }
-.display-4 { font-size: 14px; line-height: 20px; letter-spacing: 0.2em; }
-@media (max-width: 640px) {
-  .display-1 { font-size: 34px; line-height: 42px; letter-spacing: 0.08em; }
-  .display-2 { font-size: 26px; line-height: 34px; letter-spacing: 0.1em; }
-}
-/* display-2 em coluna estreita (login, cadastro: 352px no desktop, 288px num
-   celular de 320). "IDENTIFICAÇÃO" na Michroma mede 501px em 40px e quebrava
-   no meio da palavra; medido, cabe com 28px no desktop, 26px a partir de
-   360px e 22px abaixo. Vem depois do .display-2 para ganhar dele. */
-.display-2--narrow { font-size: 22px; line-height: 30px; letter-spacing: 0.08em; }
-@media (min-width: 360px) {
-  .display-2--narrow { font-size: 26px; line-height: 34px; letter-spacing: 0.1em; }
-}
-@media (min-width: 641px) {
-  .display-2--narrow { font-size: 28px; line-height: 36px; }
+/* Títulos display: Michroma em caixa alta, com tracking. Moram em
+   `components` (camada do Tailwind) para que o tamanho escrito no próprio
+   título (`text-[26px] sm:text-[32px]`, `leading-*`, `tracking-*`) ganhe
+   deles. Fora de camada, o CSS daqui ganhava de qualquer utilitário e esses
+   tamanhos nunca valiam. */
+@layer components {
+  .display-1,
+  .display-2,
+  .display-3,
+  .display-4 {
+    font-family: var(--font-display);
+    font-weight: 400;
+    text-transform: uppercase;
+    /* Fonte larga em caixa alta: palavra longa em tela estreita quebra em vez de
+       empurrar a página para o lado. */
+    overflow-wrap: break-word;
+  }
+  .display-1 { font-size: 64px; line-height: 72px; letter-spacing: 0.1em; }
+  .display-2 { font-size: 40px; line-height: 48px; letter-spacing: 0.12em; }
+  .display-3 { font-size: 24px; line-height: 32px; letter-spacing: 0.14em; }
+  .display-4 { font-size: 14px; line-height: 20px; letter-spacing: 0.2em; }
+  @media (max-width: 640px) {
+    .display-1 { font-size: 34px; line-height: 42px; letter-spacing: 0.08em; }
+    .display-2 { font-size: 26px; line-height: 34px; letter-spacing: 0.1em; }
+  }
+  /* display-2 em coluna estreita (login, cadastro: 352px no desktop, 288px num
+     celular de 320). "IDENTIFICAÇÃO" na Michroma mede 501px em 40px e quebrava
+     no meio da palavra; medido, cabe com 28px no desktop, 26px a partir de
+     360px e 22px abaixo. Vem depois do .display-2 para ganhar dele. */
+  .display-2--narrow { font-size: 22px; line-height: 30px; letter-spacing: 0.08em; }
+  @media (min-width: 360px) {
+    .display-2--narrow { font-size: 26px; line-height: 34px; letter-spacing: 0.1em; }
+  }
+  @media (min-width: 641px) {
+    .display-2--narrow { font-size: 28px; line-height: 36px; }
+  }
 }
 
 /* Rótulo técnico: mono, caixa alta. */
