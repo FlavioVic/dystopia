@@ -40,7 +40,10 @@ responde (aprovar, recusar, instável, fora do ar) para ver a saga reagir.
   o pedido de quem está logado e registra orçamento por ferramentas (tool
   calling), com a identidade vinda da sessão — nunca da conversa.
 - **Pronto para ficar exposto**: CSP com nonce por request, limite de
-  tentativas no login, login que não revela quais e-mails existem.
+  tentativas no login, login que não revela quais e-mails existem, sessão no
+  banco (sair vale na hora, em qualquer aparelho), **MFA obrigatório no
+  painel** (TOTP com códigos de recuperação) e o app conectando no banco com
+  um usuário que não consegue apagar tabela.
 
 ## Telas
 
@@ -130,7 +133,7 @@ docker compose --profile app run --rm migrate npm run db:seed
 Para desenvolver, só a infraestrutura sobe em container:
 
 ```bash
-cp .env.example .env              # ajuste SESSION_SECRET
+cp .env.example .env              # MFA_ENCRYPTION_KEY: openssl rand -base64 32
 npm install
 docker compose up -d              # Postgres (5544) + RabbitMQ (5672)
 npm run db:migrate && npm run db:seed
@@ -140,7 +143,8 @@ npm run worker:payments           # outro terminal: processo de pagamentos
 ```
 
 Contas do seed local: `admin@dystopia.dev` / `admin123` e
-`cliente@dystopia.dev` / `cliente123`. Contra banco remoto o seed se recusa a
+`cliente@dystopia.dev` / `cliente123`. No primeiro login o admin cadastra um
+app autenticador (QR em `/conta/seguranca`); o painel não abre sem ele. Contra banco remoto o seed se recusa a
 rodar sem confirmação explícita e senha de admin forte.
 
 ## Testes
@@ -192,8 +196,10 @@ O que protege a loja exposta na internet, e onde cada coisa mora:
 | Força bruta de senha | Limite por IP no login (10 / 15 min) e no cadastro (5 / h), contado no Postgres com UPSERT atômico (`services/rate-limit`) — em serverless um contador em memória seria dividido entre instâncias. O IP só vem de header escrito pela borda da Vercel ou pelo proxy do compose (`TRUST_PROXY_HEADERS`): o cliente não forja um contador novo |
 | Descobrir quais e-mails têm conta | Login responde a mesma mensagem e no mesmo tempo: e-mail inexistente compara contra um hash bcrypt real |
 | CSRF | Server Actions só aceitam POST e o Next compara `Origin` com `Host`; cookie `SameSite=lax` |
-| Sessão forjada | JWT HS256 em cookie `httpOnly`/`secure`; sem `SESSION_SECRET` o app não sobe |
-| Admin rebaixado mantendo acesso | O papel é relido do banco a cada request, não confiado no JWT |
+| Sessão roubada ou esquecida aberta | Sessão é linha no banco (`services/sessions`): o cookie `httpOnly`/`secure` leva 32 bytes aleatórios e o banco guarda só o SHA-256 deles. Sair apaga a linha — o cookie copiado morre na hora; "sair dos outros aparelhos" em `/conta/seguranca`. Validade de 7 dias, sem renovação |
+| Senha do admin vazada | **MFA obrigatório no painel** (`services/mfa`): TOTP (RFC 6238, testado com os vetores do RFC), segredo cifrado no banco (AES-256-GCM, ligado ao id da conta), código que não vale duas vezes nem em dois logins simultâneos (UPDATE condicional), 10 códigos de recuperação de uso único, limite de 5 tentativas / 15 min e 20 / dia por conta |
+| Admin rebaixado mantendo acesso | Papel e MFA são relidos do banco a cada request (uma query: sessão + usuário + MFA) |
+| Injeção de SQL ou `DATABASE_URL` vazada | O app conecta como `dystopia_app` (`src/db/app-role.ts`): só SELECT/INSERT/UPDATE/DELETE. Não apaga, cria nem esvazia tabela (provado em `tests/integration/db-app-role.test.ts`); migrations rodam com outra conexão, a do dono |
 | Ver/alterar dado alheio | Toda action de endereço, carrinho, pedido e avaliação filtra pelo dono; action de admin chama `ensureAdmin()` |
 | Clickjacking e afins | `frame-ancestors 'none'`, `X-Frame-Options`, `nosniff`, HSTS, `Referrer-Policy` (`next.config.ts`) |
 | Senha de demo em produção | O seed recusa banco remoto sem `SEED_ALLOW_REMOTE=1` e uma `SEED_ADMIN_PASSWORD` forte |
@@ -208,4 +214,5 @@ mensagem útil, e o limite de 5 por hora torna a varredura impraticável.
 - [`docs/SAGA-E-FILA.md`](docs/SAGA-E-FILA.md) — checkout, fila, pagamentos, garantias e observabilidade
 - [`docs/ARQUITETURA.md`](docs/ARQUITETURA.md) — camadas, invariantes, convenções e como estender
 - [`docs/DEPLOY.md`](docs/DEPLOY.md) — Vercel + Neon + CloudAMQP, custo zero
+- [`docs/RECUPERACAO.md`](docs/RECUPERACAO.md) — o que fazer quando dá errado: deploy, dado apagado, fila, segredo vazado, admin sem celular
 - [`docs/FUNCIONALIDADES.md`](docs/FUNCIONALIDADES.md) — identidade visual, conta, painel admin e modelagem do banco

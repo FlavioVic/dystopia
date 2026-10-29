@@ -20,6 +20,7 @@ estoque, pagamento ou fila.
 | `npm run lint` · `npx tsc --noEmit` | Lint e tipos — ambos têm que ficar limpos |
 | `npm run db:generate` → `db:migrate` | Nova migration a partir de `src/db/schema.ts` |
 | `npm run db:seed` | Repopula o banco de dev (TRUNCATE + inserts) |
+| `APP_DB_PASSWORD=… npm run db:app-role` | Cria/atualiza o usuário do app (`dystopia_app`, só DML). Roda com a conexão do dono, depois de migrar |
 
 ## Camadas (e a regra de dependência)
 
@@ -31,11 +32,12 @@ lib/assistant/*           borda conversacional: o chatbot chama dado e serviço
 saga/                     orquestração: ordem dos passos, retry, compensação
 services/*                regra de negócio, uma responsabilidade cada
                           (inventory, payments, orders, coupons, carts,
-                           accounts, notifications, catalog, reviews, wishlist,
-                           addresses, rate-limit, service-requests)
+                           accounts, sessions, mfa, notifications, catalog,
+                           reviews, wishlist, addresses, rate-limit,
+                           service-requests)
 queue/                    fila genérica: outbox + relay, RabbitMQ, política
                           de retry (filas de espera com TTL), DLQ
-db/                       schema Drizzle + pool
+db/                       schema Drizzle + pool + usuário do app (app-role.ts)
 ```
 
 A dependência só aponta para baixo: **borda → saga → serviços → db**.
@@ -146,7 +148,21 @@ dead-letter-exchange de volta para a de trabalho) e a DLQ `<p>.<fila>.dlq`. `<p>
     regra pura de cupom em `services/coupons/rules.ts` e conversão de dinheiro
     em `lib/money.ts` (nunca duplique `toCents`).
 12. Toda Server Action de admin chama `ensureAdmin()`. Layout protegido não
-    basta: Server Action é endpoint público.
+    basta: Server Action é endpoint público. **Admin = papel admin E MFA
+    confirmado** (`isAdmin` em `lib/data/auth.ts`); senha sozinha não abre o
+    painel.
+13. **Sessão é linha no banco** (`sessions`), não token autocontido: quem a
+    pessoa é sai de `getCurrentUser()` (sessão + usuário + MFA numa query,
+    relida a cada request). Nunca guarde papel ou permissão no cookie. Sessão
+    `mfaPending` (senha certa, código não) não é login para nada além de
+    `/entrar/verificacao`.
+14. **Código de uso único sai com UPDATE condicional**, como o estoque: o
+    passo TOTP aceito só avança (`last_used_step < passo`), código de
+    recuperação só marca se `used_at is null`. "Lê, confere e grava" deixaria
+    dois logins usarem o mesmo código.
+15. **O app conecta como `dystopia_app`** (só DML). Migration, seed e SQL de
+    operação usam a conexão do dono. Código do app que precisar de DDL em
+    runtime está errado por definição.
 
 ## Como estender
 
@@ -225,8 +241,10 @@ revise o SQL → `npm run db:migrate`. Nunca edite migration já aplicada.
 
 - Código e comentário em **pt-BR**; comentário explica *por quê*, não *o quê*.
 - Sem dependência nova sem motivo forte (hoje: next, react, drizzle, pg,
-  amqplib, zod, jose, bcryptjs, dotenv; em dev, Playwright para os testes de
-  navegador). Saga, relay, política de retry, logger e
+  amqplib, zod, bcryptjs, qrcode, dotenv; em dev, Playwright para os testes
+  de navegador). O `jose` saiu com o JWT. O TOTP é o RFC 6238 em cima do
+  HMAC do `node:crypto` (`services/mfa/totp.ts`, com os vetores do RFC no
+  teste); QR code é Reed-Solomon, então esse vem de biblioteca. Saga, relay, política de retry, logger e
   runner de teste são caseiros de propósito; o Stripe é chamado via `fetch`
   (sem SDK) e o Stripe.js vem de js.stripe.com, como o Stripe exige. O
   modelo do assistente também é chamado via `fetch`, no protocolo Chat
@@ -292,6 +310,15 @@ revise o SQL → `npm run db:migrate`. Nunca edite migration já aplicada.
   usa `main().catch(...)`).
 - `generateOrderNumber` usa o ano **local** — teste com `new Date(2026, 0, 1)`,
   não com string UTC.
+- **Playwright compila os testes como CommonJS**: em `tests/e2e`, use
+  `__dirname`, não `import.meta`.
+- **Admin no e2e**: cada código TOTP vale uma vez, então os testes não logam o
+  admin cada um por si. O projeto `setup` (`tests/e2e/admin.setup.ts`) entra
+  uma vez — cadastrando o autenticador pela tela numa stack recém-semeada — e
+  guarda a sessão e o segredo em `playwright/.auth/` (fora do git); os testes
+  do painel usam `test.use({ storageState: ADMIN_STATE })`.
+- Rota nova com `PageProps<"/rota">` só passa no `tsc` depois de
+  `npx next typegen` (ou de um `dev`/`build`), que gera os tipos das rotas.
 - Server Action não dá para chamar com curl ingenuamente (protocolo RSC): o
   id vem do bundle, os argumentos vão no campo `0` do multipart, e os campos
   de um `FormData` (`_1_<nome>`) têm que vir ANTES do `0`.

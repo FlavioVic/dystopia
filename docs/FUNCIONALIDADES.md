@@ -32,6 +32,7 @@ grade com régua, campos de formulário) mora em `src/components/Kit.tsx`.
 |---|---|
 | `/conta` | Dados da conta e histórico de pedidos (com o status real de cada um) |
 | `/conta/enderecos` | Agenda de endereços: cadastrar, definir padrão, remover |
+| `/conta/seguranca` | Quantas sessões estão abertas e "sair dos outros aparelhos"; para o admin, o autenticador (cadastro por QR, códigos de recuperação, trocar de celular) |
 | `/favoritos` | Arquivo de favoritos ("Salvar" na vitrine e na página do produto) |
 
 - **Avaliações**: quem está logado avalia direto na página do produto (1 a 5
@@ -70,8 +71,17 @@ com teto de tamanho, link só para página do site, conversa guardada só na aba
 
 Entre com o usuário admin do seed e acesse [`/admin`](http://localhost:3000/admin)
 (o link também aparece em `/conta`). Visitante ou cliente que tentar entrar é
-redirecionado para `/entrar`, e as Server Actions do painel checam `role` antes
-de escrever.
+redirecionado para `/entrar`, e as Server Actions do painel checam papel e MFA
+antes de escrever.
+
+**Duas etapas obrigatórias.** O painel exige senha + código de um app
+autenticador (TOTP). No primeiro login, o admin é mandado para
+`/conta/seguranca`: escaneia o QR, confirma com o primeiro código e recebe 10
+códigos de recuperação (uso único, só aparecem uma vez). Nos logins seguintes,
+depois da senha vem `/entrar/verificacao`; até digitar o código, a sessão não
+vale como login para nada. Só o admin tem MFA: a conta demo de cliente tem
+senha pública, e quem ligasse MFA nela trancaria os outros visitantes para
+fora.
 
 | Rota | O que faz |
 |---|---|
