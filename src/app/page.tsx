@@ -7,11 +7,9 @@ import { Reveal } from "@/components/Motion";
 import { PortfolioCard, ProjectImage, StackTags } from "@/components/PortfolioCard";
 import { ProductCard } from "@/components/ProductCard";
 import { getFeaturedProducts } from "@/lib/data/products";
-import { INSTALLMENT_COUNT, INSTALLMENT_MIN_CENTS, formatPriceCents } from "@/lib/format";
 import { PORTFOLIO, PROFILE } from "@/lib/portfolio";
 import { PROCESS, SERVICES, TICKER } from "@/lib/services-catalog";
 import { canonical } from "@/lib/seo";
-import { FREE_SHIPPING_MIN_CENTS } from "@/lib/shipping";
 
 export const metadata: Metadata = { alternates: canonical("/") };
 
@@ -19,14 +17,6 @@ export default async function Home() {
   const featured = await getFeaturedProducts(4);
   const [lead, ...others] = PORTFOLIO;
 
-  // O que a loja garante, na língua de quem compra. Os valores saem das mesmas
-  // regras que o checkout aplica — mudou a regra, muda o texto.
-  const promises = [
-    { title: "Orçamento sem custo", text: "Montagem, manutenção, formatação ou software. Prazo e preço por escrito." },
-    { title: "Frete grátis", text: `Em compras a partir de ${formatPriceCents(FREE_SHIPPING_MIN_CENTS)}.` },
-    { title: `${INSTALLMENT_COUNT}x sem juros`, text: `No cartão, em compras a partir de ${formatPriceCents(INSTALLMENT_MIN_CENTS)}.` },
-    { title: "Pedido acompanhado", text: "Do pagamento à entrega, cada etapa aparece na página do pedido." },
-  ];
 
   return (
     <div className="flex flex-col">
@@ -60,21 +50,6 @@ export default async function Home() {
                   Ver portfólio
                 </Link>
               </div>
-            </Reveal>
-            <Reveal immediate delay={320}>
-              <ul className="mt-14 grid grid-cols-1 gap-px border border-border-faint bg-border-faint sm:grid-cols-2">
-                {promises.map((p) => (
-                  <li key={p.title} className="flex gap-3 bg-background/95 p-4">
-                    <span aria-hidden="true" className="mt-[7px] h-1.5 w-1.5 shrink-0 bg-primary" />
-                    <span>
-                      <span className="block font-mono text-[15px] font-semibold uppercase tracking-[0.04em] text-foreground">
-                        {p.title}
-                      </span>
-                      <span className="mt-1 block text-sm leading-snug text-foreground-muted">{p.text}</span>
-                    </span>
-                  </li>
-                ))}
-              </ul>
             </Reveal>
           </div>
 
