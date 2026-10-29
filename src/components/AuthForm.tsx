@@ -14,7 +14,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   return (
     <div className="mx-auto w-full max-w-sm px-4 py-16 sm:py-20">
       <p className="label text-foreground-muted">{isSignup ? "Registro / Nova ficha" : "Acesso / Identificação"}</p>
-      <h1 className="display-2 mt-4 text-[26px] leading-[34px] sm:text-[32px] sm:leading-[40px]">
+      <h1 className="display-2 display-2--narrow mt-4">
         {isSignup ? "Registro" : "Identificação"}
       </h1>
       <p className="mt-3 text-sm text-foreground-muted">

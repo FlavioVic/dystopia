@@ -23,6 +23,21 @@ test.describe("acesso", () => {
     await expect(page.getByRole("heading", { name: "Comando" })).toHaveCount(0);
   });
 
+  test("título do login e do cadastro cabe numa linha (não quebra no meio da palavra)", async ({ page }) => {
+    for (const width of [320, 375, 1280]) {
+      await page.setViewportSize({ width, height: 800 });
+      for (const path of ["/entrar", "/cadastro"]) {
+        await page.goto(path);
+        // Mede com a Michroma carregada: com a fonte reserva a largura é outra.
+        await page.evaluate(() => document.fonts.ready);
+        const lines = await page.getByRole("heading", { level: 1 }).evaluate((el) =>
+          Math.round(el.getBoundingClientRect().height / parseFloat(getComputedStyle(el).lineHeight)),
+        );
+        expect(lines, `${path} em ${width}px`).toBe(1);
+      }
+    }
+  });
+
   test("sair derruba o login de verdade: o cookie copiado antes não vale mais", async ({ page, browser }) => {
     await signUp(page);
     const copied = await page.context().cookies();
