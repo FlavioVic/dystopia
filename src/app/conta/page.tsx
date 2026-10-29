@@ -66,6 +66,12 @@ export default async function AccountPage() {
         >
           Endereços
         </Link>
+        <Link
+          href="/conta/seguranca"
+          className="rounded-lg border border-border bg-background-elevated px-4 py-2.5 text-sm font-medium transition-colors hover:border-border-hover"
+        >
+          Segurança
+        </Link>
       </nav>
 
       <section className="mt-8">
@@ -111,11 +117,11 @@ export default async function AccountPage() {
 
       {user.role === "admin" ? (
         <Link
-          href="/admin"
+          href={user.mfaEnabled ? "/admin" : "/conta/seguranca"}
           className="mt-6 inline-flex items-center gap-2 rounded-lg border border-foreground bg-background-elevated px-4 py-2.5 text-sm font-semibold text-accent transition-colors hover:bg-background-elevated"
         >
           <span className="dys-label dys-label--restricted">Comando</span>
-          Abrir painel de gestão →
+          {user.mfaEnabled ? "Abrir painel de gestão →" : "Cadastrar autenticador para abrir o painel →"}
         </Link>
       ) : null}
       <section className="mt-12 border-t border-border-faint pt-6" aria-labelledby="privacidade-titulo">

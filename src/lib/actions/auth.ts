@@ -3,15 +3,17 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { db } from "@/db";
-import { createSession, deleteSession } from "@/lib/session";
+import { completeMfaSession, endSession, startSession } from "@/lib/session";
 import { CART_COOKIE } from "@/lib/data/cart";
-import { retryMessage } from "@/lib/action-limits";
+import { getPendingMfaUser } from "@/lib/data/auth";
+import { limitAction, retryMessage } from "@/lib/action-limits";
 import { limitFromEnv } from "@/lib/rate-limit-config";
 import { getRequestIp } from "@/lib/request-ip";
 import { parseLoginForm, parseSignupForm } from "@/lib/validation/account";
 import { PermanentError } from "@/saga/errors";
 import { registerAccount, verifyCredentials, type Account } from "@/services/accounts";
 import { claimGuestCart } from "@/services/carts";
+import { hasConfirmedMfa, verifySecondFactor } from "@/services/mfa";
 import { consumeRateLimit, type RateLimitRule } from "@/services/rate-limit";
 
 export type AuthState = {
@@ -32,12 +34,23 @@ async function rateLimited(action: string, rule: RateLimitRule): Promise<string 
   return allowed ? null : retryMessage(retryAfterSeconds);
 }
 
-/** Abre a sessão e leva junto o carrinho de visitante, se houver. */
+/**
+ * Senha conferida. Com autenticador cadastrado, a sessão nasce pendente e a
+ * pessoa vai digitar o código; sem, já é login (admin sem autenticador entra
+ * como cliente e é mandado cadastrar um — o painel exige).
+ */
 async function signIn(account: Account): Promise<never> {
-  await createSession({ userId: account.id, role: account.role });
+  const mfa = await hasConfirmedMfa(db, account.id);
+  await startSession({ userId: account.id, mfaPending: mfa });
+  if (mfa) redirect("/entrar/verificacao");
+  await claimCart(account.id);
+  redirect(account.role === "admin" ? "/conta/seguranca" : "/conta");
+}
+
+/** Leva junto o carrinho de visitante, se houver. */
+async function claimCart(userId: string): Promise<void> {
   const token = (await cookies()).get(CART_COOKIE)?.value;
-  if (token) await claimGuestCart(db, token, account.id);
-  redirect("/conta");
+  if (token) await claimGuestCart(db, token, userId);
 }
 
 export async function signup(_prev: AuthState, formData: FormData): Promise<AuthState> {
@@ -76,7 +89,27 @@ export async function login(_prev: AuthState, formData: FormData): Promise<AuthS
   return signIn(account);
 }
 
+export type MfaLoginState = { message?: string } | undefined;
+
+/** Segunda etapa do login: código do autenticador ou de recuperação. */
+export async function verifyLoginCode(_prev: MfaLoginState, formData: FormData): Promise<MfaLoginState> {
+  const pending = await getPendingMfaUser();
+  if (!pending) redirect("/entrar");
+
+  // Por conta, não por IP: quem tem a senha troca de IP à vontade. 6 dígitos
+  // são 1 milhão de chances; com o limite, chutar leva anos.
+  const limited = (await limitAction("mfa", `user:${pending.id}`)) ?? (await limitAction("mfaDaily", `user:${pending.id}`));
+  if (limited) return { message: limited };
+
+  const result = await verifySecondFactor(db, pending.id, String(formData.get("code") ?? ""));
+  if (!result) return { message: "Código inválido ou já usado." };
+  if (!(await completeMfaSession())) redirect("/entrar");
+
+  await claimCart(pending.id);
+  redirect(result.method === "recovery" ? "/conta/seguranca?recuperacao=1" : "/admin");
+}
+
 export async function logout(): Promise<void> {
-  await deleteSession();
+  await endSession();
   redirect("/entrar");
 }

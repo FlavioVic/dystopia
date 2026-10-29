@@ -12,6 +12,7 @@ import { deleteAccount, exportAccountData } from "@/lib/account-privacy";
 import { PermanentError } from "@/saga/errors";
 import { upsertReview } from "@/services/reviews";
 import { createServiceRequest } from "@/services/service-requests";
+import { createSession } from "@/services/sessions";
 import { startCheckout } from "../helpers/checkout";
 import { closeDatabase, resetDatabase, seedCheckoutFixture } from "../helpers/db";
 import { settleSaga } from "../helpers/saga";
@@ -37,8 +38,9 @@ async function accountWithHistory() {
 }
 
 describe("dados da conta", () => {
-  it("o download traz conta, pedidos, avaliações e orçamentos, sem hash de senha", async () => {
+  it("o download traz conta, pedidos, avaliações, orçamentos e logins, sem hash de senha nem de sessão", async () => {
     const { fixture, checkout, request } = await accountWithHistory();
+    const { token } = await createSession(db, { userId: fixture.userId, mfaPending: false });
 
     const data = await exportAccountData(db, fixture.userId);
 
@@ -47,6 +49,9 @@ describe("dados da conta", () => {
     assert.equal(data?.avaliacoes.length, 1);
     assert.deepEqual(data?.orcamentos.map((r) => r.protocol), [request.protocol], "acha o orçamento pelo e-mail");
     assert.ok(!JSON.stringify(data).includes("hash-de-teste"));
+    assert.equal(data?.sessoes.length, 1);
+    assert.deepEqual(Object.keys(data!.sessoes[0]).sort(), ["createdAt", "expiresAt"]);
+    assert.ok(!JSON.stringify(data).includes(token));
   });
 
   it("excluir apaga a conta e o que carrega dado dela, recalcula a nota e não toca em outra conta", async () => {

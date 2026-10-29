@@ -12,7 +12,7 @@ import { deleteAccount } from "@/lib/account-privacy";
 import { limitAction } from "@/lib/action-limits";
 import { CART_COOKIE } from "@/lib/data/cart";
 import { getCurrentUser } from "@/lib/data/auth";
-import { deleteSession } from "@/lib/session";
+import { endSession } from "@/lib/session";
 import { PermanentError } from "@/saga/errors";
 import { verifyCredentials } from "@/services/accounts";
 
@@ -36,7 +36,7 @@ export async function deleteMyAccount(_prev: DeleteAccountState, formData: FormD
     throw error;
   }
 
-  await deleteSession();
+  await endSession();
   (await cookies()).delete(CART_COOKIE);
   redirect("/?conta=excluida");
 }

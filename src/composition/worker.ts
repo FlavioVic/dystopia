@@ -18,6 +18,7 @@ import { NOTIFICATIONS_QUEUE } from "@/services/notifications";
 import { paymentHandlers } from "@/services/payments/consumer";
 import { PAYMENTS_QUEUE } from "@/services/payments/contract";
 import { pruneRateLimits } from "@/services/rate-limit";
+import { pruneExpiredSessions } from "@/services/sessions";
 
 const logger = createLogger("worker");
 
@@ -33,11 +34,12 @@ export function workerHandlers(): Handlers {
 
 /** Faxina que só um executor periódico faz (worker de pé ou cron). */
 export async function housekeeping(): Promise<void> {
-  const [rateLimits, published] = await Promise.all([
+  const [rateLimits, published, sessions] = await Promise.all([
     pruneRateLimits(db, 24 * 60 * 60),
     pruneOutbox(OUTBOX_RETENTION_MS),
+    pruneExpiredSessions(db),
   ]);
-  if (rateLimits + published > 0) logger.info("faxina", { rateLimits, outbox: published });
+  if (rateLimits + published + sessions > 0) logger.info("faxina", { rateLimits, outbox: published, sessions });
 }
 
 export type InlineRunOptions = {

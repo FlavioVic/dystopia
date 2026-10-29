@@ -14,7 +14,7 @@ import { refresh } from "next/cache";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { orders } from "@/db/schema";
-import { getCurrentUser } from "@/lib/data/auth";
+import { getCurrentUser, isAdmin } from "@/lib/data/auth";
 import { canTransition, isOrderStatus, ORDER_STATUS_LABELS, type OrderStatus } from "@/lib/order-status";
 import { parseCouponForm } from "@/lib/validation/coupon";
 import { parseProductForm, field } from "@/lib/validation/product";
@@ -28,8 +28,8 @@ import * as serviceRequestsService from "@/services/service-requests";
 import { PermanentError } from "@/saga/errors";
 
 async function ensureAdmin() {
-  const user = await getCurrentUser();
-  if (!user || user.role !== "admin") throw new Error("Não autorizado.");
+  // Papel admin E autenticador: o mesmo critério do layout do painel.
+  if (!isAdmin(await getCurrentUser())) throw new Error("Não autorizado.");
 }
 
 export type AdminFormState = { errors?: Record<string, string>; message?: string } | undefined;

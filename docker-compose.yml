@@ -12,7 +12,7 @@
 # RabbitMQ 5672 + painel http://localhost:15672 (dystopia / dystopia_dev_pw),
 # app 3000. Tudo configurável por variável (POSTGRES_PORT, WEB_PORT…).
 #
-# Senhas e segredo de sessão daqui são de DESENVOLVIMENTO — nunca use em
+# Senhas e chave do MFA daqui são de DESENVOLVIMENTO — nunca use em
 # produção (ver docs/DEPLOY.md).
 
 services:
@@ -58,15 +58,14 @@ services:
 
 
   # ---------------------------------------------------------------- stack (--profile app)
-  # Aplica as migrations e sai; app e workers só sobem depois que ela terminou.
-  migrate:
+  web:
     profiles: [app]
-    build: { context: ., dockerfile: Dockerfile.worker }
-    command: ["npm", "run", "db:migrate"]
+    build: { context: ., dockerfile: Dockerfile.web }
     environment: &app-env
-      DATABASE_URL: postgresql://${POSTGRES_USER:-dystopia}:${POSTGRES_PASSWORD:-dystopia_dev_pw}@db:5432/${POSTGRES_DB:-dystopia}
+      DATABASE_URL: postgresql://dystopia_app:${APP_DB_PASSWORD:-dystopia_app_dev_pw}@db:5432/${POSTGRES_DB:-dystopia}
       RABBITMQ_URL: amqp://${RABBITMQ_USER:-dystopia}:${RABBITMQ_PASSWORD:-dystopia_dev_pw}@rabbitmq:5672
-      SESSION_SECRET: ${SESSION_SECRET:-somente-desenvolvimento-troque-em-producao}
+      # Chave de DESENVOLVIMENTO para cifrar o segredo do autenticador do admin.
+      MFA_ENCRYPTION_KEY: ${MFA_ENCRYPTION_KEY:-ZGVzZW52b2x2aW1lbnRvLXNvbWVudGUtdHJvcXVlLWo=}
       ALLOW_CHECKOUT_SIMULATION: ${ALLOW_CHECKOUT_SIMULATION:-1}
       # O app só está acessível pelo `proxy`, que sobrescreve os headers de IP.
       TRUST_PROXY_HEADERS: "1"
@@ -81,19 +80,13 @@ services:
       CART_LIMIT_PER_10MIN: ${CART_LIMIT_PER_10MIN:-1000}
       REVIEW_LIMIT_PER_HOUR: ${REVIEW_LIMIT_PER_HOUR:-1000}
       WISHLIST_LIMIT_PER_10MIN: ${WISHLIST_LIMIT_PER_10MIN:-1000}
+      MFA_LIMIT_PER_15MIN: ${MFA_LIMIT_PER_15MIN:-1000}
+      MFA_LIMIT_PER_DAY: ${MFA_LIMIT_PER_DAY:-1000}
       # Assistente: sem chave, o botão nem aparece. Com chave da Groq (ou outro
       # provedor Chat Completions via CHAT_API_URL/CHAT_MODEL), ele responde.
       CHAT_API_KEY: ${CHAT_API_KEY:-}
       CHAT_API_URL: ${CHAT_API_URL:-}
       CHAT_MODEL: ${CHAT_MODEL:-}
-    depends_on:
-      db: { condition: service_healthy }
-    restart: "no"
-
-  web:
-    profiles: [app]
-    build: { context: ., dockerfile: Dockerfile.web }
-    environment: *app-env
     # Sem porta publicada: só o `proxy` fala com ele (ver docker/Caddyfile).
     # Pronto = responde uma página que consulta o banco (não só "processo de pé").
     healthcheck:
@@ -105,6 +98,22 @@ services:
       migrate: { condition: service_completed_successfully }
       rabbitmq: { condition: service_healthy }
     restart: unless-stopped
+
+  # Aplica as migrations, cria/atualiza o usuário do app e sai; app e workers
+  # só sobem depois que ela terminou. Migration e seed rodam como DONO do
+  # banco; app e workers, como `dystopia_app` (só lê e grava linha — ver
+  # src/db/app-role.ts).
+  migrate:
+    profiles: [app]
+    build: { context: ., dockerfile: Dockerfile.worker }
+    command: ["sh", "-c", "npm run db:migrate && npm run db:app-role"]
+    environment:
+      <<: *app-env
+      DATABASE_URL: postgresql://${POSTGRES_USER:-dystopia}:${POSTGRES_PASSWORD:-dystopia_dev_pw}@db:5432/${POSTGRES_DB:-dystopia}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:-dystopia_app_dev_pw}
+    depends_on:
+      db: { condition: service_healthy }
+    restart: "no"
 
   # Porta de entrada: sobrescreve X-Real-IP/X-Forwarded-For com o IP real da
   # conexão — sem isso o cliente forjaria o IP e furaria o limite de tentativas.

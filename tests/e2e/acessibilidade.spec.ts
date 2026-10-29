@@ -1,6 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import type { Page } from "@playwright/test";
-import { addFirstProductToCart, expect, logIn, signUp, test } from "./fixtures";
+import { ADMIN_STATE } from "./admin-auth";
+import { addFirstProductToCart, expect, signUp, test } from "./fixtures";
 
 /**
  * Acessibilidade automática (axe, regras WCAG 2.1 A/AA) nas páginas públicas.
@@ -46,20 +47,21 @@ test("acessibilidade: área do cliente e checkout", async ({ page }) => {
   await signUp(page);
   await addFirstProductToCart(page);
   const found: string[] = [];
-  for (const path of ["/conta", "/conta/enderecos", "/favoritos", "/carrinho", "/checkout"]) {
+  for (const path of ["/conta", "/conta/enderecos", "/conta/seguranca", "/favoritos", "/carrinho", "/checkout"]) {
     await page.goto(path);
     found.push(...(await blockingViolations(page)));
   }
   expect(found).toEqual([]);
 });
 
-test("acessibilidade: painel admin", async ({ page }) => {
-  await logIn(page);
-  await expect(page).toHaveURL(/\/conta/);
-  const found: string[] = [];
-  for (const path of ["/admin", "/admin/pedidos", "/admin/produtos", "/admin/produtos/novo", "/admin/cupons", "/admin/orcamentos", "/admin/orquestracao"]) {
-    await page.goto(path);
-    found.push(...(await blockingViolations(page)));
-  }
-  expect(found).toEqual([]);
+test.describe(() => {
+  test.use({ storageState: ADMIN_STATE });
+  test("acessibilidade: painel admin", async ({ page }) => {
+    const found: string[] = [];
+    for (const path of ["/conta/seguranca", "/admin", "/admin/pedidos", "/admin/produtos", "/admin/produtos/novo", "/admin/cupons", "/admin/orcamentos", "/admin/orquestracao"]) {
+      await page.goto(path);
+      found.push(...(await blockingViolations(page)));
+    }
+    expect(found).toEqual([]);
+  });
 });

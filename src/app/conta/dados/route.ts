@@ -1,16 +1,16 @@
 import { db } from "@/db";
 import { exportAccountData } from "@/lib/account-privacy";
-import { getSession } from "@/lib/session";
+import { getCurrentUser } from "@/lib/data/auth";
 
 /**
  * Download dos dados da conta em JSON (LGPD, art. 18, II e V: acesso e
  * portabilidade). Quem é a pessoa sai do cookie de sessão, nunca da URL.
  */
 export async function GET(): Promise<Response> {
-  const session = await getSession();
-  if (!session) return Response.json({ error: "Entre na sua conta." }, { status: 401 });
+  const user = await getCurrentUser();
+  if (!user) return Response.json({ error: "Entre na sua conta." }, { status: 401 });
 
-  const data = await exportAccountData(db, session.userId);
+  const data = await exportAccountData(db, user.id);
   if (!data) return Response.json({ error: "Conta não encontrada." }, { status: 404 });
 
   return new Response(JSON.stringify(data, null, 2), {

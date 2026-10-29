@@ -2,7 +2,7 @@ import { handleAssistantMessage } from "@/lib/assistant/handler";
 import { chatConfigFromEnv, createChatCompletion } from "@/lib/assistant/provider";
 import { drainQueueAfterResponse } from "@/lib/inline-worker";
 import { getRequestIp } from "@/lib/request-ip";
-import { getSession } from "@/lib/session";
+import { getCurrentUser } from "@/lib/data/auth";
 
 /**
  * Assistente da loja. Quem a pessoa é sai da sessão (cookie assinado), nunca
@@ -22,11 +22,11 @@ export async function POST(request: Request): Promise<Response> {
     return Response.json({ error: "Pedido inválido." }, { status: 400 });
   }
 
-  const session = await getSession();
+  const user = await getCurrentUser();
   const result = await handleAssistantMessage({
     headers: request.headers,
     body,
-    context: { userId: session?.userId ?? null, ip: await getRequestIp() },
+    context: { userId: user?.id ?? null, ip: await getRequestIp() },
     complete: createChatCompletion(config),
   });
   // Orçamento registrado pelo chat deixa o aviso na outbox; sem worker de pé, sai daqui.
