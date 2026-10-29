@@ -4,7 +4,7 @@ import path from "node:path";
 import { describe, it } from "node:test";
 import { TEST_COUNT } from "@/lib/site";
 
-/** /sobre mostra quantos testes a loja tem: o número tem que ser verdade. */
+/** O portfólio mostra quantos testes a loja tem: o número tem que ser verdade. */
 describe("número de testes publicado", () => {
   it("TEST_COUNT bate com os casos da suíte", () => {
     const root = path.resolve(import.meta.dirname, "..");

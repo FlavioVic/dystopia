@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Rule, Sector } from "@/components/Kit";
+import { buttonCompact } from "@/components/Kit";
 import { formatPriceCents } from "@/lib/format";
 
 type Coupon = {
@@ -30,7 +30,7 @@ function CouponCard({ coupon }: { coupon: Coupon }) {
   }
 
   return (
-    <div className="dys-frame flex shrink-0 items-center gap-5 px-5 py-4">
+    <div className="dys-frame flex items-center justify-between gap-5 px-5 py-4">
       <div className="min-w-0">
         <span className="font-mono text-2xl font-semibold text-foreground">-{value}</span>
         <p className="label mt-1 truncate text-foreground-muted">
@@ -52,17 +52,37 @@ function CouponCard({ coupon }: { coupon: Coupon }) {
   );
 }
 
+/**
+ * Cupons em vigor, logo abaixo do botão de comprar: é onde quem está decidindo
+ * a compra olha (no fim da página, depois da ficha técnica, ninguém via).
+ */
+const VISIBLE = 3;
+
 export function CouponStrip({ coupons }: { coupons: Coupon[] }) {
+  const [expanded, setExpanded] = useState(false);
   if (coupons.length === 0) return null;
+  // Os mais fáceis de usar primeiro (menor pedido mínimo); três à vista para
+  // não empurrar a página, o resto a um clique.
+  const sorted = [...coupons].sort((a, b) => a.minOrderCents - b.minOrderCents);
+  const shown = expanded ? sorted : sorted.slice(0, VISIBLE);
+  const hidden = sorted.length - shown.length;
   return (
-    // A faixa vem daqui: sem cupom não sobra setor vazio na página.
-    <Sector tone="crimson">
-      <Rule label="Diretivas em vigor" index={`${String(coupons.length).padStart(2, "0")} códigos`} />
-      <div className="mt-6 flex gap-4 overflow-x-auto pb-1">
-        {coupons.map((c) => (
-          <CouponCard key={c.code} coupon={c} />
+    <section aria-labelledby="cupons-titulo" className="flex flex-col gap-3">
+      <h2 id="cupons-titulo" className="label text-foreground-muted">
+        Cupons em vigor <span className="text-foreground">· use no checkout</span>
+      </h2>
+      <ul className="flex flex-col gap-3">
+        {shown.map((c) => (
+          <li key={c.code}>
+            <CouponCard coupon={c} />
+          </li>
         ))}
-      </div>
-    </Sector>
+      </ul>
+      {hidden > 0 ? (
+        <button type="button" onClick={() => setExpanded(true)} className={`self-start ${buttonCompact}`}>
+          Ver mais {hidden} {hidden === 1 ? "cupom" : "cupons"}
+        </button>
+      ) : null}
+    </section>
   );
 }

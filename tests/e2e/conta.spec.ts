@@ -132,6 +132,10 @@ test.describe("conta do cliente", () => {
     // do outro tamanho de tela (rodam juntos).
     const title = `Cumpre o que promete ${Date.now().toString(36)}`;
     await page.getByRole("button", { name: "4 estrelas" }).click();
+    // A nota escolhida fica à vista: estrelas em vermelho e "4 de 5" ao lado.
+    await expect(page.getByText("4 de 5", { exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "4 estrelas" })).toHaveClass(/text-primary/);
+    await expect(page.getByRole("button", { name: "5 estrelas" })).not.toHaveClass(/text-primary/);
     await page.locator('input[name="title"]').fill(title);
     await page.locator('textarea[name="comment"]').fill("Montado e testado, sem surpresa.");
     await page.getByRole("button", { name: "Publicar avaliação" }).click();

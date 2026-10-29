@@ -66,7 +66,7 @@ export function Footer({ categories }: { categories: Category[] }) {
             </li>
             <li>
               <Link href="/sobre" className={item}>
-                Sobre o projeto
+                Sobre a loja
               </Link>
             </li>
             <li>
@@ -97,7 +97,7 @@ export function Footer({ categories }: { categories: Category[] }) {
         <div className="mx-auto flex max-w-site flex-col gap-3 px-4 py-6 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
           <p className="text-[13px] text-foreground-muted">
             Projetado e construído por <span className="text-foreground">Flávio Victor</span>.{" "}
-            <Link href="/sobre" className="underline underline-offset-4 hover:text-foreground">
+            <Link href="/portfolio#dystopia" className="underline underline-offset-4 hover:text-foreground">
               Projeto de portfólio
             </Link>
             : nenhuma cobrança é real. Marcas pertencem aos fabricantes; preços são fictícios.

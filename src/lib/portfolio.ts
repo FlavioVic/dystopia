@@ -4,6 +4,8 @@
  * inventar resultado; senão, diagrama da arquitetura real (`npm run art:portfolio`).
  */
 
+import { TEST_COUNT } from "@/lib/site";
+
 export type PortfolioProject = {
   slug: string;
   code: string;
@@ -34,6 +36,7 @@ export const PORTFOLIO: PortfolioProject[] = [
       "Seis passos atômicos com compensação em ordem reversa",
       "Outbox + relay, retry por fila de espera (TTL + DLX) e DLQ",
       "Roda de graça: worker embutido na Vercel + Neon",
+      `${TEST_COUNT} testes automatizados, contra Postgres, RabbitMQ e Stripe reais`,
     ],
     stack: ["Next.js 16", "TypeScript", "PostgreSQL", "RabbitMQ", "Drizzle", "Tailwind 4"],
     image: "/portfolio/dystopia-saga.webp",

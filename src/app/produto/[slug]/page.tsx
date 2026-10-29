@@ -125,6 +125,8 @@ export default async function ProductPage(props: PageProps<"/produto/[slug]">) {
                 attributes: v.attributes as Record<string, string>,
               }))}
             />
+
+            <CouponStrip coupons={coupons} />
           </div>
         </div>
       </div>
@@ -149,8 +151,6 @@ export default async function ProductPage(props: PageProps<"/produto/[slug]">) {
           </p>
         </Sector>
       ) : null}
-
-      <CouponStrip coupons={coupons} />
 
       <Sector tone="graphite">
         <SectionHeading index={`${String(product.ratingCount).padStart(2, "0")} registros`} label="Avaliações" title="Relatórios de campo" />

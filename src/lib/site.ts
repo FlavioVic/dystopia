@@ -18,8 +18,8 @@ export const SITE_URL = (
 export const CONTACT_EMAIL = "contato.dystopia23@gmail.com";
 
 /**
- * Quantos testes a suíte tem — aparece em /sobre. Escrito à mão, mas
+ * Quantos testes a suíte tem — aparece no projeto DYSTOPIA do portfólio. Escrito à mão, mas
  * `tests/unit/test-count.test.ts` conta os casos de verdade e falha se este
  * número ficar desatualizado.
  */
-export const TEST_COUNT = 478;
+export const TEST_COUNT = 480;
