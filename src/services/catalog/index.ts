@@ -182,3 +182,4 @@ async function assertVariantSkuFree(
     throw new PermanentError("duplicate_variant_sku", "Já existe variante com esse SKU.", { sku });
   }
 }
+export * from "./images";

@@ -5,6 +5,9 @@
  * Existe para produção: o seed faz TRUNCATE em tudo (contas, pedidos, senha de
  * admin); isto só reescreve `product_images` e `is_featured` dos produtos do
  * catálogo, casando por slug. Idempotente.
+ *
+ * Produto que já tem foto enviada pelo painel (fora de `/images/`) não é
+ * tocado: a galeria dele passou a ser do admin, e apagar aqui sumiria com ela.
  */
 
 import "dotenv/config";
@@ -20,7 +23,14 @@ async function main(): Promise<void> {
     .from(products)
     .where(inArray(products.slug, SEED_PRODUCTS.map((p) => p.slug)));
 
+  const managed = new Set(
+    (await db.select({ productId: productImages.productId, url: productImages.url }).from(productImages))
+      .filter((image) => !image.url.startsWith("/images/"))
+      .map((image) => image.productId),
+  );
+  const skipped = rows.filter((row) => managed.has(row.id));
   for (const row of rows) {
+    if (managed.has(row.id)) continue;
     const photo = PRODUCT_PHOTOS[row.slug];
     const plate = `/images/products/${row.slug}.svg`;
     await db.transaction(async (tx) => {
@@ -36,7 +46,10 @@ async function main(): Promise<void> {
       await tx.update(products).set({ isFeatured: Boolean(photo) }).where(eq(products.id, row.id));
     });
   }
-  console.log(`mídia sincronizada: ${rows.length} produtos, ${Object.keys(PRODUCT_PHOTOS).length} com foto`);
+  console.log(`mídia sincronizada: ${rows.length - skipped.length} produtos, ${Object.keys(PRODUCT_PHOTOS).length} com foto`);
+  if (skipped.length > 0) {
+    console.log(`mantidos (galeria editada no painel): ${skipped.map((row) => row.slug).join(", ")}`);
+  }
 }
 
 main()

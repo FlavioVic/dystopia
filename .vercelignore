@@ -15,3 +15,5 @@ tests
 docs
 Dockerfile.worker
 docker-compose.yml
+
+.uploads

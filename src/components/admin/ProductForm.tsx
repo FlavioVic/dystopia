@@ -64,7 +64,7 @@ export function ProductForm({
         <Field name="compareAt" label='Preço "de" (opcional)' type="number" step="0.01" defaultValue={defaults.compareAt} error={e.compareAt} />
         <Field name="stock" label="Estoque" type="number" defaultValue={defaults.stock} error={e.stock} />
         {mode === "create" ? (
-          <Field name="imageUrl" label="URL da imagem (opcional)" placeholder="/images/products/..." className="sm:col-span-2" />
+          <p className="text-xs text-foreground-muted sm:col-span-2">As fotos entram depois de criar, na edição do produto.</p>
         ) : null}
         <div className="flex flex-col gap-1 sm:col-span-2">
           <label htmlFor="description" className={label}>Descrição</label>

@@ -90,6 +90,9 @@ services:
       # Cartão pelo Stripe em modo de teste (pk_test_…). Sem ela, cartão simulado.
       # A secreta vai só para o serviço `payments`, que é quem fala com o Stripe.
       STRIPE_PUBLISHABLE_KEY: ${STRIPE_PUBLISHABLE_KEY:-}
+      # Fotos enviadas pelo painel: pasta local no container (o usuário `node`
+      # escreve em /tmp). Em produção ficam no Vercel Blob.
+      UPLOADS_DIR: /tmp/dystopia-uploads
     # Sem porta publicada: só o `proxy` fala com ele (ver docker/Caddyfile).
     # Pronto = responde uma página que consulta o banco (não só "processo de pé").
     healthcheck:

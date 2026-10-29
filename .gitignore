@@ -50,3 +50,6 @@ AGENTS.md
 /test-results/
 /playwright-report/
 /playwright/.auth/
+
+# fotos enviadas pelo painel em dev/teste (em produção ficam no Vercel Blob)
+/.uploads/

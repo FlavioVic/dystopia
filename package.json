@@ -24,6 +24,7 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@vercel/blob": "^2.8.1",
     "amqplib": "^2.2.0",
     "bcryptjs": "^3.0.3",
     "dotenv": "^18.0.2",
@@ -51,5 +52,10 @@
     "tailwindcss": "^4",
     "tsx": "^4.23.15",
     "typescript": "^5"
+  },
+  "overrides": {
+    "@vercel/cli-config": {
+      "zod": "$zod"
+    }
   }
 }

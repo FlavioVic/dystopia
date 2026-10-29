@@ -12,3 +12,5 @@ tests
 public
 *.tsbuildinfo
 next-env.d.ts
+
+.uploads
