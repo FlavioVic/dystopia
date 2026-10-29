@@ -5,6 +5,7 @@ import { isCheckoutSimulationEnabled } from "@/lib/checkout-simulation";
 import { getStripePublishableKey } from "@/lib/stripe-public";
 import { sagaStepLabel } from "@/lib/saga-ui";
 import { canonical } from "@/lib/seo";
+import { TEST_COUNT } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Sobre o projeto",
@@ -37,11 +38,11 @@ const HIGHLIGHTS = [
   },
   {
     title: "Testado contra infraestrutura real",
-    body: "Testes de integração no Postgres e no RabbitMQ cobrindo compensação, retry, DLQ, broker fora do ar, crash no meio do passo e concorrência. Um teste de arquitetura impede serviço de importar serviço.",
+    body: `${TEST_COUNT} testes automatizados. Os de integração rodam no Postgres e no RabbitMQ de verdade, cobrindo compensação, retry, DLQ, broker fora do ar, crash no meio do passo e concorrência; os de navegador compram pelo Stripe em modo de teste. Um teste de arquitetura impede serviço de importar serviço.`,
   },
   {
     title: "Pronto para ficar exposto",
-    body: "Limite de tentativas no login contado no banco, login que não revela quais e-mails existem, proteção de CSRF e headers de segurança.",
+    body: "Sessão guardada no banco (sair vale na hora, em qualquer aparelho), painel administrativo com código de app autenticador, app que conecta no banco sem poder apagar tabela, limite de tentativas e headers de segurança.",
   },
 ];
 

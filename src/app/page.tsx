@@ -3,26 +3,29 @@ import Link from "next/link";
 import { SectionHeading, Sector, buttonPrimary, buttonSecondary, gridCell, gridFrame } from "@/components/Kit";
 import { EmblemSting } from "@/components/Logo";
 import { Marquee } from "@/components/Marquee";
-import { CountUp, Reveal } from "@/components/Motion";
+import { Reveal } from "@/components/Motion";
 import { PortfolioCard, ProjectImage, StackTags } from "@/components/PortfolioCard";
 import { ProductCard } from "@/components/ProductCard";
-import { countActiveProducts, getFeaturedProducts } from "@/lib/data/products";
+import { getFeaturedProducts } from "@/lib/data/products";
+import { INSTALLMENT_COUNT, INSTALLMENT_MIN_CENTS, formatPriceCents } from "@/lib/format";
 import { PORTFOLIO, PROFILE } from "@/lib/portfolio";
 import { PROCESS, SERVICES, TICKER } from "@/lib/services-catalog";
 import { canonical } from "@/lib/seo";
-import { TEST_COUNT } from "@/lib/site";
+import { FREE_SHIPPING_MIN_CENTS } from "@/lib/shipping";
 
 export const metadata: Metadata = { alternates: canonical("/") };
 
 export default async function Home() {
-  const [featured, inventoryCount] = await Promise.all([getFeaturedProducts(4), countActiveProducts()]);
+  const featured = await getFeaturedProducts(4);
   const [lead, ...others] = PORTFOLIO;
 
-  const stats = [
-    { value: PORTFOLIO.length, label: "Projetos publicados" },
-    { value: SERVICES.length, label: "Serviços" },
-    { value: inventoryCount, label: "Itens no inventário" },
-    { value: TEST_COUNT, label: "Testes nesta loja", pad: 3 },
+  // O que a loja garante, na língua de quem compra. Os valores saem das mesmas
+  // regras que o checkout aplica — mudou a regra, muda o texto.
+  const promises = [
+    { title: "Orçamento sem custo", text: "Montagem, manutenção, formatação ou software. Prazo e preço por escrito." },
+    { title: "Frete grátis", text: `Em compras a partir de ${formatPriceCents(FREE_SHIPPING_MIN_CENTS)}.` },
+    { title: `${INSTALLMENT_COUNT}x sem juros`, text: `No cartão, em compras a partir de ${formatPriceCents(INSTALLMENT_MIN_CENTS)}.` },
+    { title: "Pedido acompanhado", text: "Do pagamento à entrega, cada etapa aparece na página do pedido." },
   ];
 
   return (
@@ -59,16 +62,19 @@ export default async function Home() {
               </div>
             </Reveal>
             <Reveal immediate delay={320}>
-              <dl className="mt-14 grid grid-cols-2 gap-px border border-border-faint bg-border-faint sm:grid-cols-4">
-                {stats.map((s) => (
-                  <div key={s.label} className="flex flex-col-reverse justify-end bg-background/95 p-4">
-                    <dt className="label mt-2 text-foreground-muted">{s.label}</dt>
-                    <dd className="font-mono text-3xl font-semibold text-foreground">
-                      <CountUp value={s.value} pad={s.pad ?? 2} />
-                    </dd>
-                  </div>
+              <ul className="mt-14 grid grid-cols-1 gap-px border border-border-faint bg-border-faint sm:grid-cols-2">
+                {promises.map((p) => (
+                  <li key={p.title} className="flex gap-3 bg-background/95 p-4">
+                    <span aria-hidden="true" className="mt-[7px] h-1.5 w-1.5 shrink-0 bg-primary" />
+                    <span>
+                      <span className="block font-mono text-[15px] font-semibold uppercase tracking-[0.04em] text-foreground">
+                        {p.title}
+                      </span>
+                      <span className="mt-1 block text-sm leading-snug text-foreground-muted">{p.text}</span>
+                    </span>
+                  </li>
                 ))}
-              </dl>
+              </ul>
             </Reveal>
           </div>
 

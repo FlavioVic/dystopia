@@ -59,6 +59,8 @@ export function sagaStepStatusClass(status: string): string {
     case "waiting":
       return "border-foreground bg-foreground text-background";
     default:
-      return "border-border bg-background-elevated-hover text-foreground-muted";
+      // Em andamento. Texto cheio: o muted sobre o elevated-hover não passa
+      // contraste AA (o axe pegou quando a varredura caiu numa saga no meio).
+      return "border-border bg-background-elevated-hover text-foreground";
   }
 }

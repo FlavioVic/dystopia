@@ -62,7 +62,6 @@ export const listActiveProducts = cache(async (page: Page) => {
   return { items, total };
 });
 
-export const countActiveProducts = cache(async () => db.$count(products, activeProduct));
 
 /** Só o que o sitemap precisa — não o catálogo inteiro com imagens. */
 export const getProductSitemapEntries = cache(async () =>
