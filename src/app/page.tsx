@@ -21,22 +21,29 @@ export default async function Home() {
   return (
     <div className="flex flex-col">
       {/* ---------------------------------------------------------- abertura */}
-      <section className="bg-grid relative overflow-hidden border-b border-border">
-        <div className="mx-auto grid max-w-7xl items-center gap-12 px-4 py-16 sm:px-6 sm:py-20 lg:grid-cols-12 lg:px-8 lg:py-24">
-          <div className="lg:col-span-7">
+      {/* Até 1535px: título e emblema dividem a linha. Em tela grande (2xl,
+          QHD e afins) o hero ocupa a primeira tela inteira e o título usa a
+          largura toda — preso na coluna de 7/12, ele ficava com ~25% da tela. */}
+      <section className="bg-grid relative flex overflow-hidden border-b border-border 2xl:min-h-[calc(100svh-9.25rem)] 2xl:items-center">
+        <div className="mx-auto grid w-full max-w-7xl items-center gap-x-12 px-4 py-16 sm:px-6 sm:py-20 lg:grid-cols-12 lg:px-8 lg:py-24">
+          <div className="lg:col-span-7 lg:row-start-1 2xl:col-span-12">
             <Reveal immediate>
-              <p className="label text-foreground-muted">
+              <p className="label text-foreground-muted 2xl:text-[13px]">
                 <span className="text-signal-text">{PROFILE.name}</span> / Desenvolvimento e hardware
               </p>
             </Reveal>
             <Reveal immediate delay={80}>
-              <h1 className="display-1 mt-6">
-                A ordem é um <span className="text-primary">serviço.</span>
+              <h1 className="display-1 mt-6 2xl:text-[clamp(88px,5.6vw,108px)] 2xl:leading-[1.08]">
+                A ordem é <br className="hidden 2xl:inline" />
+                um <span className="text-primary">serviço.</span>
                 <span aria-hidden="true" className="caret ml-1 inline-block h-[0.8em] w-[0.35em] translate-y-[0.1em] bg-primary" />
               </h1>
             </Reveal>
+          </div>
+
+          <div className="lg:col-span-7 lg:row-start-2 2xl:self-start">
             <Reveal immediate delay={160}>
-              <p className="mt-6 max-w-xl text-lg leading-[28px] text-foreground-muted">
+              <p className="mt-6 max-w-xl text-lg leading-[28px] text-foreground-muted 2xl:mt-10 2xl:max-w-2xl 2xl:text-xl 2xl:leading-[32px]">
                 Software construído sob medida. Computadores montados, mantidos e restaurados. Cada intervenção é
                 registrada do pedido à entrega.
               </p>
@@ -53,7 +60,7 @@ export default async function Home() {
             </Reveal>
           </div>
 
-          <div className="hidden lg:col-span-5 lg:flex lg:justify-end">
+          <div className="hidden lg:col-span-5 lg:col-start-8 lg:row-span-2 lg:row-start-1 lg:flex lg:justify-end 2xl:row-span-1 2xl:row-start-2 2xl:mt-10 2xl:self-start">
             <div className="dys-frame flex flex-col items-center gap-8 bg-background px-14 py-12">
               <EmblemSting size={248} className="text-primary" title="Emblema DYSTOPIA" />
               <p className="serial text-foreground-muted">
