@@ -19,6 +19,7 @@
 
 import { readdirSync } from "node:fs";
 import path from "node:path";
+import { finished } from "node:stream/promises";
 import { run } from "node:test";
 import { spec } from "node:test/reporters";
 import { Pool } from "pg";
@@ -86,9 +87,14 @@ async function main(): Promise<void> {
     // Subtestes falhos aparecem junto do arquivo; conta só o que não é suíte.
     if (!event.todo && !event.skip) failures += 1;
   });
-  stream.compose(new spec()).pipe(process.stdout);
+  const report = stream.compose(new spec());
+  report.pipe(process.stdout);
 
-  await new Promise<void>((resolve) => stream.on("end", resolve));
+  // Espera o relatório terminar, não só os testes: o spec imprime o detalhe de
+  // cada falha (esperado x recebido) no fim, e sair antes cortava justamente
+  // isso — no CI ficava só "✖ nome do teste", sem o porquê.
+  await finished(report);
+  await new Promise<void>((resolve) => process.stdout.write("", () => resolve()));
   if (failures > 0) {
     console.error(`\n❌ ${failures} teste(s) falharam.`);
     process.exit(1);
