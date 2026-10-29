@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { addFirstProductToCart, expect, signUp, test } from "./fixtures";
+import { addFirstProductToCart, expect, fillCheckoutAddress, signUp, test } from "./fixtures";
 
 type Outcome = "approve" | "decline" | "flaky_once";
 
@@ -13,12 +13,7 @@ async function buy(page: Page, outcome: Outcome, options: { coupon?: string } = 
   await page.locator('a[href="/checkout"]').click();
   await expect(page).toHaveURL(/\/checkout/);
 
-  await page.locator('input[name="zipCode"]').fill("60000000");
-  await page.locator('input[name="street"]').fill("Rua do Teste");
-  await page.locator('input[name="number"]').fill("42");
-  await page.locator('input[name="neighborhood"]').fill("Centro");
-  await page.locator('input[name="city"]').fill("Fortaleza");
-  await page.locator('input[name="state"]').fill("CE");
+  await fillCheckoutAddress(page);
   await page.locator('input[name="paymentMethod"][value="pix"]').check();
   if (options.coupon) {
     await page.locator('input[name="couponCode"]').fill(options.coupon);

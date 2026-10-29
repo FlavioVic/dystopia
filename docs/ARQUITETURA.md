@@ -222,6 +222,11 @@ revise o SQL → `npm run db:migrate`. Nunca edite migration já aplicada.
   `acessibilidade.spec.ts` roda o axe (WCAG 2.1 AA) nas páginas públicas,
   da conta e do admin. Os testes compram de verdade e rodam em paralelo:
   não dependa do "primeiro produto da lista" nem de estoque fixo.
+  `stripe.spec.ts` paga pelo Stripe real (modo de teste: `4242…` aprova,
+  `4000 0000 0000 0002` recusa) e se pula quando o app não tem chave — na
+  stack, `STRIPE_PUBLISHABLE_KEY`/`STRIPE_SECRET_KEY` de teste no `.env`; no
+  CI, secrets do repositório. A fixture ignora só falha de REDE para domínio
+  do Stripe (antifraude bloqueado por DNS/adblock), nunca violação de CSP.
 - `tests/integration/migrations.test.ts` — migration que transforma DADO
   ganha teste: banco descartável, aplica até a anterior, insere dados no
   formato antigo, aplica e confere.
