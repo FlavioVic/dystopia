@@ -87,6 +87,9 @@ services:
       CHAT_API_KEY: ${CHAT_API_KEY:-}
       CHAT_API_URL: ${CHAT_API_URL:-}
       CHAT_MODEL: ${CHAT_MODEL:-}
+      # Cartão pelo Stripe em modo de teste (pk_test_…). Sem ela, cartão simulado.
+      # A secreta vai só para o serviço `payments`, que é quem fala com o Stripe.
+      STRIPE_PUBLISHABLE_KEY: ${STRIPE_PUBLISHABLE_KEY:-}
     # Sem porta publicada: só o `proxy` fala com ele (ver docker/Caddyfile).
     # Pronto = responde uma página que consulta o banco (não só "processo de pé").
     healthcheck:
@@ -143,7 +146,9 @@ services:
     profiles: [app]
     build: { context: ., dockerfile: Dockerfile.worker }
     command: ["node", "--import", "tsx", "src/scripts/payments-worker.ts"]
-    environment: *app-env
+    environment:
+      <<: *app-env
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
     depends_on: *after-migrate
     restart: unless-stopped
 

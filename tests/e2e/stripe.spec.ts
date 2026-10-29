@@ -1,0 +1,53 @@
+import type { Page } from "@playwright/test";
+import { addFirstProductToCart, expect, fillCheckoutAddress, signUp, test } from "./fixtures";
+
+/**
+ * Cartão pelo Stripe DE VERDADE (modo de teste): o navegador tokeniza no
+ * iframe do Stripe, o processo de pagamentos cria e confirma o PaymentIntent
+ * na API real, e quem decide aprovar ou recusar é o Stripe, pelo número do
+ * cartão de teste. Os outros testes de pagamento usam o simulado; este é o
+ * que prova a integração.
+ *
+ * Só roda se o app testado tiver chave de teste do Stripe (o checkout mostra
+ * "via Stripe · modo de teste"); sem chave, é pulado. Na stack do compose:
+ * `STRIPE_PUBLISHABLE_KEY` e `STRIPE_SECRET_KEY` de teste no `.env`.
+ */
+
+/** Conta nova, um produto, checkout com cartão; pula se o app não tem Stripe. */
+async function payWithStripe(page: Page, cardNumber: string) {
+  const customer = await signUp(page);
+  // No relatório: contra um ambiente compartilhado, é por ela que se acha (e apaga) o pedido.
+  test.info().annotations.push({ type: "conta", description: customer.email });
+  await addFirstProductToCart(page);
+  await page.goto("/checkout");
+  await fillCheckoutAddress(page);
+  await page.locator('input[name="paymentMethod"][value="credit_card"]').check();
+
+  test.skip(!(await page.getByText("via Stripe · modo de teste").isVisible()), "app sem chave de teste do Stripe");
+
+  // O número do cartão nunca passa pelo nosso código: é digitado no iframe do Stripe.
+  const card = page.frameLocator('iframe[name^="__privateStripeFrame"]').first();
+  await card.locator('input[name="cardnumber"]').fill(cardNumber);
+  await card.locator('input[name="exp-date"]').fill("12 / 34");
+  await card.locator('input[name="cvc"]').fill("123");
+
+  // Sem falha injetada pelo modo demonstração: a resposta é a do Stripe.
+  await page.locator('input[name="simulate"][value="approve"]').check();
+  await page.getByRole("button", { name: "Confirmar aquisição" }).click();
+  await expect(page).toHaveURL(/\/pedido\/DYS-/, { timeout: 30_000 });
+}
+
+test.describe("Stripe (modo de teste)", () => {
+  test("cartão 4242: o Stripe aprova e o pedido fica pago", async ({ page }) => {
+    await payWithStripe(page, "4242 4242 4242 4242");
+    await expect(page.getByRole("heading", { name: "Aquisição registrada." })).toBeVisible({ timeout: 45_000 });
+    await expect(page.getByText(/Aprovado.*Stripe, modo de teste/)).toBeVisible();
+  });
+
+  test("cartão recusado pelo Stripe: a saga desfaz tudo e o pedido aparece cancelado", async ({ page }) => {
+    await payWithStripe(page, "4000 0000 0000 0002");
+    await expect(page.getByRole("heading", { name: "Aquisição não concluída." })).toBeVisible({ timeout: 45_000 });
+    await expect(page.getByText("O pagamento foi recusado pela operadora.")).toBeVisible();
+    await expect(page.getByText(/foi desfeito/)).toBeVisible();
+  });
+});

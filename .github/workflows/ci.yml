@@ -102,6 +102,10 @@ jobs:
           # Liga o botão do assistente; o teste intercepta a API, então a
           # chave nunca chega a um provedor.
           CHAT_API_KEY: e2e-sem-modelo
+          # Chaves de TESTE do Stripe (secrets do repositório). Sem elas, o
+          # `stripe.spec.ts` é pulado e o cartão segue simulado.
+          STRIPE_PUBLISHABLE_KEY: ${{ secrets.STRIPE_PUBLISHABLE_KEY }}
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
 
       - name: Popular o banco
         run: docker compose --profile app run --rm migrate npm run db:seed

@@ -32,7 +32,7 @@ responde (aprovar, recusar, instável, fora do ar) para ver a saga reagir.
   reais (broker fora, reconexão, consumidor que morre sem `ack`, estoque e
   carrinho sob concorrência, migrations com dados antigos) e navegador com
   Playwright em desktop e celular: compras (aprovada, recusada, instável, com
-  cupom), conta, carrinho, orçamento, admin, isolamento entre clientes e
+  cupom, e pelo Stripe real em modo de teste), conta, carrinho, orçamento, admin, isolamento entre clientes e
   acessibilidade (axe, WCAG 2.1 AA). Testes de arquitetura impedem serviço de
   importar serviço, Server Action de escrever no banco e action do admin sem
   checagem de papel.

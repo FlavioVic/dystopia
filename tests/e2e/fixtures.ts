@@ -12,7 +12,9 @@ export const test = base.extend<{ browserErrors: string[] }>({
       page.on("pageerror", (error) => errors.push(`exceção: ${error.message}`));
       page.on("console", (message) => {
         // 404 de recurso é o próprio teste de 404 pedindo — não é erro de página.
-        if (message.type() === "error" && !/status of 404/.test(message.text())) errors.push(message.text());
+        if (message.type() !== "error" || /status of 404/.test(message.text())) return;
+        if (isBlockedStripeTelemetry(message.text(), message.location().url)) return;
+        errors.push(message.text());
       });
       await use(errors);
       expect(errors, "erros no navegador").toEqual([]);
@@ -22,6 +24,21 @@ export const test = base.extend<{ browserErrors: string[] }>({
 });
 
 export { expect };
+
+/**
+ * Domínio do Stripe que a REDE de quem roda o teste não alcança (o antifraude
+ * dele, `m.stripe.com`, cai em lista de bloqueio de DNS e de adblock). Não é
+ * erro da página nem da CSP — violação de CSP tem outra mensagem e continua
+ * derrubando o teste.
+ */
+function isBlockedStripeTelemetry(text: string, url: string): boolean {
+  if (!/net::ERR_(NAME_NOT_RESOLVED|BLOCKED_BY_CLIENT|CONNECTION_REFUSED)/.test(text)) return false;
+  try {
+    return /(^|\.)stripe\.(com|network)$/.test(new URL(url).hostname);
+  } catch {
+    return false;
+  }
+}
 
 /** Conta nova e única por teste (os testes rodam em paralelo). */
 export function newCustomer() {
@@ -39,6 +56,16 @@ export async function signUp(page: Page) {
   await page.getByRole("button", { name: "Abrir ficha" }).click();
   await expect(page).toHaveURL(/\/conta/);
   return customer;
+}
+
+/** Endereço novo no checkout (conta recém-criada não tem endereço salvo). */
+export async function fillCheckoutAddress(page: Page) {
+  await page.locator('input[name="zipCode"]').fill("60000000");
+  await page.locator('input[name="street"]').fill("Rua do Teste");
+  await page.locator('input[name="number"]').fill("42");
+  await page.locator('input[name="neighborhood"]').fill("Centro");
+  await page.locator('input[name="city"]').fill("Fortaleza");
+  await page.locator('input[name="state"]').fill("CE");
 }
 
 /** Login pela tela. Padrão: o admin do seed (senha por E2E_ADMIN_PASSWORD). */
