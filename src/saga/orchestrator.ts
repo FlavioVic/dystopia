@@ -29,7 +29,7 @@ import { db, type Transaction } from "@/db";
 import { sagaSteps, sagas } from "@/db/schema";
 import { createLogger } from "@/lib/logger";
 import { nextRunAt, type BackoffOptions } from "@/queue/backoff";
-import { customerFacingMessage, errorCode, errorMessage, isRetryable } from "./errors";
+import { errorCode, errorMessage, isRetryable } from "@/shared/errors";
 import { dispatchStepRequest, type StepReply } from "./messaging";
 import { getSagaDefinition } from "./registry";
 import {
@@ -70,6 +70,8 @@ export const DEFAULT_SAGA_LEASE_MS = 30_000;
 const BACKOFF_HOLDER = "backoff";
 
 const TERMINAL_STATUSES = ["completed", "compensated", "failed"] as const;
+
+const GENERIC_FAILURE = "Não foi possível concluir.";
 
 type Context = Record<string, unknown>;
 
@@ -158,7 +160,7 @@ async function execute(
 
   // Falha definitiva de um passo (local ou remoto): marca e desfaz o que já foi aplicado.
   const beginCompensation = async (code: string, message: string): Promise<AdvanceOutcome> => {
-    const reason = customerFacingMessage(code);
+    const reason = definition.describeFailure?.(code) ?? GENERIC_FAILURE;
     await db.transaction(async (tx) => {
       await writeSaga(tx, saga.id, { status: "compensating", lastError: `${code}: ${message}`, updatedAt: now });
     });

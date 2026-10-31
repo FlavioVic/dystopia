@@ -42,14 +42,12 @@ export async function submitReview(_prev: ReviewState, formData: FormData): Prom
   const limited = await limitAction("review", `user:${user.id}`);
   if (limited) return { message: limited };
 
-  await db.transaction(async (tx) => {
-    await upsertReview(tx, {
-      productId: product.id,
-      userId: user.id,
-      rating: values.rating,
-      title: values.title,
-      comment: values.comment,
-    });
+  await upsertReview(db, {
+    productId: product.id,
+    userId: user.id,
+    rating: values.rating,
+    title: values.title,
+    comment: values.comment,
   });
 
   refresh();
@@ -60,7 +58,7 @@ export async function deleteOwnReview(productId: string): Promise<{ ok: boolean;
   const user = await getCurrentUser();
   if (!user) return { ok: false, error: "Não autorizado." };
 
-  const { deleted } = await db.transaction(async (tx) => removeReview(tx, user.id, productId));
+  const { deleted } = await removeReview(db, user.id, productId);
   if (!deleted) return { ok: false, error: "Você ainda não avaliou este produto." };
 
   refresh();

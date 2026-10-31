@@ -6,7 +6,7 @@ import { db } from "@/db";
 import { limitAction } from "@/lib/action-limits";
 import { CART_COOKIE } from "@/lib/data/cart";
 import { getRequestIp } from "@/lib/request-ip";
-import { PermanentError } from "@/saga/errors";
+import { PermanentError } from "@/shared/errors";
 import * as cartsService from "@/services/carts";
 
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 30; // 30 dias

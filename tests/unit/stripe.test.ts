@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { PermanentError, RetryableError, SagaError } from "@/saga/errors";
+import { PermanentError, RetryableError, AppError } from "@/shared/errors";
 import { charge, reverse, type GatewayDeps } from "@/services/payments/gateway";
 import { stripeCharge, stripeConfigFromEnv, stripeRefund, type FetchLike } from "@/services/payments/stripe";
 
@@ -32,7 +32,7 @@ async function rejectsWith(
 ) {
   await assert.rejects(promise, (error: unknown) => {
     assert.ok(error instanceof expected.type, `esperava ${expected.type.name}, veio ${String(error)}`);
-    assert.equal((error as SagaError).code, expected.code);
+    assert.equal((error as AppError).code, expected.code);
     return true;
   });
 }

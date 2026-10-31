@@ -6,7 +6,7 @@
 import assert from "node:assert/strict";
 import { after, beforeEach, describe, it } from "node:test";
 import { db } from "@/db";
-import { PermanentError } from "@/saga/errors";
+import { PermanentError } from "@/shared/errors";
 import {
   addressUsageCount,
   createAddress,

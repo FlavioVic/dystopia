@@ -16,7 +16,6 @@ import { enqueue } from "@/queue";
 import { getBroker, names, purgeQueues } from "@/queue/broker";
 import { relayOutbox } from "@/queue/relay";
 import { drainQueues } from "@/queue/worker";
-import { tryRunSagaInline } from "@/saga/runner";
 import { closeDatabase, resetDatabase, seedCheckoutFixture } from "../helpers/db";
 import { startCheckout } from "../helpers/checkout";
 import { IDLE, pendingWork } from "../helpers/saga";
@@ -32,12 +31,10 @@ beforeEach(async () => {
 });
 after(closeDatabase);
 
-/** O que o placeOrder faz no request: avança até o passo remoto e para. */
+/** O que o placeOrder faz no request: grava pedido, saga e mensagem, e só. */
 async function checkoutRequest(simulate?: "flaky_once" | "decline") {
   const fixture = await seedCheckoutFixture({ stock: 5, quantity: 1, priceCents: 5_000 });
-  const checkout = await startCheckout(fixture, simulate ? { simulate } : {});
-  await tryRunSagaInline(checkout.sagaId);
-  return checkout;
+  return startCheckout(fixture, simulate ? { simulate } : {});
 }
 
 const orderStatus = async (orderId: string) =>
@@ -46,7 +43,7 @@ const orderStatus = async (orderId: string) =>
 describe("worker embutido", () => {
   it("uma rodada depois do request fecha o pedido e entrega o e-mail", async () => {
     const checkout = await checkoutRequest();
-    // O request parou no pagamento (remoto): sem worker, ficaria assim para sempre.
+    // O request não executa passo nenhum: sem worker, ficaria assim para sempre.
     assert.equal(await orderStatus(checkout.orderId), "pending");
 
     await runInlineWorker({ budgetMs: 10_000, waitForScheduled: true });

@@ -31,18 +31,55 @@ function importsOf(relativePath: string): string[] {
 }
 
 describe("fronteiras da arquitetura", () => {
-  // `src/composition` também: o worker de pé (container) monta a fila por ele.
-  const backendDirs = ["src/services", "src/saga", "src/queue", "src/composition"];
+  // O worker de pé (container) monta a fila por `composition/worker.ts`; só a
+  // raiz da borda web (`composition/web.ts`) pode falar com o Next.
+  const backendFiles = [
+    ...["src/services", "src/saga", "src/queue", "src/application", "src/shared"].flatMap(sourceFiles),
+    path.join("src", "composition", "worker.ts"),
+  ];
 
-  it("serviços, saga e fila não dependem do Next (precisam rodar no worker)", () => {
-    for (const dir of backendDirs) {
-      for (const file of sourceFiles(dir)) {
-        for (const specifier of importsOf(file)) {
-          assert.ok(
-            !specifier.startsWith("next/") && specifier !== "next",
-            `${file} importa ${specifier} — isso prende o módulo ao runtime do Next`,
-          );
-        }
+  it("serviços, saga, fila e casos de uso não dependem do Next (precisam rodar no worker)", () => {
+    for (const file of backendFiles) {
+      for (const specifier of importsOf(file)) {
+        assert.ok(
+          !specifier.startsWith("next/") && specifier !== "next",
+          `${file} importa ${specifier} — isso prende o módulo ao runtime do Next`,
+        );
+      }
+    }
+  });
+
+  it("casos de uso não conhecem a borda (actions/data/componentes/composição)", () => {
+    for (const file of sourceFiles("src/application")) {
+      for (const specifier of importsOf(file)) {
+        assert.ok(
+          !["@/lib/actions", "@/lib/data", "@/components", "@/app", "@/composition"].some((edge) =>
+            specifier.startsWith(edge),
+          ),
+          `${file} importa ${specifier} — caso de uso não pode depender da borda`,
+        );
+      }
+    }
+  });
+
+  it("a borda do cliente não conhece fila nem execução da saga (só casos de uso)", () => {
+    // O painel de operação (admin, cron) é a exceção de propósito: o trabalho
+    // dele é olhar e mexer na fila.
+    const operations = [
+      path.join("src", "app", "admin"),
+      path.join("src", "app", "api", "cron"),
+      path.join("src", "lib", "actions", "admin.ts"),
+    ];
+    const edge = ["src/app", "src/lib/actions", "src/lib/assistant", "src/components"]
+      .flatMap(sourceFiles)
+      .filter((file) => !operations.some((dir) => file.startsWith(dir)));
+    const forbidden = ["@/queue", "@/saga/runner", "@/saga/definitions", "@/composition/worker"];
+    for (const file of edge) {
+      for (const specifier of importsOf(file)) {
+        assert.ok(
+          !forbidden.some((target) => specifier.startsWith(target)),
+          `${file} importa ${specifier} — a borda chama o caso de uso (src/application via composition/web)`,
+        );
       }
     }
   });
@@ -82,7 +119,7 @@ describe("fronteiras da arquitetura", () => {
         if (!specifier.startsWith("@/saga")) continue;
         assert.equal(
           specifier,
-          "@/saga/errors",
+          "@/shared/errors",
           `${file} importa ${specifier} — dependência invertida`,
         );
       }
@@ -127,11 +164,17 @@ describe("fronteiras da arquitetura", () => {
     }
   });
 
+  it("Server Action não abre transação: compor serviços é caso de uso (src/application)", () => {
+    for (const file of sourceFiles(path.join("src", "lib", "actions"))) {
+      const content = readFileSync(path.join(ROOT, file), "utf-8");
+      assert.doesNotMatch(content, /\.transaction\s*\(/, `${file} abre transação — mova para src/application`);
+    }
+  });
+
   it("Server Action não escreve no banco: valida a entrada e chama o serviço", () => {
-    // Leitura para decidir a resposta (guarda, redirect) é ok, e abrir uma
-    // transação para compor serviços também (é o outbox do checkout). Mutação
-    // na borda não: vira regra fora do serviço, sem teste, e com o "lê,
-    // decide, escreve" que dá corrida.
+    // Leitura para decidir a resposta (guarda, redirect) é ok. Mutação na
+    // borda não: vira regra fora do serviço, sem teste, e com o "lê, decide,
+    // escreve" que dá corrida.
     for (const file of sourceFiles(path.join("src", "lib", "actions"))) {
       const content = readFileSync(path.join(ROOT, file), "utf-8");
       const writes = [...content.matchAll(/\b(?:db|tx)\s*\.\s*(insert|update|delete)\s*\(/g)];

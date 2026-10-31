@@ -9,7 +9,7 @@
 import { and, asc, eq, ne } from "drizzle-orm";
 import type { Executor } from "@/db";
 import { productImages, productVariants, products } from "@/db/schema";
-import { PermanentError } from "@/saga/errors";
+import { PermanentError } from "@/shared/errors";
 
 export type ProductWriteInput = {
   name: string;

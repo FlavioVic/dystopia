@@ -16,7 +16,7 @@
  * revisão do fluxo (webhooks, 3D Secure, dados do comprador, conciliação).
  */
 
-import { PermanentError, RetryableError } from "@/saga/errors";
+import { PermanentError, RetryableError } from "@/shared/errors";
 
 export const STRIPE_PROVIDER = "stripe";
 const API = "https://api.stripe.com/v1";
@@ -131,11 +131,11 @@ async function call(
 
   const body = (await response.json().catch(() => ({}))) as Record<string, unknown>;
   if (response.ok) return body;
-  throw toSagaError(response.status, (body.error ?? {}) as StripeError);
+  throw toAppError(response.status, (body.error ?? {}) as StripeError);
 }
 
-/** Erro do Stripe → taxonomia da saga (o que compensa já vs o que tenta de novo). */
-export function toSagaError(status: number, error: StripeError): Error {
+/** Erro do Stripe → taxonomia de erro (o que não adianta repetir vs o que tenta de novo). */
+export function toAppError(status: number, error: StripeError): Error {
   const details = { httpStatus: status, stripeCode: error.code, declineCode: error.decline_code };
 
   if (status === 429 || status >= 500) {

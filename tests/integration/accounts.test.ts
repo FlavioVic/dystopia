@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 import { after, beforeEach, describe, it } from "node:test";
 import { db } from "@/db";
 import { users } from "@/db/schema";
-import { PermanentError } from "@/saga/errors";
+import { PermanentError } from "@/shared/errors";
 import { registerAccount, verifyCredentials } from "@/services/accounts";
 import { closeDatabase, resetDatabase } from "../helpers/db";
 

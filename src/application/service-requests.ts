@@ -1,7 +1,7 @@
 /**
- * Registro de um pedido de orçamento já validado — o mesmo caminho para o
- * formulário de /servicos e para o assistente. Fica num lugar só para que o
- * assistente não vire uma porta lateral sem limite de tentativas nem alerta.
+ * Caso de uso: registrar um pedido de orçamento já validado — o mesmo caminho
+ * para o formulário de /servicos e para o assistente. Fica num lugar só para
+ * que o assistente não vire uma porta lateral sem limite de tentativas nem alerta.
  */
 
 import { db } from "@/db";
@@ -11,6 +11,7 @@ import type { ServiceRequestValues } from "@/lib/validation/service-request";
 import { sendServiceRequestAlert } from "@/services/notifications";
 import { consumeRateLimit, type RateLimitRule } from "@/services/rate-limit";
 import { createServiceRequest } from "@/services/service-requests";
+import type { UseCaseHooks } from "./hooks";
 
 // Entrada pública sem login: limite por IP para ninguém encher a caixa do
 // admin com pedido falso em loop. A chave é a mesma para os dois canais.
@@ -20,11 +21,16 @@ export type SubmitServiceRequestResult =
   | { ok: true; protocol: string }
   | { ok: false; retryAfterSeconds: number };
 
-export async function submitServiceRequest(input: {
+export type SubmitServiceRequestInput = {
   values: ServiceRequestValues;
   ip: string;
   userId: string | null;
-}): Promise<SubmitServiceRequestResult> {
+};
+
+export async function submitServiceRequest(
+  input: SubmitServiceRequestInput,
+  hooks: UseCaseHooks = {},
+): Promise<SubmitServiceRequestResult> {
   const { allowed, retryAfterSeconds } = await consumeRateLimit(db, `service-request:ip:${input.ip}`, REQUEST_RULE);
   if (!allowed) return { ok: false, retryAfterSeconds };
 
@@ -48,5 +54,6 @@ export async function submitServiceRequest(input: {
     }
     return created;
   });
+  if (alertTo) hooks.afterCommit?.();
   return { ok: true, protocol: row.protocol };
 }

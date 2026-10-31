@@ -13,7 +13,7 @@ conta sozinho. Os detalhes de funcionamento estão em
 | 4 | [Retry por filas de espera e DLQ](#4-retry-por-filas-de-espera-e-dlq) | Backoff planejado; erro de regra não tenta de novo |
 | 5 | [Pelo menos uma vez + idempotência](#5-pelo-menos-uma-vez--idempotência) | Duplicata é aceita; efeito duplicado, não |
 | 6 | [Pagamentos em processo próprio](#6-pagamentos-em-processo-próprio) | O único passo que fala com o mundo de fora só conversa por mensagem |
-| 7 | [Monólito modular, fronteiras testadas](#7-monólito-modular-fronteiras-testadas) | Serviços separados por regra, não por deploy |
+| 7 | [Monólito modular, fronteiras testadas](#7-monólito-modular-fronteiras-testadas) | Serviços separados por regra, não por deploy; casos de uso numa camada própria |
 | 8 | [Custo zero: worker embutido na Vercel](#8-custo-zero-worker-embutido-na-vercel) | Ninguém de pé; a fila é drenada depois do request |
 | 9 | [Sessão no banco, não JWT](#9-sessão-no-banco-não-jwt) | Sair derruba o login na hora |
 | 10 | [MFA no painel](#10-mfa-totp-obrigatório-no-painel) | Senha vazada sozinha não abre o admin |
@@ -169,8 +169,15 @@ distribuída.
 
 **Decisão.** Um deploy, com fronteiras reais **verificadas por teste**
 (`tests/unit/architecture.test.ts`): serviço não importa serviço (quem compõe é
-a saga), serviço não depende do Next, Server Action não escreve no banco (chama
-o serviço), toda action do admin começa checando papel e MFA.
+a saga ou o caso de uso), serviço não depende do Next nem da saga, toda action
+do admin começa checando papel e MFA.
+
+Entre a borda e os serviços há uma **camada de aplicação** (`src/application`):
+o caso de uso recebe a entrada já validada e compõe serviços — fechar a compra,
+pedir orçamento, excluir a conta, ligar o MFA. A Server Action só lê o
+formulário, chama o caso de uso e traduz o resultado; ela não escreve no banco
+nem abre transação (o teste cobra). Formulário e assistente pedem orçamento pelo
+**mesmo** caso de uso, então o chat não vira porta lateral sem limite.
 
 **Preço.** A separação é disciplina de código, não de rede — mas é ela que
 deixa cada serviço extraível sem reescrever regra.
@@ -182,11 +189,17 @@ relay consultando a outbox a cada 500 ms não deixaria o banco serverless dormir
 (a cota grátis do Neon acabaria no meio do mês). O objetivo da demo era
 **custo zero**.
 
-**Decisão.** Com `INLINE_WORKER=1`, ninguém fica de pé: o checkout, a página do
-pedido e o painel de orquestração publicam a outbox e drenam o RabbitMQ por
-*pull* depois de responder (`after()`), e um cron diário é a rede de segurança.
-Os handlers são os **mesmos** do worker de pé (`composition/worker.ts`) — a
-fila e a saga não mudam.
+**Decisão.** Com `INLINE_WORKER=1`, ninguém fica de pé: quem deixa mensagem na
+outbox (checkout, orçamento), a página do pedido em andamento e o painel de
+orquestração publicam a outbox e drenam o RabbitMQ por *pull* depois de
+responder (`after()`), e um cron diário é a rede de segurança. Os handlers são
+os **mesmos** do worker de pé (`composition/worker.ts`) — a fila e a saga não
+mudam.
+
+A borda não sabe disso. O request do checkout **não executa passo nenhum**: o
+caso de uso grava pedido, saga e mensagem e avisa `afterCommit`; quem liga esse
+aviso ao dreno é a raiz de composição da borda web (`composition/web.ts`). Quem
+executa a saga é sempre o consumidor da fila — em container ou no dreno.
 
 **Preço.** Sem tráfego, um retry pode esperar o próximo request ou o cron. Com
 tráfego real, o caminho é subir o `Dockerfile.worker` num container e desligar

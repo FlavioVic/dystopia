@@ -10,7 +10,7 @@
 import { asc, eq } from "drizzle-orm";
 import type { Executor } from "@/db";
 import { productImages, products } from "@/db/schema";
-import { PermanentError } from "@/saga/errors";
+import { PermanentError } from "@/shared/errors";
 
 export const MAX_ALT_TEXT = 160;
 /** Fotos por produto: a galeria da loja mostra todas, com miniaturas. */

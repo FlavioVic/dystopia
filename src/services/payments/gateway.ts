@@ -13,7 +13,7 @@
  */
 
 import { createHash } from "node:crypto";
-import { PermanentError, RetryableError } from "@/saga/errors";
+import { PermanentError, RetryableError } from "@/shared/errors";
 import type { SimulationMode } from "./contract";
 import {
   STRIPE_PROVIDER,

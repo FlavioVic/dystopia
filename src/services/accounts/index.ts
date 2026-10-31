@@ -14,7 +14,7 @@ import bcrypt from "bcryptjs";
 import { eq } from "drizzle-orm";
 import type { Executor } from "@/db";
 import { users } from "@/db/schema";
-import { PermanentError } from "@/saga/errors";
+import { PermanentError } from "@/shared/errors";
 
 const BCRYPT_COST = 10;
 

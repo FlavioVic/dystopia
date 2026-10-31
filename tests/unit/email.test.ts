@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { PermanentError, RetryableError, type SagaError } from "@/saga/errors";
+import { PermanentError, RetryableError, type AppError } from "@/shared/errors";
 import { renderHtml } from "@/services/notifications/delivery";
 import { emailConfigFromEnv, resendSend, type FetchLike } from "@/services/notifications/resend";
 
@@ -68,7 +68,7 @@ describe("envio pelo Resend", () => {
     for (const [response, type, code] of cases) {
       await assert.rejects(resendSend(config, email, fakeFetch(response)), (error: unknown) => {
         assert.ok(error instanceof type, `${code}: veio ${String(error)}`);
-        assert.equal((error as SagaError).code, code);
+        assert.equal((error as AppError).code, code);
         return true;
       });
     }

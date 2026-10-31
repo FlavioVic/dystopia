@@ -10,7 +10,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import type { Executor } from "@/db";
 import { addresses, orderItems, orders } from "@/db/schema";
 import { canTransition, type OrderStatus } from "@/lib/order-status";
-import { PermanentError } from "@/saga/errors";
+import { PermanentError } from "@/shared/errors";
 
 export type OrderLineInput = {
   productId: string;
@@ -138,4 +138,17 @@ export async function markOrderCancelled(executor: Executor, orderId: string): P
     .where(and(eq(orders.id, orderId), inArray(orders.status, ["pending", "paid", "processing"])))
     .returning({ id: orders.id });
   return { changed: cancelled.length > 0 };
+}
+
+/** Pedido do cliente com o que a página dele mostra. Pedido de outra pessoa = não existe. */
+export async function findCustomerOrder(executor: Executor, orderNumber: string, userId: string) {
+  return executor.query.orders.findFirst({
+    where: and(eq(orders.orderNumber, orderNumber), eq(orders.userId, userId)),
+    with: {
+      items: true,
+      payments: true,
+      shippingAddress: true,
+      coupon: true,
+    },
+  });
 }

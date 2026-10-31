@@ -9,7 +9,7 @@ import { after, beforeEach, describe, it } from "node:test";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { mfaCredentials, mfaRecoveryCodes, users } from "@/db/schema";
-import { PermanentError } from "@/saga/errors";
+import { PermanentError } from "@/shared/errors";
 import {
   RECOVERY_CODE_COUNT,
   beginEnrollment,

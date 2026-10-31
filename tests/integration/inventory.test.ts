@@ -10,7 +10,7 @@ import { after, beforeEach, describe, it } from "node:test";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { products, productVariants } from "@/db/schema";
-import { PermanentError } from "@/saga/errors";
+import { PermanentError } from "@/shared/errors";
 import { releaseStock, reserveStock } from "@/services/inventory";
 import { closeDatabase, resetDatabase, seedCheckoutFixture } from "../helpers/db";
 

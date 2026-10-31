@@ -7,7 +7,7 @@
 import assert from "node:assert/strict";
 import { after, beforeEach, describe, it } from "node:test";
 import { db } from "@/db";
-import { categories, coupons, products } from "@/db/schema";
+import { categories, coupons, products, serviceRequests } from "@/db/schema";
 import { handleAssistantMessage } from "@/lib/assistant/handler";
 import {
   AssistantBusyError,
@@ -55,7 +55,7 @@ describe("assistente — porta de entrada", () => {
 
     const response = await handleAssistantMessage({ headers: sameOrigin, body, context: visitor, complete: fake.complete });
 
-    assert.deepEqual(response, { status: 200, body: { reply: "Temos o [Ryzen 5 9600X](/produto/ryzen-5)." }, queuedWork: false });
+    assert.deepEqual(response, { status: 200, body: { reply: "Temos o [Ryzen 5 9600X](/produto/ryzen-5)." } });
     const system = fake.seen[0][0].content as string;
     assert.match(system, /Processadores \(processadores\)/, "categorias reais nas instruções");
     assert.match(system, /BEMVINDO10: 10% acima de R\$\s50,00/, "cupom ativo nas instruções");
@@ -114,10 +114,7 @@ describe("assistente — porta de entrada", () => {
     assert.ok(!JSON.stringify(down).includes("sk-secreta"));
   });
 
-  it("orçamento registrado pela conversa avisa que há trabalho na fila; conversa comum, não", async () => {
-    const plain = await handleAssistantMessage({ headers: sameOrigin, body, context: visitor, complete: model([{ content: "oi", toolCalls: [] }]).complete });
-    assert.equal(plain.queuedWork, false);
-
+  it("orçamento pedido na conversa passa pelo mesmo caso de uso do formulário", async () => {
     const args = JSON.stringify({ servico: "manutencao", nome: "Ana Souza", email: "ana@exemplo.com", descricao: "PC desligando sozinho sob carga pesada." });
     const fake = model([
       { content: null, toolCalls: [{ id: "c1", type: "function", function: { name: "registrar_orcamento", arguments: args } }] },
@@ -125,7 +122,8 @@ describe("assistente — porta de entrada", () => {
     ]);
     const booked = await handleAssistantMessage({ headers: sameOrigin, body, context: visitor, complete: fake.complete });
     assert.equal(booked.status, 200);
-    assert.equal(booked.queuedWork, true);
+    const [request] = await db.select().from(serviceRequests);
+    assert.equal(request?.email, "ana@exemplo.com");
   });
 
   it("pessoa logada: as instruções liberam as ferramentas de pedido", async () => {

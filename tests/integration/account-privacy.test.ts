@@ -8,8 +8,8 @@ import { after, beforeEach, describe, it } from "node:test";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { notifications, orders, products, sagas, serviceRequests, users } from "@/db/schema";
-import { deleteAccount, exportAccountData } from "@/lib/account-privacy";
-import { PermanentError } from "@/saga/errors";
+import { deleteAccount, exportAccountData } from "@/application/account-privacy";
+import { PermanentError } from "@/shared/errors";
 import { upsertReview } from "@/services/reviews";
 import { createServiceRequest } from "@/services/service-requests";
 import { createSession } from "@/services/sessions";
@@ -42,7 +42,7 @@ describe("dados da conta", () => {
     const { fixture, checkout, request } = await accountWithHistory();
     const { token } = await createSession(db, { userId: fixture.userId, mfaPending: false });
 
-    const data = await exportAccountData(db, fixture.userId);
+    const data = await exportAccountData(fixture.userId);
 
     assert.equal(data?.conta.email, fixture.userEmail);
     assert.deepEqual(data?.pedidos.map((o) => o.orderNumber), [checkout.orderNumber]);
@@ -58,7 +58,7 @@ describe("dados da conta", () => {
     const { fixture, checkout, request } = await accountWithHistory();
     const other = await accountWithHistory();
 
-    assert.deepEqual(await db.transaction((tx) => deleteAccount(tx, fixture.userId)), { deleted: true });
+    assert.deepEqual(await deleteAccount(fixture.userId), { deleted: true });
 
     assert.equal(await db.$count(users, eq(users.id, fixture.userId)), 0);
     assert.equal(await db.$count(orders, eq(orders.userId, fixture.userId)), 0);
@@ -79,7 +79,7 @@ describe("dados da conta", () => {
     await db.update(users).set({ role: "admin" }).where(eq(users.id, fixture.userId));
 
     await assert.rejects(
-      db.transaction((tx) => deleteAccount(tx, fixture.userId)),
+      deleteAccount(fixture.userId),
       (error) => error instanceof PermanentError && error.code === "admin_account",
     );
     assert.equal(await db.$count(users, eq(users.id, fixture.userId)), 1);

@@ -10,7 +10,7 @@ import { createLogger } from "@/lib/logger";
 import { sagaHandlers } from "@/queue/handlers";
 import { pruneOutbox, relayAll } from "@/queue/relay";
 import { drainQueues, type DrainReport, type Handlers } from "@/queue/worker";
-import { errorMessage } from "@/saga/errors";
+import { errorMessage } from "@/shared/errors";
 import { SAGA_QUEUE } from "@/saga/messaging";
 import { reconcile, type ReconcileReport } from "@/saga/reconcile";
 import { createNotificationHandlers } from "@/services/notifications/delivery";

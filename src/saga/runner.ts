@@ -3,9 +3,9 @@
  * handler. `retry`/`busy` voltam pela fila de espera sem gastar tentativa da
  * mensagem (quem conta tentativa é o passo); o resto é `ack`.
  *
- * Dois caminhos para o mesmo código — o request do checkout (`runSagaInline`,
- * até o passo remoto) e o consumidor (`handleSagaAdvance`, o durável). O
- * lease da saga deixa os dois, e mensagem repetida, rodarem ao mesmo tempo.
+ * Quem executa a saga é só o consumidor da fila (`handleSagaAdvance`) — o
+ * request do checkout grava a saga e a primeira mensagem e vai embora. O
+ * lease da saga deixa mensagem repetida rodar ao mesmo tempo sem estrago.
  */
 
 import { db, type Executor } from "@/db";
@@ -14,7 +14,7 @@ import { createLogger } from "@/lib/logger";
 import * as queue from "@/queue";
 import type { HandlerResult, QueueMessage } from "@/queue";
 import { advanceSaga, applyStepReply, type AdvanceOptions, type AdvanceOutcome } from "./orchestrator";
-import { errorMessage, PermanentError } from "./errors";
+import { PermanentError } from "@/shared/errors";
 import { parseStepReply, SAGA_ADVANCE, SAGA_QUEUE } from "./messaging";
 
 const logger = createLogger("saga:runner");
@@ -55,9 +55,10 @@ export async function enqueueAdvance(executor: Executor, sagaId: string, delayMs
 }
 
 /**
- * Avança a saga agora, no processo atual. Se o passo pediu retry, deixa um
- * avanço adiado na outbox: a mensagem original pode já ter sido consumida.
- * Duplicata não faz mal — o lease segura a saga até a hora do retry.
+ * Avança a saga agora, no processo atual (testes e ferramentas de operação).
+ * Se o passo pediu retry, deixa um avanço adiado na outbox: a mensagem
+ * original pode já ter sido consumida. Duplicata não faz mal — o lease segura
+ * a saga até a hora do retry.
  */
 export async function runSagaInline(sagaId: string, options: AdvanceOptions = {}): Promise<AdvanceOutcome> {
   const outcome = await advanceSaga(sagaId, { workerId: "inline", ...options });
@@ -65,22 +66,6 @@ export async function runSagaInline(sagaId: string, options: AdvanceOptions = {}
     await enqueueAdvance(db, sagaId, outcome.runAt.getTime() - Date.now());
   }
   return outcome;
-}
-
-/**
- * Versão "nunca quebra o request": usada pelo checkout. Se qualquer coisa
- * explodir aqui, o pedido já está salvo e a mensagem na outbox — o worker assume.
- */
-export async function tryRunSagaInline(sagaId: string, options: AdvanceOptions = {}): Promise<AdvanceOutcome | null> {
-  try {
-    return await runSagaInline(sagaId, options);
-  } catch (error) {
-    logger.warn("avanço inline falhou; a fila vai reprocessar", {
-      sagaId,
-      error: errorMessage(error),
-    });
-    return null;
-  }
 }
 
 /** Handler de `saga.advance`. */

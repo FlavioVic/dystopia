@@ -23,7 +23,7 @@ import {
 import { peekDeadLetters, replayDeadLetters } from "@/queue/dead-letters";
 import { relayOutbox } from "@/queue/relay";
 import { drainQueues, startWorker, type Handlers } from "@/queue/worker";
-import { PermanentError, RetryableError } from "@/saga/errors";
+import { PermanentError, RetryableError } from "@/shared/errors";
 import { closeDatabase, resetDatabase } from "../helpers/db";
 
 const Q = "teste";

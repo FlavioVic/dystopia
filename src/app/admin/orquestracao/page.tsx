@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { SagaTimeline } from "@/components/SagaTimeline";
 import { QueueActions } from "@/components/admin/QueueActions";
+import { runOperationsAfterResponse } from "@/composition/web";
 import { requireAdmin } from "@/lib/data/auth";
-import { drainQueueAfterResponse } from "@/lib/inline-worker";
 import {
   getDeadLetters,
   getOperationalHealth,
@@ -36,7 +36,7 @@ export default async function OrchestrationPage(props: PageProps<"/admin/orquest
   await requireAdmin();
   // Worker embutido: abrir o painel reconcilia e drena (retry que voltou da
   // fila de espera, lease de executor morto) — o que o worker de pé faria.
-  drainQueueAfterResponse({ budgetMs: 20_000, reconcile: true });
+  runOperationsAfterResponse();
   const range = parseHealthWindow((await props.searchParams).janela);
 
   const [sagasList, health, notifications] = await Promise.all([

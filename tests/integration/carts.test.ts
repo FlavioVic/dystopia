@@ -9,7 +9,7 @@ import { after, beforeEach, describe, it } from "node:test";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { cartItems, products } from "@/db/schema";
-import { PermanentError } from "@/saga/errors";
+import { PermanentError } from "@/shared/errors";
 import {
   addItem,
   countItems,

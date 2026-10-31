@@ -4,11 +4,9 @@ import { notFound, redirect } from "next/navigation";
 import { AutoRefresh } from "@/components/AutoRefresh";
 import { buttonPrimary, buttonSecondary } from "@/components/Kit";
 import { SagaTimeline } from "@/components/SagaTimeline";
+import { viewOrder } from "@/composition/web";
 import { getCurrentUser } from "@/lib/data/auth";
-import { getOrderByNumber } from "@/lib/data/orders";
-import { drainQueueAfterResponse } from "@/lib/inline-worker";
 import { formatPriceCents } from "@/lib/format";
-import { getSagaByCorrelationId } from "@/saga/orchestrator";
 import { PRIVATE_PAGE } from "@/lib/seo";
 
 export const metadata: Metadata = { title: "Pedido", robots: PRIVATE_PAGE };
@@ -45,17 +43,13 @@ export default async function OrderPage(props: PageProps<"/pedido/[orderNumber]"
   const user = await getCurrentUser();
   if (!user) redirect("/entrar");
 
-  const order = await getOrderByNumber(orderNumber, user.id);
-  if (!order) notFound();
-
-  const saga = await getSagaByCorrelationId(orderNumber);
+  const view = await viewOrder(orderNumber, user.id);
+  if (!view) notFound();
+  const { order, saga } = view;
   const payment = order.payments[0];
 
   const state =
     order.status === "pending" ? "processing" : order.status === "cancelled" ? "failed" : "confirmed";
-  // Rede de segurança do worker embutido: se o dreno do checkout morreu no
-  // meio, cada atualização desta página empurra a fila mais um pouco.
-  if (state === "processing") drainQueueAfterResponse({ budgetMs: 10_000 });
 
   // Voz da marca: declarativa, sem exclamação. O estado vai em palavra no rótulo.
   const header = {

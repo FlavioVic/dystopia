@@ -64,6 +64,11 @@ export type SagaDefinition<TPayload> = {
   maxAttemptsPerStep?: number;
   /** Valida/normaliza o payload persistido (jsonb). */
   parsePayload: (raw: unknown) => TPayload;
+  /**
+   * Código de erro → motivo em palavras de cliente (sem detalhe técnico). É a
+   * definição que sabe o que "out_of_stock" quer dizer naquele fluxo.
+   */
+  describeFailure?: (code: string) => string;
   /** Encerramento do caminho triste, depois de desfazer todos os passos. */
   onCompensated?: (ctx: StepContext<TPayload>, tx: Transaction, reason: string) => Promise<void>;
 };

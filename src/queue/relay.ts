@@ -16,7 +16,7 @@ import { and, asc, eq, inArray, isNull, lt, lte, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { outbox } from "@/db/schema";
 import { createLogger } from "@/lib/logger";
-import { errorMessage } from "@/saga/errors";
+import { errorMessage } from "@/shared/errors";
 import { nextRunAt } from "./backoff";
 import { getBroker, publishEnvelope } from "./broker";
 

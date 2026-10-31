@@ -12,7 +12,7 @@
 import { and, desc, eq, or, sql } from "drizzle-orm";
 import type { Executor } from "@/db";
 import { addresses, orders } from "@/db/schema";
-import { PermanentError } from "@/saga/errors";
+import { PermanentError } from "@/shared/errors";
 
 export type AddressInput = {
   label: string;

@@ -11,7 +11,7 @@ import { randomInt } from "node:crypto";
 import { desc, eq } from "drizzle-orm";
 import type { Executor } from "@/db";
 import { serviceRequests } from "@/db/schema";
-import { PermanentError } from "@/saga/errors";
+import { PermanentError } from "@/shared/errors";
 
 export type ServiceRequestKind = (typeof serviceRequests.$inferInsert)["kind"];
 export type ServiceRequestStatus = NonNullable<(typeof serviceRequests.$inferInsert)["status"]>;

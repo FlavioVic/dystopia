@@ -28,7 +28,7 @@ import * as catalog from "@/services/catalog";
 import * as couponsService from "@/services/coupons";
 import { transitionOrder } from "@/services/orders";
 import * as serviceRequestsService from "@/services/service-requests";
-import { PermanentError } from "@/saga/errors";
+import { PermanentError } from "@/shared/errors";
 
 async function ensureAdmin() {
   // Papel admin E autenticador: o mesmo critério do layout do painel.

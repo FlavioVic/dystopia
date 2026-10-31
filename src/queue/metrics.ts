@@ -12,7 +12,7 @@
 import { sql } from "drizzle-orm";
 import type { Executor } from "@/db";
 import { outbox } from "@/db/schema";
-import { errorMessage } from "@/saga/errors";
+import { errorMessage } from "@/shared/errors";
 import { queueDepths, type QueueDepth } from "./broker";
 
 export type OutboxMetrics = {

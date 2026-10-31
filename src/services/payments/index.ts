@@ -10,7 +10,7 @@
 import { and, eq, inArray } from "drizzle-orm";
 import type { Executor } from "@/db";
 import { payments } from "@/db/schema";
-import { PermanentError } from "@/saga/errors";
+import { PermanentError } from "@/shared/errors";
 import type { PaymentMethod, SimulationMode } from "./contract";
 import { charge, PROVIDER, reverse } from "./gateway";
 

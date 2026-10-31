@@ -17,7 +17,7 @@ import { db, type Executor } from "@/db";
 import { notifications } from "@/db/schema";
 import { createLogger } from "@/lib/logger";
 import type { QueueMessage } from "@/queue";
-import { errorMessage, isRetryable, PermanentError } from "@/saga/errors";
+import { errorMessage, isRetryable, PermanentError } from "@/shared/errors";
 import { NOTIFICATION_DELIVER } from "./index";
 import { emailConfigFromEnv, RESEND_PROVIDER, resendSend, type EmailConfig, type FetchLike } from "./resend";
 
