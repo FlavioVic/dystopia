@@ -7,7 +7,7 @@ const healthyQueue = {
   broker: { status: "up" as const },
   outbox: { pending: 0, oldestPendingAgeMs: 0, failing: 0 },
 };
-const healthySagas = { stuck: 0, failed: 0, halted: 0 };
+const healthySagas = { stuck: 0, failed: 0, halted: 0, overdueRemote: 0 };
 
 describe("alertas da operação", () => {
   it("sistema saudável não alerta", () => {
@@ -54,6 +54,13 @@ describe("alertas da operação", () => {
     assert.equal(alert.id, "stuck-sagas");
     assert.equal(alert.level, "warning");
     assert.match(alert.title, /3 sagas sem progresso/);
+  });
+
+  it("passo remoto que estourou o prazo várias vezes é crítico", () => {
+    const [alert] = computeAlerts(healthyQueue, { ...healthySagas, overdueRemote: 2 });
+    assert.equal(alert.id, "remote-overdue");
+    assert.equal(alert.level, "critical");
+    assert.match(alert.title, /2 sagas esperando outro serviço além do prazo/);
   });
 
   it("saga parada depois do pagamento é crítica e diz que nada foi estornado", () => {

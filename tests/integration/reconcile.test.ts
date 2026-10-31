@@ -120,6 +120,6 @@ describe("reconciliação", () => {
   });
 
   it("é seguro rodar com o banco vazio", async () => {
-    assert.deepEqual(await reconcile(), { releasedSagaLeases: 0, rescheduledSagas: 0 });
+    assert.deepEqual(await reconcile(), { releasedSagaLeases: 0, rescheduledSagas: 0, overdueRemoteSteps: 0 });
   });
 });

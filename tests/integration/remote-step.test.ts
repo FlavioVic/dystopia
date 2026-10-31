@@ -71,7 +71,7 @@ describe("passo remoto — envio", () => {
     const replyTo = readReplyTo(command.payload as Record<string, unknown>);
     assert.equal(replyTo?.type, SAGA_REPLY);
     assert.equal(replyTo?.queue, SAGA_QUEUE);
-    assert.deepEqual(replyTo?.payload, { sagaId: checkout.sagaId, step: "authorize-payment", phase: "invoke" });
+    assert.deepEqual(replyTo?.payload, { sagaId: checkout.sagaId, step: "authorize-payment", phase: "invoke", kind: "command" });
 
     // Avançar de novo enquanto espera não reenvia nada.
     assert.deepEqual(await advanceSaga(checkout.sagaId), { status: "waiting", step: "authorize-payment" });

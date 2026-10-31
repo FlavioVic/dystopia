@@ -69,7 +69,40 @@ export type RemoteSagaStep<TPayload> = StepBase<TPayload> & {
   request: (ctx: StepContext<TPayload>) => StepRequest;
   /** Comando que desfaz o passo. Ausente = sem efeito a desfazer. */
   compensateRequest?: (ctx: StepContext<TPayload>) => StepRequest;
+  /**
+   * Prazo da resposta. Vencido, a reconciliação pergunta o status (`status`)
+   * ou, sem consulta, reenvia o comando — que por isso tem que ser
+   * idempotente. A cada vez o prazo dobra (até 30 min). Sem prazo, a saga
+   * espera para sempre.
+   */
+  timeoutMs?: number;
+  /** Consulta de status do outro serviço, para quando a resposta não vem. */
+  status?: StatusQuery<TPayload>;
 };
+
+/** Ida (`invoke`) ou volta (`compensate`) de um passo remoto. */
+export type StepPhase = "invoke" | "compensate";
+
+/**
+ * O que a resposta da consulta diz sobre o comando que ficou sem resposta:
+ * - `succeeded` / `failed` → o comando chegou lá e terminou: vale como a resposta;
+ * - `unknown` → o outro lado não tem registro: o comando se perdeu (DLQ,
+ *   fila apagada) e é reenviado — seguro, porque é idempotente;
+ * - `in-progress` → ainda processando: espera mais um prazo.
+ */
+export type StatusResolution =
+  | { outcome: "succeeded"; output: Record<string, unknown> }
+  | { outcome: "failed"; code: string; message: string }
+  | { outcome: "unknown" }
+  | { outcome: "in-progress" };
+
+export type StatusQuery<TPayload> = {
+  request: (ctx: StepContext<TPayload>, phase: StepPhase) => StepRequest;
+  resolve: (output: Record<string, unknown>, phase: StepPhase) => StatusResolution;
+};
+
+/** Teto do prazo depois de várias consultas sem resposta. */
+export const MAX_STEP_DEADLINE_MS = 30 * 60_000;
 
 export type SagaStep<TPayload> = LocalSagaStep<TPayload> | RemoteSagaStep<TPayload>;
 

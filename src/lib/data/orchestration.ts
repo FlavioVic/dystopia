@@ -34,6 +34,7 @@ export const getOperationalHealth = cache(async (window: HealthWindow = "24h") =
   ]);
   const alerts = computeAlerts(queueMetrics, {
     stuck: sagaMetrics.stuck,
+    overdueRemote: sagaMetrics.overdueRemote,
     failed: sagaMetrics.byStatus.failed ?? 0,
     halted: sagaMetrics.byStatus.halted ?? 0,
   });

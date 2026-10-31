@@ -17,6 +17,12 @@ export const PAYMENTS_QUEUE = "payments";
 export const PAYMENT_AUTHORIZE = "payments.authorize";
 /** Comando: estornar. Responde `{ refunded }`. Idempotente. */
 export const PAYMENT_REFUND = "payments.refund";
+/**
+ * Consulta: o que aconteceu com a cobrança desta chave? Responde
+ * `{ state, paymentId?, transactionId? }`. Só lê — é o que quem pediu usa
+ * quando a resposta de `authorize`/`refund` não chega no prazo.
+ */
+export const PAYMENT_STATUS = "payments.status";
 
 export type PaymentMethod = (typeof paymentMethodEnum.enumValues)[number];
 
@@ -61,3 +67,19 @@ export type RefundCommand = {
 
 export type AuthorizeReply = { paymentId: string; transactionId: string };
 export type RefundReply = { refunded: boolean };
+
+export type StatusCommand = { idempotencyKey: string };
+
+/**
+ * Estado da cobrança, na linguagem do contrato (não do banco de pagamentos):
+ * `not_found` = nenhuma cobrança com essa chave — o comando não chegou, ou a
+ * cobrança foi recusada (recusa não deixa registro).
+ */
+export const PAYMENT_STATES = ["not_found", "pending", "authorized", "paid", "failed", "refunded"] as const;
+export type PaymentState = (typeof PAYMENT_STATES)[number];
+
+export type StatusReply = { state: PaymentState; paymentId?: string; transactionId?: string };
+
+export function isPaymentState(value: unknown): value is PaymentState {
+  return typeof value === "string" && (PAYMENT_STATES as readonly string[]).includes(value);
+}

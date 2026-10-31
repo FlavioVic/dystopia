@@ -22,13 +22,16 @@ import {
   isSimulationMode,
   PAYMENT_AUTHORIZE,
   PAYMENT_REFUND,
+  PAYMENT_STATUS,
   type AuthorizeCommand,
   type AuthorizeReply,
   type RefundCommand,
   type RefundReply,
+  type StatusCommand,
+  type StatusReply,
 } from "./contract";
 import { cardProvider } from "./gateway";
-import { authorizePayment, refundPayment } from "./index";
+import { authorizePayment, getPaymentStatus, refundPayment } from "./index";
 
 export { cardProvider };
 
@@ -41,6 +44,8 @@ export const paymentHandlers: Record<string, MessageHandler> = {
     }),
   [PAYMENT_REFUND]: (message) =>
     handle(message, parseRefund, async (tx, command): Promise<RefundReply> => refundPayment(tx, command)),
+  [PAYMENT_STATUS]: (message) =>
+    handle(message, parseStatus, async (tx, command): Promise<StatusReply> => getPaymentStatus(tx, command.idempotencyKey)),
 };
 
 async function handle<TCommand, TReply extends Record<string, unknown>>(
@@ -106,4 +111,10 @@ function parseRefund(payload: Record<string, unknown>): RefundCommand {
   if (typeof orderId !== "string") throw invalid(PAYMENT_REFUND, "orderId");
   if (typeof idempotencyKey !== "string") throw invalid(PAYMENT_REFUND, "idempotencyKey");
   return { orderId, idempotencyKey };
+}
+
+function parseStatus(payload: Record<string, unknown>): StatusCommand {
+  const { idempotencyKey } = payload;
+  if (typeof idempotencyKey !== "string") throw invalid(PAYMENT_STATUS, "idempotencyKey");
+  return { idempotencyKey };
 }

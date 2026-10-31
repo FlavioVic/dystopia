@@ -28,20 +28,30 @@
  */
 
 import { PermanentError } from "@/shared/errors";
-import type { LocalStepBody, RemoteStepBody, SagaDefinition, StepContext } from "@/saga/types";
+import type {
+  LocalStepBody,
+  RemoteStepBody,
+  SagaDefinition,
+  StatusResolution,
+  StepContext,
+  StepPhase,
+} from "@/saga/types";
 import { clearCart } from "@/services/carts";
 import { consumeCoupon, releaseCoupon } from "@/services/coupons";
 import {
   isCardPaymentMethodId,
   isPaymentMethod,
+  isPaymentState,
   isSimulationMode,
   PAYMENT_AUTHORIZE,
   PAYMENT_REFUND,
+  PAYMENT_STATUS,
   PAYMENTS_QUEUE,
   type AuthorizeCommand,
   type PaymentMethod,
   type RefundCommand,
   type SimulationMode,
+  type StatusCommand,
 } from "@/services/payments/contract";
 import { markOrderCancelled, markOrderPaid } from "@/services/orders";
 import { releaseStock, reserveStock } from "@/services/inventory";
@@ -110,6 +120,9 @@ export const consumeCouponStep = {
   },
 } satisfies LocalStep;
 
+/** Prazo da resposta da cobrança (ver `timeoutMs` do passo). */
+export const PAYMENT_REPLY_TIMEOUT_MS = 2 * 60_000;
+
 export const authorizePaymentStep = {
   name: "authorize-payment",
   request: (ctx: Context) => ({
@@ -124,7 +137,51 @@ export const authorizePaymentStep = {
       ...(ctx.payload.cardPaymentMethodId ? { cardPaymentMethodId: ctx.payload.cardPaymentMethodId } : {}),
     } satisfies AuthorizeCommand,
   }),
+  // Pagamentos tenta 3 vezes com backoff (segundos) e sempre responde; dois
+  // minutos sem resposta = comando ou resposta perdidos, ou o processo fora.
+  timeoutMs: PAYMENT_REPLY_TIMEOUT_MS,
+  status: {
+    request: (ctx: Context) => ({
+      type: PAYMENT_STATUS,
+      queue: PAYMENTS_QUEUE,
+      payload: { idempotencyKey: paymentIdempotencyKey(ctx.payload.orderNumber) } satisfies StatusCommand,
+    }),
+    resolve: resolvePaymentStatus,
+  },
 } satisfies RemoteStepBody<CheckoutSagaPayload>;
+
+/**
+ * Lê a consulta `payments.status` quando a resposta da cobrança (ou do
+ * estorno, na v1) não chegou no prazo.
+ */
+export function resolvePaymentStatus(output: Record<string, unknown>, phase: StepPhase): StatusResolution {
+  const state = isPaymentState(output.state) ? output.state : "not_found";
+  const paid = state === "paid" || state === "authorized";
+
+  if (phase === "invoke") {
+    if (paid) {
+      return {
+        outcome: "succeeded",
+        output: { paymentId: output.paymentId ?? null, transactionId: output.transactionId ?? null },
+      };
+    }
+    if (state === "pending") return { outcome: "in-progress" };
+    if (state === "refunded") {
+      return { outcome: "failed", code: "payment_refunded", message: "A cobrança já foi estornada." };
+    }
+    if (state === "failed") {
+      return { outcome: "failed", code: "payment_declined", message: "O pagamento não foi aprovado." };
+    }
+    // Sem registro: o comando não chegou ou foi recusado. Reenviar é seguro
+    // (mesma chave de idempotência) e devolve a resposta certa nos dois casos.
+    return { outcome: "unknown" };
+  }
+
+  // Estorno (só a v1 compensa a cobrança).
+  if (state === "refunded" || state === "not_found" || state === "failed") return { outcome: "succeeded", output: {} };
+  if (state === "pending") return { outcome: "in-progress" };
+  return { outcome: "unknown" }; // ainda cobrado: manda o estorno de novo
+}
 
 /** Estorno: só existe na v1, em que o pagamento ainda era compensável. */
 export function refundPaymentRequest(ctx: Context) {

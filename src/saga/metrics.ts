@@ -34,6 +34,11 @@ export type SagaMetrics = {
   p95Ms: number | null;
   /** Em andamento/compensando sem progresso há mais de `stuckAfterMs` (independe da janela). */
   stuck: number;
+  /**
+   * Passos remotos que estouraram o prazo `OVERDUE_ALERT_CHECKS` vezes ou mais
+   * (perguntaram o status e nada voltou) — independe da janela.
+   */
+  overdueRemote: number;
   steps: StepMetrics[];
 };
 
@@ -45,6 +50,8 @@ type Options = {
 };
 
 export const DEFAULT_STUCK_AFTER_MS = 5 * 60_000;
+/** Consultas de status sem resposta antes de virar alerta (~2 + 4 + 8 min no checkout). */
+export const OVERDUE_ALERT_CHECKS = 3;
 
 const ms = (value: unknown) => (value == null ? null : Math.round(Number(value)));
 
@@ -78,6 +85,15 @@ export async function getSagaMetrics(executor: Executor, options: Options): Prom
       select count(*)::int as count
       from sagas s
       where s.status in ('running', 'compensating') and s.updated_at < ${stuckBefore}::timestamptz ${typeFilter}
+    `)
+  ).rows;
+
+  const [overdue] = (
+    await executor.execute<{ count: number }>(sql`
+      select count(*)::int as count
+      from saga_steps st
+      join sagas s on s.id = st.saga_id
+      where st.status = 'waiting' and st.status_checks >= ${OVERDUE_ALERT_CHECKS} ${typeFilter}
     `)
   ).rows;
 
@@ -120,6 +136,7 @@ export async function getSagaMetrics(executor: Executor, options: Options): Prom
     p50Ms: ms(durations?.p50),
     p95Ms: ms(durations?.p95),
     stuck: stuck?.count ?? 0,
+    overdueRemote: overdue?.count ?? 0,
     steps: stepRows.rows.map((row) => ({
       name: row.name,
       position: row.position,
