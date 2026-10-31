@@ -56,6 +56,10 @@ A dependência só aponta para baixo: **borda → aplicação → saga → servi
   `@/saga/runner`, `@/saga/definitions` nem `composition/worker`: chama o caso
   de uso por `@/composition/web`. O painel de operação (`app/admin`, cron,
   `actions/admin.ts`) é a exceção — o trabalho dele é olhar a fila;
+- a **borda do cliente** também não importa nada de `@/saga`, `lib/saga-ui` ou
+  `components/admin`: o cliente acompanha o pedido pelos **eventos de domínio**
+  dele (`order_events`, via `listOrderEvents`), na língua do pedido. A saga é
+  visão de operação;
 - um **serviço** não importa outro serviço (quem compõe é a saga ou o caso de
   uso), não importa `next/*`, não importa `lib/actions`/`lib/data`/`components`
   nem `saga/` (a taxonomia de erro mora em `src/shared`);
@@ -167,8 +171,13 @@ dead-letter-exchange de volta para a de trabalho) e a DLQ `<p>.<fila>.dlq`. `<p>
    que esconde venda sem estoque.
 8. **Dinheiro em centavos** (`integer`), sempre. Nada de float.
 9. **Totais são recalculados no servidor.** Valor que vem do cliente é palpite.
-10. **Status de pedido passa pela máquina de estados** (`src/lib/order-status.ts`
-    + `transitionOrder`). Não faça `update orders set status` na mão.
+10. **Status de pedido passa pela máquina de estados** e **toda mudança de
+    status grava um evento** (`order_events`) na mesma transação — é o
+    histórico que o cliente vê; o motivo do cancelamento vai em código
+    (`{ reason: "payment_declined" }`) e só a tela traduz (`describeCancellation`).
+    Máquina e evento moram em `src/lib/order-status.ts` + `services/orders`
+    (`transitionOrder`, `markOrderCancelled`). Não faça `update orders set
+    status` na mão: o pedido mudaria sem deixar histórico.
 11. Arquivo `"use server"` só pode exportar função async — constante, tipo e
     função sync vão para outro módulo. É por isso que validação de formulário
     mora em `lib/validation/*` (product, review, address, coupon, variant),

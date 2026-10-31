@@ -141,3 +141,44 @@ describe("migration 0007 — carrinho sem linha duplicada", () => {
     );
   });
 });
+
+describe("migration 0013 — eventos do pedido", () => {
+  it("pedidos antigos ganham `placed` e o status atual; o cancelado leva o motivo da saga", async () => {
+    await recreateDatabase();
+    await migrateUntil("0013");
+    const { rows: [user] } = await pool.query(
+      "insert into users (email, password_hash, name) values ('a@b.dev', 'h', 'A') returning id",
+    );
+    const { rows: [address] } = await pool.query(
+      `insert into addresses (user_id, recipient_name, street, number, neighborhood, city, state, zip_code)
+       values ($1, 'A', 'Rua', '1', 'Centro', 'SP', 'SP', '01000-000') returning id`,
+      [user.id],
+    );
+    const order = async (number: string, status: string) =>
+      (
+        await pool.query(
+          `insert into orders (order_number, user_id, status, shipping_address_id, billing_address_id, subtotal_cents, total_cents,
+                               created_at, updated_at)
+           values ($1, $2, $3, $4, $4, 1000, 1000, now() - interval '1 hour', now()) returning id`,
+          [number, user.id, status, address.id],
+        )
+      ).rows[0].id as string;
+    const paid = await order("DYS-1", "paid");
+    const cancelled = await order("DYS-2", "cancelled");
+    const pending = await order("DYS-3", "pending");
+    await pool.query(
+      `insert into sagas (type, correlation_id, payload, status, last_error)
+       values ('checkout', 'DYS-2', '{}', 'compensated', 'payment_declined: Cartão recusado.')`,
+    );
+
+    await migrateAll();
+
+    const events = async (orderId: string) =>
+      (await pool.query("select type, data from order_events where order_id = $1 order by occurred_at", [orderId])).rows.map(
+        (row) => [row.type, row.data],
+      );
+    assert.deepEqual(await events(paid), [["placed", {}], ["paid", {}]]);
+    assert.deepEqual(await events(cancelled), [["placed", {}], ["cancelled", { reason: "payment_declined" }]]);
+    assert.deepEqual(await events(pending), [["placed", {}]], "pendente só foi recebido");
+  });
+});

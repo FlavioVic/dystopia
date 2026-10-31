@@ -85,9 +85,13 @@ cupom, tudo compensável) segue registrada como **v1** em
   exponencial (3 tentativas nos compensáveis, 8 nos retentáveis). Durante o
   backoff a saga fica "ocupada" até a hora do retry, então mensagem duplicada
   não adianta a tentativa.
-- O cliente vê isso em `/pedido/[orderNumber]`: pedido "em processamento" com a
-  linha do tempo dos passos (a página se atualiza sozinha), confirmado, ou
-  cancelado com o motivo.
+- O cliente vê isso em `/pedido/[orderNumber]`: pedido "em processamento" (a
+  página se atualiza sozinha), confirmado, ou cancelado com o motivo. O
+  andamento que ele lê são os **eventos de domínio do pedido** (`order_events`:
+  recebido, pago, enviado, cancelado e por quê), gravados por `services/orders`
+  na mesma transação de cada mudança de status — não os passos da saga. A saga
+  é como o pedido é orquestrado; ela aparece só no painel
+  (`/admin/orquestracao` e no detalhe do pedido no admin).
 
 ## Pagamentos em processo próprio
 

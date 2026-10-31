@@ -12,6 +12,7 @@ import { PermanentError } from "@/shared/errors";
 import { createAddress } from "@/services/addresses";
 import {
   createOrder,
+  listOrderEvents,
   markOrderCancelled,
   markOrderPaid,
   transitionOrder,
@@ -196,5 +197,51 @@ describe("cancelamento (compensação)", () => {
     assert.deepEqual(await markOrderCancelled(db, entregue.orderId), { changed: false });
     const order = await db.query.orders.findFirst({ where: eq(orders.id, entregue.orderId) });
     assert.equal(order?.status, "delivered");
+  });
+});
+
+describe("eventos de domínio do pedido", () => {
+  const types = async (orderId: string) => (await listOrderEvents(db, orderId)).map((event) => event.type);
+
+  it("o pedido nasce com o evento `placed`, na mesma transação", async () => {
+    const fixture = await seedCheckoutFixture();
+    const { orderId } = await novoPedido(fixture);
+    assert.deepEqual(await types(orderId), ["placed"]);
+  });
+
+  it("cada mudança de status vira um evento; repetir a mesma não duplica", async () => {
+    const fixture = await seedCheckoutFixture();
+    const { orderId } = await novoPedido(fixture);
+
+    await markOrderPaid(db, orderId);
+    await markOrderPaid(db, orderId); // saga reexecutada: no-op
+    await transitionOrder(db, orderId, "shipped");
+    await transitionOrder(db, orderId, "delivered");
+
+    assert.deepEqual(await types(orderId), ["placed", "paid", "shipped", "delivered"]);
+  });
+
+  it("transição recusada não deixa evento", async () => {
+    const fixture = await seedCheckoutFixture();
+    const { orderId } = await novoPedido(fixture);
+    await assert.rejects(transitionOrder(db, orderId, "delivered"), PermanentError);
+    assert.deepEqual(await types(orderId), ["placed"]);
+  });
+
+  it("cancelamento leva o código do motivo; cancelar de novo não duplica", async () => {
+    const fixture = await seedCheckoutFixture();
+    const { orderId } = await novoPedido(fixture);
+
+    await markOrderCancelled(db, orderId, "payment_declined");
+    await markOrderCancelled(db, orderId, "payment_declined");
+
+    const events = await listOrderEvents(db, orderId);
+    assert.deepEqual(
+      events.map((event) => [event.type, event.data]),
+      [
+        ["placed", {}],
+        ["cancelled", { reason: "payment_declined" }],
+      ],
+    );
   });
 });

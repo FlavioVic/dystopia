@@ -18,6 +18,7 @@ import { and } from "drizzle-orm";
 import { cartItems, coupons, notifications, orders, outbox, payments, products, sagas } from "@/db/schema";
 import { queueDepths } from "@/queue/broker";
 import { advanceSaga, getSagaWithSteps } from "@/saga/orchestrator";
+import { listOrderEvents } from "@/services/orders";
 import { resumeHaltedSaga, runSagaInline } from "@/saga/runner";
 import { PAYMENT_AUTHORIZE, PAYMENTS_QUEUE } from "@/services/payments/contract";
 import { closeDatabase, resetDatabase, seedCheckoutFixture } from "../helpers/db";
@@ -129,6 +130,12 @@ describe("saga de checkout — caminho feliz", () => {
     assert.equal(delivered?.status, "sent");
     assert.equal(delivered?.provider, "simulado", "sem RESEND_API_KEY a entrega é simulada");
 
+    // O cliente vê o pedido pelos eventos dele, não pelos passos da saga.
+    assert.deepEqual(
+      (await listOrderEvents(db, checkout.orderId)).map((event) => event.type),
+      ["placed", "paid"],
+    );
+
     // Nada sobra para consumidor nenhum: avanço, comando, resposta e entrega com ack.
     assert.deepEqual(await pendingWork(), IDLE);
     assert.equal((await work("all")).received, 0);
@@ -221,6 +228,15 @@ describe("saga de checkout — compensação", () => {
     assert.equal(statuses["consume-coupon"], "compensated");
     assert.equal(statuses["authorize-payment"], "failed");
     assert.equal(statuses["confirm-order"], undefined, "passos depois do pivô nem começaram");
+
+    // O motivo vai no evento de cancelamento, em código; a tela traduz.
+    assert.deepEqual(
+      (await listOrderEvents(db, checkout.orderId)).map((event) => [event.type, event.data]),
+      [
+        ["placed", {}],
+        ["cancelled", { reason: "payment_declined" }],
+      ],
+    );
   });
 
   it("cupom esgotado desfaz ANTES de cobrar: nenhuma cobrança, nenhum estorno", async () => {

@@ -33,18 +33,26 @@ test.describe("checkout", () => {
     // se atualiza sozinha até a saga terminar.
     await expect(page.getByRole("heading", { name: "Aquisição registrada." })).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText("Pago", { exact: true })).toBeVisible();
+    // O andamento são os eventos do pedido, na língua do cliente — não os passos da saga.
+    await expect(page.getByText("Pedido recebido")).toBeVisible();
+    await expect(page.getByText("Pagamento aprovado")).toBeVisible();
+    await expect(page.getByText("Reserva de estoque")).toHaveCount(0);
   });
 
   test("pagamento recusado: a saga desfaz tudo e o pedido aparece cancelado", async ({ page }) => {
     await buy(page, "decline");
     await expect(page.getByRole("heading", { name: "Aquisição não concluída." })).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText(/foi desfeito/)).toBeVisible();
+    // O motivo vem do evento de cancelamento.
+    await expect(page.getByText(/recusado pela operadora/).first()).toBeVisible();
   });
 
   test("gateway instável: o retry passa pela fila e o pedido conclui", async ({ page }) => {
     await buy(page, "flaky_once");
+    // A 1ª cobrança falha e volta pela fila de espera; o cliente só vê o
+    // pedido pago (as tentativas ficam no painel de operação).
     await expect(page.getByRole("heading", { name: "Aquisição registrada." })).toBeVisible({ timeout: 45_000 });
-    await expect(page.getByText(/2 tentativas/i)).toBeVisible();
+    await expect(page.getByText("Pagamento aprovado")).toBeVisible();
   });
 
   test("cupom aplicado no checkout entra no pedido", async ({ page }) => {

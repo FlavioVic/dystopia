@@ -382,6 +382,35 @@ export const orderItems = pgTable("order_items", {
   index("order_items_order_id_idx").on(table.orderId),
 ]);
 
+/**
+ * Eventos de domínio do pedido: o que aconteceu com ELE, na ordem, em
+ * linguagem de negócio (recebido, pago, enviado, cancelado e por quê). Nascem
+ * na mesma transação da mudança de status (`services/orders`), e é daqui que o
+ * cliente lê o andamento — não do log interno da saga.
+ */
+export const orderEventTypeEnum = pgEnum("order_event_type", [
+  "placed",
+  "paid",
+  "processing",
+  "shipped",
+  "delivered",
+  "cancelled",
+  "refunded",
+]);
+
+export const orderEvents = pgTable("order_events", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orderId: uuid("order_id")
+    .notNull()
+    .references(() => orders.id, { onDelete: "cascade" }),
+  type: orderEventTypeEnum("type").notNull(),
+  // Detalhe do evento — no cancelamento, `{ reason: "payment_declined" }`.
+  data: jsonb("data").notNull().default({}),
+  occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  index("order_events_order_id_idx").on(table.orderId, table.occurredAt),
+]);
+
 export const payments = pgTable("payments", {
   id: uuid("id").primaryKey().defaultRandom(),
   orderId: uuid("order_id")
@@ -672,6 +701,10 @@ export const cartItemsRelations = relations(cartItems, ({ one }) => ({
   }),
 }));
 
+export const orderEventsRelations = relations(orderEvents, ({ one }) => ({
+  order: one(orders, { fields: [orderEvents.orderId], references: [orders.id] }),
+}));
+
 export const ordersRelations = relations(orders, ({ one, many }) => ({
   user: one(users, { fields: [orders.userId], references: [users.id] }),
   shippingAddress: one(addresses, {
@@ -690,6 +723,7 @@ export const ordersRelations = relations(orders, ({ one, many }) => ({
   }),
   items: many(orderItems),
   payments: many(payments),
+  events: many(orderEvents),
 }));
 
 export const orderItemsRelations = relations(orderItems, ({ one }) => ({

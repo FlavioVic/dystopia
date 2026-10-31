@@ -27,6 +27,7 @@
  * `checkout.v1.ts`, para as sagas que começaram nela terminarem nela.
  */
 
+import { describeCancellation } from "@/lib/order-status";
 import { PermanentError } from "@/shared/errors";
 import type {
   LocalStepBody,
@@ -226,11 +227,17 @@ export const notifyCustomerStep = {
   },
 } satisfies LocalStep;
 
-/** Rede de segurança do caminho triste, igual nas duas versões. */
-export const cancelOrderOnCompensated: SagaDefinition<CheckoutSagaPayload>["onCompensated"] = async (ctx, tx) => {
-  // Mesmo que o passo `confirm-order` nunca tenha rodado, o pedido não pode
-  // ficar preso em `pending`.
-  await markOrderCancelled(tx, ctx.payload.orderId);
+/**
+ * Fim do caminho triste, igual nas duas versões: o pedido não pode ficar preso
+ * em `pending`, e o evento de cancelamento leva o código do motivo — é dele que
+ * a página do cliente tira o "por quê".
+ */
+export const cancelOrderOnCompensated: SagaDefinition<CheckoutSagaPayload>["onCompensated"] = async (
+  ctx,
+  tx,
+  failure,
+) => {
+  await markOrderCancelled(tx, ctx.payload.orderId, failure.code);
 };
 
 export const checkoutSaga: SagaDefinition<CheckoutSagaPayload> = {
@@ -246,25 +253,9 @@ export const checkoutSaga: SagaDefinition<CheckoutSagaPayload> = {
     { ...notifyCustomerStep, kind: "retriable" },
   ],
   parsePayload: parseCheckoutPayload,
-  describeFailure: describeCheckoutFailure,
+  describeFailure: describeCancellation,
   onCompensated: cancelOrderOnCompensated,
 };
-
-/** Mensagem curta para o cliente final — sem vazar detalhe de infraestrutura. */
-export function describeCheckoutFailure(code: string): string {
-  switch (code) {
-    case "out_of_stock":
-      return "Um item do pedido ficou sem estoque.";
-    case "payment_declined":
-      return "O pagamento foi recusado pela operadora.";
-    case "coupon_exhausted":
-      return "O cupom usado esgotou antes da confirmação.";
-    case "invalid_payload":
-      return "Os dados do pedido ficaram inconsistentes.";
-    default:
-      return "Não foi possível concluir o pedido.";
-  }
-}
 
 // ---------------------------------------------------------------------------
 // Validação do payload persistido (jsonb não tem tipo em runtime)

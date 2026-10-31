@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { SagaTimeline } from "@/components/SagaTimeline";
+import { SagaTimeline } from "@/components/admin/SagaTimeline";
 import { QueueActions } from "@/components/admin/QueueActions";
 import { SagaResumeButton } from "@/components/admin/SagaResumeButton";
 import { runOperationsAfterResponse } from "@/composition/web";
