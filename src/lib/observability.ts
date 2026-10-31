@@ -12,7 +12,7 @@ import type { SagaMetrics } from "@/saga/metrics";
 export type AlertLevel = "critical" | "warning";
 
 export type Alert = {
-  id: "dead-letter" | "compensation-failed" | "broker-down" | "outbox-lag" | "stuck-sagas";
+  id: "dead-letter" | "compensation-failed" | "halted-sagas" | "broker-down" | "outbox-lag" | "stuck-sagas";
   level: AlertLevel;
   title: string;
   detail: string;
@@ -48,10 +48,19 @@ export function formatDuration(ms: number | null): string {
 
 export function computeAlerts(
   queue: Pick<QueueMetrics, "dead" | "broker" | "outbox">,
-  sagas: Pick<SagaMetrics, "stuck"> & { failed: number },
+  sagas: Pick<SagaMetrics, "stuck"> & { failed: number; halted: number },
   thresholds: AlertThresholds = DEFAULT_THRESHOLDS,
 ): Alert[] {
   const alerts: Alert[] = [];
+
+  if (sagas.halted > 0) {
+    alerts.push({
+      id: "halted-sagas",
+      level: "critical",
+      title: `${plural(sagas.halted, "saga parada", "sagas paradas")} depois do pagamento`,
+      detail: "O pagamento foi aprovado e um passo seguinte não andou. Nada é estornado: corrija a causa e use Retomar.",
+    });
+  }
 
   if (sagas.failed > 0) {
     alerts.push({
@@ -93,7 +102,7 @@ export function computeAlerts(
     alerts.push({
       id: "stuck-sagas",
       level: "warning",
-      title: `${plural(sagas.stuck, "saga parada", "sagas paradas")} no meio do caminho`,
+      title: `${plural(sagas.stuck, "saga", "sagas")} sem progresso no meio do caminho`,
       detail: "Sem progresso há mais de 5 min. A reconciliação reenfileira; se persistir, investigue.",
     });
   }

@@ -7,7 +7,7 @@ conta sozinho. Os detalhes de funcionamento estão em
 
 | # | Decisão | Em uma linha |
 |---|---|---|
-| 1 | [Checkout como SAGA orquestrada](#1-checkout-como-saga-orquestrada) | Cada passo é uma transação; falhou de vez, desfaz o que já foi feito |
+| 1 | [Checkout como SAGA orquestrada](#1-checkout-como-saga-orquestrada) | Cada passo é uma transação; a cobrança é o ponto sem volta |
 | 2 | [RabbitMQ como broker](#2-rabbitmq-como-broker) | Fila de trabalho com ack, atraso e DLQ prontos |
 | 3 | [Outbox transacional](#3-outbox-transacional) | A mensagem nasce no mesmo commit do pedido |
 | 4 | [Retry por filas de espera e DLQ](#4-retry-por-filas-de-espera-e-dlq) | Backoff planejado; erro de regra não tenta de novo |
@@ -33,20 +33,45 @@ provedor — o provedor não participa do `COMMIT`. Se a cobrança passa e o ban
 falha depois (ou o contrário), sobra dinheiro cobrado sem pedido, ou pedido sem
 cobrança.
 
-**Decisão.** Seis passos (reservar estoque → autorizar pagamento → consumir
-cupom → confirmar pedido → limpar carrinho → avisar), cada um uma transação
-local com seu log (`saga_steps`). Falha de regra compensa na hora, em ordem
-reversa; falha passageira tenta de novo com backoff. Um **orquestrador**
-(`saga/orchestrator.ts`) conhece a ordem e as compensações.
+**Decisão.** Seis passos (reservar estoque → consumir cupom → cobrar →
+confirmar pedido → limpar carrinho → avisar), cada um uma transação local com
+seu log (`saga_steps`). Um **orquestrador** (`saga/orchestrator.ts`) conhece a
+ordem, o papel de cada passo e as compensações.
+
+A ordem segue o **custo de desfazer** (o desenho compensável → pivô →
+retentável, de Garcia-Molina & Salem e do *Microservices Patterns* do Chris
+Richardson):
+- **Compensáveis primeiro** (estoque, cupom): desfazer é barato e interno, e é
+  aqui que mora tudo que falha por regra. Cupom esgotado desfaz sem ter cobrado
+  nada.
+- **A cobrança é o pivô**, o ponto sem volta. Estornar custa taxa, demora e
+  aparece na fatura do cliente — então ela só acontece quando o resto já está
+  garantido. Recusada, desfaz cupom e estoque; aprovada, a saga **tem** que
+  terminar.
+- **Retentáveis depois** (confirmar, limpar carrinho, avisar): não desistem.
+  Falha passageira tenta de novo; se não andar, a saga para em `halted`, com
+  alerta crítico e botão "Retomar" no painel. Pedido pago nunca é estornado
+  por erro de confirmação.
+
+O registry recusa uma definição fora dessa forma. E cada saga grava a
+**versão da definição** com que começou: mudar a ordem com saga em andamento
+desalinharia a retomada, então a ordem nova é a v2 e a v1 continua registrada
+até a última saga dela terminar.
 
 **Alternativas.**
 - *Transação distribuída (2PC/XA)*: o gateway de pagamento não participa, e o
   2PC segura bloqueio enquanto espera o mais lento — trava estoque por causa de
   um provedor lento.
 - *Coreografia* (cada serviço reage a eventos dos outros): sem um dono do
-  fluxo, a regra "o que desfazer se o cupom esgotar depois da cobrança" fica
+  fluxo, a regra "o que desfazer se algo falhar depois de cobrar" fica
   espalhada em vários serviços. Com seis passos e compensação, orquestrar deixa
   o fluxo legível num arquivo só (`saga/definitions/checkout.ts`).
+- *Tudo compensável, cobrança no meio* (a v1 deste projeto): cupom esgotado
+  depois da cobrança virava cobrança + estorno, e qualquer erro depois do
+  pagamento estornava um pedido legítimo.
+- *Separar autorizar e capturar* (reservar o valor no cartão e capturar no
+  fim): desfazer uma autorização é grátis, mas Pix e boleto não têm reserva, e
+  o ganho não paga o dobro de integração numa demo.
 
 **Preço.** O pedido não fecha dentro do request: a página mostra
 "processando" por ~1–2 s e se atualiza sozinha. Mais código que um `BEGIN …
@@ -323,6 +348,12 @@ até o broker voltar. Nenhum pedido se perde; ele só demora.
 O passo e seu log commitam juntos, então ou o passo aconteceu inteiro ou não
 aconteceu. A mensagem sem `ack` volta para a fila, o lease da saga vence, e a
 reconciliação garante que sempre existe uma mensagem para terminar a saga.
+
+**"E se der erro depois de cobrar?"**
+Nada é estornado. Depois do pivô os passos só tentam de novo; se não andarem,
+a saga para em `halted` e o painel mostra um alerta crítico com o botão
+"Retomar", para depois de alguém corrigir a causa. Estornar um pedido pago por
+causa de um erro de confirmação seria punir o cliente pelo bug da loja.
 
 **"Exactly-once?"**
 Não existe fim a fim com broker + banco + provedor. O sistema garante "pelo

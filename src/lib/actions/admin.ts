@@ -22,8 +22,10 @@ import { canTransition, isOrderStatus, ORDER_STATUS_LABELS, type OrderStatus } f
 import { parseCouponForm } from "@/lib/validation/coupon";
 import { parseProductForm } from "@/lib/validation/product";
 import { parseVariantForm } from "@/lib/validation/variant";
+import { runOperationsAfterResponse } from "@/composition/web";
 import { ALL_QUEUES } from "@/composition/worker";
 import { replayDeadLetters } from "@/queue/dead-letters";
+import { resumeHaltedSaga } from "@/saga/runner";
 import * as catalog from "@/services/catalog";
 import * as couponsService from "@/services/coupons";
 import { transitionOrder } from "@/services/orders";
@@ -246,6 +248,21 @@ export async function runReconcile(): Promise<SimpleResult & { report?: Record<s
   const report = await reconcile();
   refresh();
   return { ok: true, report };
+}
+
+/**
+ * Retoma uma saga parada depois do pagamento (`halted`), depois que alguém
+ * corrigiu a causa. O avanço vai para a outbox; com o worker embutido, sai
+ * daqui mesmo, depois da resposta.
+ */
+export async function resumeSaga(sagaId: string): Promise<SimpleResult> {
+  await ensureAdmin();
+  if (!UUID.test(sagaId)) return { ok: false, error: "Saga não encontrada." };
+  const { resumed } = await resumeHaltedSaga(sagaId);
+  if (!resumed) return { ok: false, error: "Essa saga não está parada." };
+  runOperationsAfterResponse();
+  refresh();
+  return { ok: true };
 }
 
 /** Muda o andamento de um pedido de orçamento (painel /admin/orcamentos). */

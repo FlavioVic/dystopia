@@ -94,20 +94,20 @@ banco), e isso é verificado por teste. O caminho de um pedido:
 ```mermaid
 flowchart LR
     REQ(["request do checkout<br/>(grava pedido + saga e responde)"]) --> S1[1 · reserva estoque]
-    S1 -- "comando por mensagem<br/>(fila payments)" --> S2[2 · autoriza pagamento<br/>processo próprio]
-    S2 -- "resposta por mensagem<br/>(fila saga)" --> S3[3 · consome cupom]
-    S3 --> S4[4 · confirma pedido] --> S5[5 · limpa carrinho] --> S6[6 · avisa cliente] --> OK([pedido pago])
+    S1 --> S2[2 · consome cupom]
+    S2 -- "comando por mensagem<br/>(fila payments)" --> S3{{3 · cobra<br/>PIVÔ}}
+    S3 -- "resposta por mensagem<br/>(fila saga)" --> S4[4 · confirma pedido]
+    S4 --> S5[5 · limpa carrinho] --> S6[6 · avisa cliente] --> OK([pedido pago])
 
-    S3 -. falha permanente .-> C2[estorna cobrança]
-    C2 -.-> C1[devolve estoque] -.-> X([pedido cancelado])
-
-    S3 -. falha transitória .-> Q[(fila de espera<br/>TTL + DLX)]
-    Q -. "até 3 tentativas" .-> S3
+    S3 -. recusado .-> C2[devolve cupom] -.-> C1[devolve estoque] -.-> X([pedido cancelado])
+    S4 -. "não andou depois<br/>de 8 tentativas" .-> H([parada: retomar no painel<br/>nunca estorna])
 ```
 
 *As setas indicam ordem, não chamada síncrona: entre um passo e outro há uma
 mensagem durável. Nada é "fire and forget" — quando o request responde, pedido
-e mensagem já estão commitados juntos.*
+e mensagem já estão commitados juntos. A cobrança é o **pivô**: tudo que pode
+falhar por regra (estoque, cupom) vem antes dela, e depois dela a saga só anda
+para a frente.*
 
 Detalhes em [`docs/SAGA-E-FILA.md`](docs/SAGA-E-FILA.md) (saga, fila,
 pagamentos, garantias, observabilidade) e

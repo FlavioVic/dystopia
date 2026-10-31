@@ -8,14 +8,16 @@
  * lease da saga deixa mensagem repetida rodar ao mesmo tempo sem estrago.
  */
 
+import { and, eq } from "drizzle-orm";
 import { db, type Executor } from "@/db";
-import { sagas } from "@/db/schema";
+import { sagas, sagaSteps } from "@/db/schema";
 import { createLogger } from "@/lib/logger";
 import * as queue from "@/queue";
 import type { HandlerResult, QueueMessage } from "@/queue";
 import { advanceSaga, applyStepReply, type AdvanceOptions, type AdvanceOutcome } from "./orchestrator";
 import { PermanentError } from "@/shared/errors";
 import { parseStepReply, SAGA_ADVANCE, SAGA_QUEUE } from "./messaging";
+import { currentSagaVersion } from "./registry";
 
 const logger = createLogger("saga:runner");
 
@@ -34,10 +36,14 @@ export type StartSagaInput = {
  * juntos, então não existe pedido órfão sem orquestração.
  */
 export async function startSaga(executor: Executor, input: StartSagaInput): Promise<{ sagaId: string }> {
+  const definitionVersion = currentSagaVersion(input.type);
+  if (definitionVersion === undefined) throw new Error(`saga sem definição registrada: ${input.type}`);
+
   const [saga] = await executor
     .insert(sagas)
     .values({
       type: input.type,
+      definitionVersion,
       correlationId: input.correlationId,
       payload: input.payload,
       context: {},
@@ -66,6 +72,30 @@ export async function runSagaInline(sagaId: string, options: AdvanceOptions = {}
     await enqueueAdvance(db, sagaId, outcome.runAt.getTime() - Date.now());
   }
   return outcome;
+}
+
+/**
+ * Retoma uma saga `halted` depois que alguém corrigiu a causa: o passo que
+ * parou volta para `pending` com as tentativas zeradas, a saga volta a
+ * `running` e um avanço novo entra na outbox — tudo na mesma transação.
+ */
+export async function resumeHaltedSaga(sagaId: string, now: Date = new Date()): Promise<{ resumed: boolean }> {
+  return db.transaction(async (tx) => {
+    const [saga] = await tx
+      .update(sagas)
+      .set({ status: "running", lastError: null, lockedBy: null, leaseUntil: null, updatedAt: now })
+      .where(and(eq(sagas.id, sagaId), eq(sagas.status, "halted")))
+      .returning({ id: sagas.id });
+    if (!saga) return { resumed: false };
+
+    await tx
+      .update(sagaSteps)
+      .set({ status: "pending", attempts: 0, error: null, finishedAt: null })
+      .where(and(eq(sagaSteps.sagaId, sagaId), eq(sagaSteps.status, "failed")));
+    await enqueueAdvance(tx, sagaId);
+    logger.info("saga retomada", { sagaId });
+    return { resumed: true };
+  });
 }
 
 /** Handler de `saga.advance`. */
@@ -98,6 +128,7 @@ function toHandlerResult(outcome: AdvanceOutcome): HandlerResult {
     case "busy":
       return { retryInMs: Math.max(BUSY_RECHECK_MS, outcome.retryAt.getTime() - now), countAttempt: false };
     case "waiting":
+    case "halted":
     case "completed":
     case "compensated":
     case "failed":

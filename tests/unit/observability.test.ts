@@ -7,7 +7,7 @@ const healthyQueue = {
   broker: { status: "up" as const },
   outbox: { pending: 0, oldestPendingAgeMs: 0, failing: 0 },
 };
-const healthySagas = { stuck: 0, failed: 0 };
+const healthySagas = { stuck: 0, failed: 0, halted: 0 };
 
 describe("alertas da operação", () => {
   it("sistema saudável não alerta", () => {
@@ -49,11 +49,19 @@ describe("alertas da operação", () => {
     assert.deepEqual(alerts.map((a) => a.id), ["outbox-lag"]);
   });
 
-  it("saga parada é aviso, não crítico (a reconciliação ainda pode resolver)", () => {
+  it("saga sem progresso é aviso, não crítico (a reconciliação ainda pode resolver)", () => {
     const [alert] = computeAlerts(healthyQueue, { ...healthySagas, stuck: 3 });
     assert.equal(alert.id, "stuck-sagas");
     assert.equal(alert.level, "warning");
-    assert.match(alert.title, /3 sagas paradas/);
+    assert.match(alert.title, /3 sagas sem progresso/);
+  });
+
+  it("saga parada depois do pagamento é crítica e diz que nada foi estornado", () => {
+    const [alert] = computeAlerts(healthyQueue, { ...healthySagas, halted: 1 });
+    assert.equal(alert.id, "halted-sagas");
+    assert.equal(alert.level, "critical");
+    assert.match(alert.title, /1 saga parada depois do pagamento/);
+    assert.match(alert.detail, /Nada é estornado/);
   });
 });
 

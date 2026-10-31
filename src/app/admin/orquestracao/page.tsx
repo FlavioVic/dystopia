@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { SagaTimeline } from "@/components/SagaTimeline";
 import { QueueActions } from "@/components/admin/QueueActions";
+import { SagaResumeButton } from "@/components/admin/SagaResumeButton";
 import { runOperationsAfterResponse } from "@/composition/web";
 import { requireAdmin } from "@/lib/data/auth";
 import {
@@ -53,7 +54,7 @@ export default async function OrchestrationPage(props: PageProps<"/admin/orquest
 
   const finished =
     (sagaMetrics.byStatus.completed ?? 0) + (sagaMetrics.byStatus.compensated ?? 0) + (sagaMetrics.byStatus.failed ?? 0);
-  const needsAction = (sagaMetrics.byStatus.failed ?? 0) + queueMetrics.dead;
+  const needsAction = (sagaMetrics.byStatus.failed ?? 0) + (sagaMetrics.byStatus.halted ?? 0) + queueMetrics.dead;
 
   const cards = [
     {
@@ -76,7 +77,7 @@ export default async function OrchestrationPage(props: PageProps<"/admin/orquest
     {
       label: "Precisam de ação",
       value: String(needsAction),
-      hint: "DLQ + compensações que falharam",
+      hint: "DLQ + sagas paradas + compensações que falharam",
       warn: needsAction > 0,
     },
   ];
@@ -283,6 +284,12 @@ export default async function OrchestrationPage(props: PageProps<"/admin/orquest
                   <p className="mt-3 break-words rounded-lg border border-border bg-background-elevated px-3 py-2 font-mono text-[11px] text-foreground-muted">
                     {saga.lastError}
                   </p>
+                ) : null}
+
+                {saga.status === "halted" ? (
+                  <div className="mt-3">
+                    <SagaResumeButton sagaId={saga.id} />
+                  </div>
                 ) : null}
 
                 <footer className="mt-3 flex flex-wrap gap-3 text-[11px] text-foreground-muted">

@@ -35,6 +35,7 @@ export const getOperationalHealth = cache(async (window: HealthWindow = "24h") =
   const alerts = computeAlerts(queueMetrics, {
     stuck: sagaMetrics.stuck,
     failed: sagaMetrics.byStatus.failed ?? 0,
+    halted: sagaMetrics.byStatus.halted ?? 0,
   });
   return { window, sagas: sagaMetrics, queue: queueMetrics, alerts };
 });
