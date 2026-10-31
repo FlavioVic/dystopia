@@ -180,6 +180,14 @@ com endereço de resposta, outbox dos dois lados, resposta aplicada uma vez. For
 de `services/payments`, só o contrato (`contract.ts`) pode ser importado — o
 teste de arquitetura falha se alguém importar a implementação.
 
+Mensagem pode se perder no caminho (comando que morre na DLQ, resposta que
+some), então o passo remoto tem **prazo**. Vencido, a saga pergunta ao serviço
+(`payments.status`, uma consulta que só lê): já cobrou → conclui com a cobrança
+que existe; não tem registro → reenvia a cobrança, com a mesma chave de
+idempotência; ainda processando → espera. Sem resposta, o prazo dobra e, depois
+de três consultas, vira alerta crítico — a saga nunca desfaz estoque e cupom
+sem saber se o cliente foi cobrado.
+
 **Por quê.** É o primeiro serviço que valeria extrair de verdade, e o contrato
 por mensagem é o que permite separar o banco dele depois sem mexer na saga.
 
@@ -354,6 +362,12 @@ Nada é estornado. Depois do pivô os passos só tentam de novo; se não andarem
 a saga para em `halted` e o painel mostra um alerta crítico com o botão
 "Retomar", para depois de alguém corrigir a causa. Estornar um pedido pago por
 causa de um erro de confirmação seria punir o cliente pelo bug da loja.
+
+**"E se a mensagem do pagamento sumir?"**
+O passo tem prazo de 2 minutos. Vencido, a reconciliação pergunta ao serviço de
+pagamentos o que aconteceu com aquela chave: se cobrou, a saga conclui com a
+cobrança que existe (a resposta é que tinha se perdido); se não há registro,
+reenvia o comando — idempotente, então não cobra duas vezes.
 
 **"Exactly-once?"**
 Não existe fim a fim com broker + banco + provedor. O sistema garante "pelo

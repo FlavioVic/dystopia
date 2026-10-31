@@ -11,7 +11,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import type { Executor } from "@/db";
 import { payments } from "@/db/schema";
 import { PermanentError } from "@/shared/errors";
-import type { PaymentMethod, SimulationMode } from "./contract";
+import type { PaymentMethod, PaymentState, SimulationMode } from "./contract";
 import { charge, PROVIDER, reverse } from "./gateway";
 
 export type AuthorizeInput = {
@@ -108,3 +108,17 @@ export async function refundPayment(
 }
 
 export { PROVIDER };
+
+/** Consulta pela chave de idempotência (comando `payments.status`). Só lê. */
+export async function getPaymentStatus(
+  executor: Executor,
+  idempotencyKey: string,
+): Promise<{ state: PaymentState; paymentId?: string; transactionId?: string }> {
+  const payment = await executor.query.payments.findFirst({ where: eq(payments.idempotencyKey, idempotencyKey) });
+  if (!payment) return { state: "not_found" };
+  return {
+    state: payment.status,
+    paymentId: payment.id,
+    ...(payment.transactionId ? { transactionId: payment.transactionId } : {}),
+  };
+}

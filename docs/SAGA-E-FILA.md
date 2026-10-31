@@ -118,8 +118,22 @@ saga ◀──── saga.reply ──────── fila saga ◀─relay�
 - **Estorno também é comando** (só na v1, em que a cobrança era
   compensável): a compensação espera a resposta do estorno antes de desfazer o
   passo anterior. Na v2 a cobrança é o pivô e a saga nunca a desfaz.
-- **Serviço fora do ar**: a saga só espera (a reconciliação não a trata como
-  parada); passando de 5 min, o alerta de "saga parada" aparece no admin.
+- **Prazo e consulta de status**: o comando nasce com prazo (2 min no
+  pagamento, em `saga_steps.deadline_at`). Vencido, a reconciliação manda
+  `payments.status` — uma consulta que só lê — e a resposta decide:
+
+  | Pagamentos diz | A saga faz |
+  |---|---|
+  | `paid` | conclui o passo com a cobrança que já existe (a resposta tinha se perdido) |
+  | `not_found` | reenvia a cobrança, com a mesma chave (o comando tinha se perdido — DLQ, fila apagada) |
+  | `pending` | espera mais um prazo |
+
+  Cada consulta sem resposta dobra o prazo (até 30 min). Depois de 3, o painel
+  mostra o alerta crítico "saga esperando outro serviço além do prazo". A saga
+  **não desiste sozinha**: com o resultado da cobrança desconhecido, desfazer
+  estoque e cupom poderia deixar um cliente cobrado sem pedido.
+- **Serviço fora do ar**: o comando e as consultas esperam na fila dele; quando
+  ele volta, responde e a saga anda.
 
 O preço: o pedido deixou de fechar dentro do request — a página mostra
 "processando" por ~1–2 s. E o Postgres ainda é compartilhado (cada serviço com
@@ -236,6 +250,7 @@ que cobre o atraso pedido (arredonda para cima: nunca sai antes da hora).
 | Passo compensável da saga | 3 por passo, depois compensa | `saga/orchestrator.ts` |
 | Passo retentável (depois do pivô) | 8 por passo, depois `halted` (retomar no painel) | `saga/orchestrator.ts` |
 | Comando de pagamento | 3; na última, responde com falha | `services/payments/consumer.ts` |
+| Resposta de passo remoto que não chega | consulta de status a cada prazo vencido (2, 4, 8… até 30 min) | `saga/orchestrator.ts › checkOverdueRemoteSteps` |
 | Entrega de e-mail | 5; depois DLQ e `failed` | `services/notifications/delivery.ts` |
 | Mensagem de saga (banco fora, bug) | 5; depois DLQ — a reconciliação recria o avanço | `saga/runner.ts` + `saga/reconcile.ts` |
 | Conexão com o broker | ilimitadas, backoff até 30 s | `queue/worker.ts › startWorker` |

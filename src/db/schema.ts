@@ -515,10 +515,16 @@ export const sagaSteps = pgTable("saga_steps", {
   attempts: integer("attempts").notNull().default(0),
   output: jsonb("output"),
   error: text("error"),
+  // Passo remoto `waiting`: até quando a resposta é esperada. Vencido, a
+  // reconciliação pergunta o status ao outro serviço (ou reenvia o comando).
+  deadlineAt: timestamp("deadline_at", { withTimezone: true }),
+  // Quantas vezes o prazo venceu e a saga perguntou — passa de 3, alerta.
+  statusChecks: integer("status_checks").notNull().default(0),
   startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
   finishedAt: timestamp("finished_at", { withTimezone: true }),
 }, (table) => [
   uniqueIndex("saga_steps_saga_name_unique_idx").on(table.sagaId, table.name),
+  index("saga_steps_deadline_idx").on(table.deadlineAt),
 ]);
 
 /**

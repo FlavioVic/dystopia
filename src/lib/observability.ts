@@ -12,7 +12,14 @@ import type { SagaMetrics } from "@/saga/metrics";
 export type AlertLevel = "critical" | "warning";
 
 export type Alert = {
-  id: "dead-letter" | "compensation-failed" | "halted-sagas" | "broker-down" | "outbox-lag" | "stuck-sagas";
+  id:
+    | "dead-letter"
+    | "compensation-failed"
+    | "halted-sagas"
+    | "remote-overdue"
+    | "broker-down"
+    | "outbox-lag"
+    | "stuck-sagas";
   level: AlertLevel;
   title: string;
   detail: string;
@@ -48,7 +55,7 @@ export function formatDuration(ms: number | null): string {
 
 export function computeAlerts(
   queue: Pick<QueueMetrics, "dead" | "broker" | "outbox">,
-  sagas: Pick<SagaMetrics, "stuck"> & { failed: number; halted: number },
+  sagas: Pick<SagaMetrics, "stuck" | "overdueRemote"> & { failed: number; halted: number },
   thresholds: AlertThresholds = DEFAULT_THRESHOLDS,
 ): Alert[] {
   const alerts: Alert[] = [];
@@ -68,6 +75,16 @@ export function computeAlerts(
       level: "critical",
       title: `${plural(sagas.failed, "saga", "sagas")} com compensação falha`,
       detail: "Algo foi aplicado e não pôde ser desfeito — precisa de intervenção manual.",
+    });
+  }
+
+  if (sagas.overdueRemote > 0) {
+    alerts.push({
+      id: "remote-overdue",
+      level: "critical",
+      title: `${plural(sagas.overdueRemote, "saga esperando", "sagas esperando")} outro serviço além do prazo`,
+      detail:
+        "A saga perguntou o status várias vezes e não veio resposta. O processo de pagamentos está de pé? A fila dele anda?",
     });
   }
 

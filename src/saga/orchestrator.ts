@@ -26,20 +26,26 @@
  *    ou no pivô desfaz o que foi aplicado; num passo retentável (depois do
  *    pivô) a saga para em `halted` e espera alguém retomar (`resumeSaga`).
  * 7. **Versão fixa**: a saga roda na versão da definição com que começou.
+ * 8. **Passo remoto tem prazo**: vencido, a reconciliação pergunta o status ao
+ *    outro serviço (`checkOverdueRemoteSteps`); a resposta da consulta decide —
+ *    concluir, falhar, reenviar o comando (idempotente) ou esperar mais.
+ *    Comando que morreu na DLQ ou resposta perdida não travam a saga.
  */
 
 import { and, asc, desc, eq, inArray, isNull, lt, or, sql } from "drizzle-orm";
-import { db, type Transaction } from "@/db";
+import { db, type Executor, type Transaction } from "@/db";
 import { sagaSteps, sagas } from "@/db/schema";
 import { createLogger } from "@/lib/logger";
 import { nextRunAt, type BackoffOptions } from "@/queue/backoff";
 import { errorCode, errorMessage, isRetryable } from "@/shared/errors";
-import { dispatchStepRequest, type StepReply } from "./messaging";
+import { dispatchStepRequest, type StepPhase, type StepReply } from "./messaging";
 import { getSagaDefinition } from "./registry";
 import {
   DEFAULT_MAX_ATTEMPTS_PER_STEP,
   DEFAULT_RETRIABLE_MAX_ATTEMPTS,
   isRemoteStep,
+  MAX_STEP_DEADLINE_MS,
+  type RemoteSagaStep,
   type SagaDefinition,
   type SagaStep,
   type StepContext,
@@ -153,8 +159,7 @@ async function execute(
 ): Promise<AdvanceOutcome> {
   const { now } = options;
   const maxAttempts = definition.maxAttemptsPerStep ?? DEFAULT_MAX_ATTEMPTS_PER_STEP;
-  const attemptsFor = (step: SagaStep<never>) =>
-    step.maxAttempts ?? (step.kind === "retriable" ? DEFAULT_RETRIABLE_MAX_ATTEMPTS : maxAttempts);
+  const attemptsFor = (step: SagaStep<never>) => stepMaxAttempts(definition, step);
   const steps = definition.steps;
 
   let context: Context = (saga.context ?? {}) as Context;
@@ -265,7 +270,7 @@ async function execute(
       // transação — ou os dois existem, ou nenhum.
       await db.transaction(async (tx) => {
         await upsertStep(tx, saga.id, step, currentStep, attempt, now);
-        await setStepStatus(tx, saga.id, step.name, "waiting");
+        await markWaiting(tx, saga.id, step, now);
         await dispatchStepRequest(tx, {
           sagaId: saga.id,
           step: step.name,
@@ -392,7 +397,7 @@ async function compensate(
     if (step && isRemoteStep(step) && step.compensateRequest && !isSkipped(row.output)) {
       const request = step.compensateRequest(ctx);
       await db.transaction(async (tx) => {
-        await setStepStatus(tx, saga.id, row.name, "waiting");
+        await markWaiting(tx, saga.id, step, now);
         await dispatchStepRequest(tx, { sagaId: saga.id, step: row.name, phase: "compensate", request, maxAttempts });
         await writeSaga(tx, saga.id, { updatedAt: now });
       });
@@ -502,21 +507,24 @@ async function finishStep(
       output: output === undefined ? null : output,
       error,
       finishedAt: at,
+      deadlineAt: null,
       ...(attempts == null ? {} : { attempts }),
     })
     .where(and(eq(sagaSteps.sagaId, sagaId), eq(sagaSteps.name, name)));
 }
 
-async function setStepStatus(
-  tx: Transaction,
-  sagaId: string,
-  name: string,
-  status: SagaStepRow["status"],
-): Promise<void> {
+/** Passo remoto enviado: `waiting`, com o prazo da resposta (se o passo tiver). */
+async function markWaiting(tx: Transaction, sagaId: string, step: SagaStep<never>, now: Date): Promise<void> {
+  const timeoutMs = isRemoteStep(step) ? step.timeoutMs : undefined;
   await tx
     .update(sagaSteps)
-    .set({ status, error: null })
-    .where(and(eq(sagaSteps.sagaId, sagaId), eq(sagaSteps.name, name)));
+    .set({
+      status: "waiting",
+      error: null,
+      statusChecks: 0,
+      deadlineAt: timeoutMs ? new Date(now.getTime() + timeoutMs) : null,
+    })
+    .where(and(eq(sagaSteps.sagaId, sagaId), eq(sagaSteps.name, step.name)));
 }
 
 async function bumpStepAttempts(
@@ -569,6 +577,13 @@ async function markFailed(sagaId: string, reason: string, now: Date): Promise<vo
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+/** Tentativas do passo: o dele, senão o padrão do papel (retentável insiste mais). */
+function stepMaxAttempts(definition: SagaDefinition<never>, step: SagaStep<never>): number {
+  if (step.maxAttempts) return step.maxAttempts;
+  if (step.kind === "retriable") return DEFAULT_RETRIABLE_MAX_ATTEMPTS;
+  return definition.maxAttemptsPerStep ?? DEFAULT_MAX_ATTEMPTS_PER_STEP;
+}
 
 function mergeOutput(context: Context, output: unknown): Context {
   if (!output || typeof output !== "object" || Array.isArray(output)) return context;
@@ -644,9 +659,9 @@ export async function getSagaByCorrelationId(correlationId: string) {
 
 /**
  * Aplica a resposta de um passo remoto ao log do passo. Idempotente: só mexe
- * se o passo ainda está `waiting` naquela fase — resposta repetida (entrega
- * "pelo menos uma vez") ou atrasada vira no-op. Não avança a saga; quem chama
- * avança depois (ver runner).
+ * se o passo ainda está `waiting` — resposta repetida (entrega "pelo menos
+ * uma vez") ou atrasada vira no-op. Não avança a saga; quem chama avança
+ * depois (ver runner). Devolve se a resposta mudou o passo.
  */
 export async function applyStepReply(reply: StepReply, options: { now?: Date } = {}): Promise<boolean> {
   const now = options.now ?? new Date();
@@ -658,36 +673,207 @@ export async function applyStepReply(reply: StepReply, options: { now?: Date } =
       .for("update");
     if (!row || row.status !== "waiting") return false;
 
-    const { result } = reply;
+    if (reply.kind === "status") return applyStatusReply(tx, reply, row, now);
+
     // Tentativas que o outro serviço gastou (o retry agora é dele).
-    const attempts = reply.phase === "invoke" ? result.attempts : row.attempts + result.attempts;
-
-    if (reply.phase === "invoke") {
-      if (result.ok) {
-        await finishStep(tx, reply.sagaId, reply.step, "completed", result.output, now, null, attempts);
-      } else {
-        await finishStep(tx, reply.sagaId, reply.step, "failed", { code: result.code }, now, result.message, attempts);
-      }
-      return true;
-    }
-
-    if (result.ok) {
-      await finishStep(tx, reply.sagaId, reply.step, "compensated", row.output, now, null, attempts);
-      return true;
-    }
-
-    // Desfazer remoto falhou de vez: algo aplicado não pôde ser desfeito.
-    const fatal = `compensação de ${reply.step} falhou: ${result.message}`;
-    await finishStep(tx, reply.sagaId, reply.step, "failed", row.output, now, result.message, attempts);
-    await writeSaga(tx, reply.sagaId, {
-      status: "failed",
-      lastError: fatal,
-      lockedBy: null,
-      leaseUntil: null,
-      finishedAt: now,
-      updatedAt: now,
-    });
-    logger.error("saga precisa de intervenção manual", { sagaId: reply.sagaId, step: reply.step, error: result.message });
+    const attempts = reply.phase === "invoke" ? reply.result.attempts : row.attempts + reply.result.attempts;
+    await applyResult(tx, reply, row, reply.result, attempts, now);
     return true;
   });
+}
+
+async function applyResult(
+  tx: Transaction,
+  reply: Pick<StepReply, "sagaId" | "step" | "phase">,
+  row: SagaStepRow,
+  result: StepReply["result"],
+  attempts: number,
+  now: Date,
+): Promise<void> {
+  if (reply.phase === "invoke") {
+    if (result.ok) {
+      await finishStep(tx, reply.sagaId, reply.step, "completed", result.output, now, null, attempts);
+    } else {
+      await finishStep(tx, reply.sagaId, reply.step, "failed", { code: result.code }, now, result.message, attempts);
+    }
+    return;
+  }
+
+  if (result.ok) {
+    await finishStep(tx, reply.sagaId, reply.step, "compensated", row.output, now, null, attempts);
+    return;
+  }
+
+  // Desfazer remoto falhou de vez: algo aplicado não pôde ser desfeito.
+  const fatal = `compensação de ${reply.step} falhou: ${result.message}`;
+  await finishStep(tx, reply.sagaId, reply.step, "failed", row.output, now, result.message, attempts);
+  await writeSaga(tx, reply.sagaId, {
+    status: "failed",
+    lastError: fatal,
+    lockedBy: null,
+    leaseUntil: null,
+    finishedAt: now,
+    updatedAt: now,
+  });
+  logger.error("saga precisa de intervenção manual", { sagaId: reply.sagaId, step: reply.step, error: result.message });
+}
+
+/**
+ * Resposta da consulta de status (o prazo do passo venceu). Quem interpreta é
+ * o próprio passo (`status.resolve`): o comando terminou (vale como resposta),
+ * se perdeu (reenvia) ou ainda está andando (espera o prazo novo).
+ */
+async function applyStatusReply(tx: Transaction, reply: StepReply, row: SagaStepRow, now: Date): Promise<boolean> {
+  // A consulta falhou do outro lado: o prazo segue valendo e a próxima
+  // reconciliação pergunta de novo.
+  if (!reply.result.ok) return false;
+  const remote = await loadRemoteStep(tx, reply.sagaId, reply.step, row);
+  if (!remote?.step.status) return false;
+
+  const resolution = remote.step.status.resolve(reply.result.output, reply.phase);
+  logger.info("consulta de status de passo remoto", {
+    sagaId: reply.sagaId,
+    step: reply.step,
+    phase: reply.phase,
+    outcome: resolution.outcome,
+  });
+
+  switch (resolution.outcome) {
+    case "succeeded":
+      await applyResult(tx, reply, row, { ok: true, output: resolution.output, attempts: 0 }, row.attempts, now);
+      return true;
+    case "failed":
+      await applyResult(
+        tx,
+        reply,
+        row,
+        { ok: false, code: resolution.code, message: resolution.message, attempts: 0 },
+        row.attempts,
+        now,
+      );
+      return true;
+    case "unknown": {
+      // O comando nunca chegou (ou se perdeu): manda de novo. É idempotente
+      // pela chave, então se ele estiver só atrasado não há efeito duplicado.
+      const request = remote.requestFor(reply.phase);
+      if (request) {
+        await dispatchStepRequest(tx, {
+          sagaId: reply.sagaId,
+          step: reply.step,
+          phase: reply.phase,
+          request,
+          maxAttempts: remote.maxAttempts,
+        });
+      }
+      return false;
+    }
+    case "in-progress":
+      return false;
+  }
+}
+
+/** Definição do passo remoto + contexto para remontar o comando (reenvio, consulta). */
+async function loadRemoteStep(executor: Executor, sagaId: string, stepName: string, row: SagaStepRow) {
+  const saga = await executor.query.sagas.findFirst({ where: eq(sagas.id, sagaId) });
+  if (!saga) return null;
+  const definition = getSagaDefinition(saga.type, saga.definitionVersion);
+  const step = definition?.steps.find((candidate) => candidate.name === stepName);
+  if (!definition || !step || !isRemoteStep(step)) return null;
+
+  const ctx: StepContext<never> = {
+    sagaId,
+    correlationId: saga.correlationId,
+    payload: definition.parsePayload(saga.payload) as never,
+    context: (saga.context ?? {}) as Context,
+    attempt: row.attempts + 1,
+  };
+  const remoteStep = step as RemoteSagaStep<never>;
+  return {
+    saga,
+    step: remoteStep,
+    ctx,
+    maxAttempts: stepMaxAttempts(definition, step),
+    requestFor: (phase: StepPhase) =>
+      phase === "invoke" ? remoteStep.request(ctx) : remoteStep.compensateRequest?.(ctx),
+  };
+}
+
+/**
+ * Passos remotos `waiting` com o prazo vencido — o comando morreu na DLQ, a
+ * resposta se perdeu, ou o outro serviço está fora. Para cada um: pergunta o
+ * status (ou, sem consulta, reenvia o comando) e dobra o prazo, até 30 min.
+ * Chamado pela reconciliação. Devolve quantos passos foram cobrados.
+ */
+export async function checkOverdueRemoteSteps(now: Date, limit = 50): Promise<number> {
+  const overdue = await db
+    .select({ sagaId: sagaSteps.sagaId, name: sagaSteps.name, sagaStatus: sagas.status })
+    .from(sagaSteps)
+    .innerJoin(sagas, eq(sagas.id, sagaSteps.sagaId))
+    .where(
+      and(
+        eq(sagaSteps.status, "waiting"),
+        lt(sagaSteps.deadlineAt, now),
+        inArray(sagas.status, ["running", "compensating"]),
+      ),
+    )
+    .orderBy(asc(sagaSteps.deadlineAt))
+    .limit(limit);
+
+  let checked = 0;
+  for (const candidate of overdue) {
+    const sent = await db.transaction(async (tx) => {
+      // Relê travando: a resposta pode ter chegado entre a busca e aqui, e
+      // outro reconciliador pode estar no mesmo passo.
+      const [row] = await tx
+        .select()
+        .from(sagaSteps)
+        .where(
+          and(
+            eq(sagaSteps.sagaId, candidate.sagaId),
+            eq(sagaSteps.name, candidate.name),
+            eq(sagaSteps.status, "waiting"),
+            lt(sagaSteps.deadlineAt, now),
+          ),
+        )
+        .for("update", { skipLocked: true });
+      if (!row) return false;
+      const remote = await loadRemoteStep(tx, candidate.sagaId, candidate.name, row);
+      if (!remote) return false;
+
+      // Enquanto há passo esperando, ninguém compensa por cima (invariante 5):
+      // saga compensando com passo `waiting` está esperando o desfazer dele.
+      const phase: StepPhase = candidate.sagaStatus === "compensating" ? "compensate" : "invoke";
+      const status = remote.step.status;
+      const request = status ? status.request(remote.ctx, phase) : remote.requestFor(phase);
+      if (!request) return false;
+
+      await dispatchStepRequest(tx, {
+        sagaId: candidate.sagaId,
+        step: candidate.name,
+        phase,
+        request,
+        maxAttempts: remote.maxAttempts,
+        kind: status ? "status" : "command",
+      });
+      const checks = row.statusChecks + 1;
+      const timeoutMs = remote.step.timeoutMs ?? MAX_STEP_DEADLINE_MS;
+      await tx
+        .update(sagaSteps)
+        .set({
+          statusChecks: checks,
+          deadlineAt: new Date(now.getTime() + Math.min(timeoutMs * 2 ** checks, MAX_STEP_DEADLINE_MS)),
+        })
+        .where(and(eq(sagaSteps.sagaId, candidate.sagaId), eq(sagaSteps.name, candidate.name)));
+      logger.warn("passo remoto sem resposta no prazo", {
+        sagaId: candidate.sagaId,
+        step: candidate.name,
+        phase,
+        checks,
+        action: status ? "consulta de status" : "reenvio do comando",
+      });
+      return true;
+    });
+    if (sent) checked += 1;
+  }
+  return checked;
 }

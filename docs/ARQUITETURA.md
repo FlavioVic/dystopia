@@ -158,6 +158,10 @@ dead-letter-exchange de volta para a de trabalho) e a DLQ `<p>.<fila>.dlq`. `<p>
 6a. **Depois do pivô nada se desfaz.** A cobrança aprovada obriga a saga a
    terminar: passo retentável que não anda para a saga em `halted` (alerta
    crítico + "Retomar" no painel), nunca estorna.
+6b. **Passo remoto tem prazo** (`timeoutMs` + `status` no passo). Vencido, a
+   reconciliação pergunta o status ao outro serviço (ou reenvia o comando, que
+   por isso tem que ser idempotente). Resultado desconhecido nunca vira
+   compensação automática.
 7. **Estoque sai com UPDATE condicional** (`where stock >= qtd`): se não
    atualizou linha, não tem estoque — erro permanente. Nunca `GREATEST(0, ...)`,
    que esconde venda sem estoque.

@@ -21,8 +21,11 @@ import { runInlineWorker, type InlineRunOptions } from "./worker";
 
 /** Pagamento, resposta e e-mail — esperando retry em backoff se precisar. */
 const CHECKOUT_DRAIN: InlineRunOptions = { budgetMs: 45_000, waitForScheduled: true };
-/** Rede de segurança: se o dreno do checkout morreu, cada visita empurra mais um pouco. */
-const ORDER_VIEW_DRAIN: InlineRunOptions = { budgetMs: 10_000 };
+/**
+ * Rede de segurança: se o dreno do checkout morreu, cada visita empurra mais
+ * um pouco — e reconcilia, para cobrar o pagamento que passou do prazo.
+ */
+const ORDER_VIEW_DRAIN: InlineRunOptions = { budgetMs: 10_000, reconcile: true };
 /** Só o e-mail de alerta ao responsável. */
 const SERVICE_REQUEST_DRAIN: InlineRunOptions = { budgetMs: 15_000 };
 /** Painel de orquestração: reconcilia (lease de executor morto, retry perdido) e drena. */
