@@ -38,7 +38,12 @@ async function commands(type: string) {
   return db.query.outbox.findMany({ where: and(eq(outbox.queue, PAYMENTS_QUEUE), eq(outbox.type, type)) });
 }
 
-/** Leva o checkout com cupom esgotado até a saga estar esperando o estorno. */
+/**
+ * Leva o checkout com cupom esgotado até a saga estar esperando o estorno.
+ * Só existe na v1 da saga (cobrança antes do cupom, tudo compensável): na v2
+ * a cobrança é o pivô e nunca é desfeita — mas o mecanismo de compensação
+ * remota do orquestrador continua valendo para quem tiver passo assim.
+ */
 async function untilRefundRequested() {
   const fixture = await seedCheckoutFixture({
     stock: 4,
@@ -46,7 +51,7 @@ async function untilRefundRequested() {
     priceCents: 20_000,
     coupon: { discountType: "fixed", discountValue: 5_000, maxUsage: 1, usageCount: 1 },
   });
-  const checkout = await startCheckout(fixture, { useCoupon: true });
+  const checkout = await startCheckout(fixture, { useCoupon: true, definitionVersion: 1 });
   assert.equal((await runSagaInline(checkout.sagaId)).status, "waiting");
   await work("payments"); // cobra e responde
   await work("saga"); // aplica a resposta; o cupom falha; pede o estorno

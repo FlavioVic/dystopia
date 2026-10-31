@@ -1,7 +1,8 @@
 /**
- * Roda uma saga como produção roda: o avanço no request (inline) e depois os
- * consumidores do RabbitMQ — `saga`, `payments` (processo de pagamentos) e
- * `notifications` — até ela terminar.
+ * Roda uma saga como produção roda: os consumidores do RabbitMQ — `saga`,
+ * `payments` (processo de pagamentos) e `notifications` — até ela terminar.
+ * Por padrão dá um primeiro avanço direto (`runSagaInline`), que é o que o
+ * primeiro consumidor faria.
  *
  * Nada de relógio adiantado: o retry passa de verdade pelas filas de espera
  * do broker, só que com TTL de milissegundos (o runner configura). O backoff
@@ -31,7 +32,8 @@ export const testHandlers = {
 
 export type SagaRow = typeof sagas.$inferSelect;
 
-const TERMINAL = ["completed", "compensated", "failed"];
+/** Onde a saga para sozinha (`halted` só sai com retomada). */
+const TERMINAL = ["completed", "compensated", "failed", "halted"];
 
 const QUEUES = { saga: SAGA_QUEUE, payments: PAYMENTS_QUEUE, notifications: NOTIFICATIONS_QUEUE } as const;
 

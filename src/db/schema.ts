@@ -466,6 +466,9 @@ export const sagaStatusEnum = pgEnum("saga_status", [
   "compensating", // falhou; desfazendo o que já tinha sido aplicado
   "compensated", // desfeito com sucesso (pedido cancelado)
   "failed", // a própria compensação falhou — exige intervenção manual
+  // Passo depois do ponto sem volta (pivô) não andou: a saga não desfaz nada
+  // (o pagamento já foi aprovado) e espera alguém corrigir a causa e retomar.
+  "halted",
 ]);
 
 export const sagaStepStatusEnum = pgEnum("saga_step_status", [
@@ -480,13 +483,16 @@ export const sagas = pgTable("sagas", {
   id: uuid("id").primaryKey().defaultRandom(),
   type: text("type").notNull(), // "checkout"
   correlationId: text("correlation_id").notNull(), // orderNumber — liga saga ↔ domínio
+  // Versão da definição com que a saga começou: ela termina nessa versão,
+  // mesmo que um deploy mude a ordem dos passos no meio do caminho.
+  definitionVersion: integer("definition_version").notNull().default(1),
   status: sagaStatusEnum("status").notNull().default("running"),
   currentStep: integer("current_step").notNull().default(0),
   payload: jsonb("payload").notNull(), // entrada imutável da saga
   context: jsonb("context").notNull().default({}), // saídas acumuladas dos passos
   lastError: text("last_error"),
-  // Lease: quem está executando a saga agora e até quando. Garante que o
-  // caminho inline (request) e o worker nunca avancem a mesma saga juntos.
+  // Lease: quem está executando a saga agora e até quando. Garante que dois
+  // consumidores (ou uma mensagem repetida) nunca avancem a mesma saga juntos.
   lockedBy: text("locked_by"),
   leaseUntil: timestamp("lease_until", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

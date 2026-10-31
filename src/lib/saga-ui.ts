@@ -22,6 +22,7 @@ export const SAGA_STATUS_LABELS: Record<string, string> = {
   compensating: "Desfazendo",
   compensated: "Desfeita",
   failed: "Falhou",
+  halted: "Parada",
 };
 
 export const SAGA_STEP_STATUS_LABELS: Record<string, string> = {
@@ -42,6 +43,7 @@ export function sagaStatusClass(status: string): string {
     case "compensated":
       return "border border-border text-foreground-muted";
     case "failed":
+    case "halted":
       return "bg-signal text-on-signal";
     default:
       return "border border-border-faint text-foreground-muted";

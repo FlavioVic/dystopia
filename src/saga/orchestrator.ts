@@ -22,6 +22,10 @@
  *    solta o lease e devolve `waiting`. A resposta (`applyStepReply`) é
  *    aplicada uma vez só; o próximo avanço segue de onde parou. Enquanto houver
  *    passo `waiting`, ninguém avança nem compensa por cima.
+ * 6. **Depois do pivô não se desfaz**: falha definitiva num passo compensável
+ *    ou no pivô desfaz o que foi aplicado; num passo retentável (depois do
+ *    pivô) a saga para em `halted` e espera alguém retomar (`resumeSaga`).
+ * 7. **Versão fixa**: a saga roda na versão da definição com que começou.
  */
 
 import { and, asc, desc, eq, inArray, isNull, lt, or, sql } from "drizzle-orm";
@@ -34,6 +38,7 @@ import { dispatchStepRequest, type StepReply } from "./messaging";
 import { getSagaDefinition } from "./registry";
 import {
   DEFAULT_MAX_ATTEMPTS_PER_STEP,
+  DEFAULT_RETRIABLE_MAX_ATTEMPTS,
   isRemoteStep,
   type SagaDefinition,
   type SagaStep,
@@ -49,6 +54,8 @@ export type AdvanceOutcome =
   | { status: "completed" }
   | { status: "compensated"; code: string; reason: string }
   | { status: "failed"; reason: string }
+  /** Passo depois do pivô não andou: parada até alguém retomar. */
+  | { status: "halted"; step: string; reason: string }
   | { status: "retry"; step: string; runAt: Date; reason: string }
   /** Passo remoto aguardando resposta: nada a fazer até ela chegar. */
   | { status: "waiting"; step: string }
@@ -69,7 +76,8 @@ export const DEFAULT_SAGA_LEASE_MS = 30_000;
 /** Quem "segura" a saga durante o backoff de um retry. */
 const BACKOFF_HOLDER = "backoff";
 
-const TERMINAL_STATUSES = ["completed", "compensated", "failed"] as const;
+/** Status em que nada avança sozinho (`halted` só sai com `resumeSaga`). */
+const SETTLED_STATUSES = ["completed", "compensated", "failed", "halted"] as const;
 
 const GENERIC_FAILURE = "Não foi possível concluir.";
 
@@ -97,7 +105,7 @@ export async function advanceSaga(sagaId: string, options: AdvanceOptions = {}):
   if (!saga) {
     const existing = await db.query.sagas.findFirst({ where: eq(sagas.id, sagaId) });
     if (!existing) return { status: "not-found" };
-    if ((TERMINAL_STATUSES as readonly string[]).includes(existing.status)) {
+    if ((SETTLED_STATUSES as readonly string[]).includes(existing.status)) {
       return { status: "settled", sagaStatus: existing.status };
     }
     // Backoff: a hora do retry é exata. Outro executor trabalhando: o lease é
@@ -107,10 +115,11 @@ export async function advanceSaga(sagaId: string, options: AdvanceOptions = {}):
   }
 
   // --- 2. definição + payload --------------------------------------------
-  const definition = getSagaDefinition(saga.type);
+  const definition = getSagaDefinition(saga.type, saga.definitionVersion);
   if (!definition) {
-    await markFailed(saga.id, `Saga desconhecida: ${saga.type}`, now);
-    return { status: "failed", reason: `Saga desconhecida: ${saga.type}` };
+    const reason = `Saga desconhecida: ${saga.type} v${saga.definitionVersion}`;
+    await markFailed(saga.id, reason, now);
+    return { status: "failed", reason };
   }
 
   let payload: never;
@@ -144,6 +153,8 @@ async function execute(
 ): Promise<AdvanceOutcome> {
   const { now } = options;
   const maxAttempts = definition.maxAttemptsPerStep ?? DEFAULT_MAX_ATTEMPTS_PER_STEP;
+  const attemptsFor = (step: SagaStep<never>) =>
+    step.maxAttempts ?? (step.kind === "retriable" ? DEFAULT_RETRIABLE_MAX_ATTEMPTS : maxAttempts);
   const steps = definition.steps;
 
   let context: Context = (saga.context ?? {}) as Context;
@@ -172,6 +183,26 @@ async function execute(
       stepRows: await loadSteps(saga.id),
       maxAttempts,
     });
+  };
+
+  // Depois do pivô não há o que desfazer: o passo fica `failed` e a saga para
+  // até alguém corrigir a causa e retomar.
+  const halt = async (step: SagaStep<never>, code: string, message: string): Promise<AdvanceOutcome> => {
+    await db.transaction(async (tx) => {
+      await writeSaga(tx, saga.id, {
+        status: "halted",
+        lastError: `${code}: ${message}`,
+        lockedBy: null,
+        leaseUntil: null,
+        updatedAt: now,
+      });
+    });
+    logger.error("saga parada depois do ponto sem volta — precisa de intervenção", {
+      sagaId: saga.id,
+      step: step.name,
+      code,
+    });
+    return { status: "halted", step: step.name, reason: message };
   };
 
   // Já estava compensando (retomada de uma compensação que falhou antes).
@@ -221,6 +252,7 @@ async function execute(
 
       if (existing?.status === "failed") {
         const code = outputCode(existing.output);
+        if (step.kind === "retriable") return halt(step, code, existing.error ?? code);
         logger.warn("passo remoto falhou definitivamente, compensando", {
           sagaId: saga.id,
           step: step.name,
@@ -239,7 +271,7 @@ async function execute(
           step: step.name,
           phase: "invoke",
           request: step.request(ctx),
-          maxAttempts,
+          maxAttempts: attemptsFor(step),
         });
         await writeSaga(tx, saga.id, { updatedAt: now });
       });
@@ -269,7 +301,7 @@ async function execute(
     } catch (error) {
       const code = errorCode(error);
       const message = errorMessage(error);
-      const canRetry = isRetryable(error) && attempt < maxAttempts;
+      const canRetry = isRetryable(error) && attempt < attemptsFor(step);
 
       await db.transaction(async (tx) => {
         await finishStep(tx, saga.id, step.name, canRetry ? "pending" : "failed", null, new Date(), message);
@@ -287,6 +319,8 @@ async function execute(
         });
         return { status: "retry", step: step.name, runAt, reason: message };
       }
+
+      if (step.kind === "retriable") return halt(step, code, message);
 
       logger.warn("passo falhou definitivamente, compensando", {
         sagaId: saga.id,

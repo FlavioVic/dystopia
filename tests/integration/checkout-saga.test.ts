@@ -4,9 +4,10 @@
  * Cada caso cobre um caminho da orquestração: feliz, compensação por regra de
  * negócio, retry de falha transitória (incluindo o worker) e idempotência.
  *
- * O pagamento é um passo remoto (processo próprio, fila `payments`): o
- * request avança até ele e a saga estaciona em `waiting`; `settleSaga` roda os
- * consumidores do RabbitMQ até o fim, como em produção.
+ * O pagamento é um passo remoto (processo próprio, fila `payments`) e é o
+ * PIVÔ da saga (v2): o primeiro avanço vai até ele e a saga estaciona em
+ * `waiting`; `settleSaga` roda os consumidores do RabbitMQ até o fim, como em
+ * produção.
  */
 
 import assert from "node:assert/strict";
@@ -17,7 +18,7 @@ import { and } from "drizzle-orm";
 import { cartItems, coupons, notifications, orders, outbox, payments, products, sagas } from "@/db/schema";
 import { queueDepths } from "@/queue/broker";
 import { advanceSaga, getSagaWithSteps } from "@/saga/orchestrator";
-import { runSagaInline } from "@/saga/runner";
+import { resumeHaltedSaga, runSagaInline } from "@/saga/runner";
 import { PAYMENT_AUTHORIZE, PAYMENTS_QUEUE } from "@/services/payments/contract";
 import { closeDatabase, resetDatabase, seedCheckoutFixture } from "../helpers/db";
 import { startCheckout } from "../helpers/checkout";
@@ -61,7 +62,8 @@ describe("saga de checkout — caminho feliz", () => {
     assert.deepEqual(await outboxTypes(), ["saga.advance"], "a mensagem de avanço existe junto do pedido");
     assert.equal((await pendingWork()).outbox, 1, "e ainda não foi publicada: quem publica é o relay");
 
-    // O request avança até o pagamento, que é remoto: a saga estaciona.
+    // O primeiro avanço reserva o estoque, usa o cupom e chega no pagamento,
+    // que é remoto: a saga estaciona.
     const inline = await runSagaInline(checkout.sagaId);
     assert.deepEqual(inline, { status: "waiting", step: "authorize-payment" });
     assert.equal((await stepStatuses(checkout.sagaId))["authorize-payment"], "waiting");
@@ -69,6 +71,8 @@ describe("saga de checkout — caminho feliz", () => {
       where: and(eq(outbox.queue, PAYMENTS_QUEUE), eq(outbox.type, PAYMENT_AUTHORIZE)),
     });
     assert.ok(command, "o comando de cobrança foi gravado para a fila de pagamentos, junto do passo");
+    const usedBeforePayment = await db.query.coupons.findFirst({ where: eq(coupons.id, fixture.couponId!) });
+    assert.equal(usedBeforePayment?.usageCount, 1, "o cupom é consumido ANTES da cobrança");
 
     const saga0 = await settleSaga(checkout.sagaId, { inline: false });
     assert.equal(saga0.status, "completed");
@@ -100,13 +104,14 @@ describe("saga de checkout — caminho feliz", () => {
 
     const saga = await getSagaWithSteps(checkout.sagaId);
     assert.equal(saga?.status, "completed");
+    assert.equal(saga?.definitionVersion, 2, "saga nova nasce na versão atual da definição");
     assert.equal(saga?.currentStep, 6);
     assert.ok(saga?.finishedAt);
     assert.equal(saga?.lockedBy, null, "lease liberado no fim");
     assert.deepEqual(await stepStatuses(checkout.sagaId), {
       "reserve-stock": "completed",
-      "authorize-payment": "completed",
       "consume-coupon": "completed",
+      "authorize-payment": "completed",
       "confirm-order": "completed",
       "clear-cart": "completed",
       "notify-customer": "completed",
@@ -192,25 +197,33 @@ describe("saga de checkout — compensação", () => {
     assert.equal((await stepStatuses(checkout.sagaId))["reserve-stock"], "failed");
   });
 
-  it("devolve o estoque quando o pagamento é recusado", async () => {
-    const fixture = await seedCheckoutFixture({ stock: 6, quantity: 2, priceCents: 7_500 });
-    const checkout = await startCheckout(fixture, { simulate: "decline" });
+  it("pagamento recusado (o pivô) devolve cupom e estoque — e nada depois dele começa", async () => {
+    const fixture = await seedCheckoutFixture({
+      stock: 6,
+      quantity: 2,
+      priceCents: 7_500,
+      coupon: { discountType: "percentage", discountValue: 10 },
+    });
+    const checkout = await startCheckout(fixture, { simulate: "decline", useCoupon: true });
 
     const saga = await settleSaga(checkout.sagaId);
     assert.equal(saga.status, "compensated");
     assert.equal(lastErrorCode(saga), "payment_declined");
 
     assert.equal(await stockOf(fixture.product.id), 6, "estoque devolvido pela compensação");
+    const coupon = await db.query.coupons.findFirst({ where: eq(coupons.id, fixture.couponId!) });
+    assert.equal(coupon?.usageCount, 0, "uso do cupom devolvido");
     const order = await db.query.orders.findFirst({ where: eq(orders.id, checkout.orderId) });
     assert.equal(order?.status, "cancelled");
 
     const statuses = await stepStatuses(checkout.sagaId);
     assert.equal(statuses["reserve-stock"], "compensated");
+    assert.equal(statuses["consume-coupon"], "compensated");
     assert.equal(statuses["authorize-payment"], "failed");
-    assert.equal(statuses["consume-coupon"], undefined, "passos seguintes nem começaram");
+    assert.equal(statuses["confirm-order"], undefined, "passos depois do pivô nem começaram");
   });
 
-  it("estorna o pagamento quando o cupom esgota no meio do caminho", async () => {
+  it("cupom esgotado desfaz ANTES de cobrar: nenhuma cobrança, nenhum estorno", async () => {
     const fixture = await seedCheckoutFixture({
       stock: 4,
       quantity: 1,
@@ -223,21 +236,92 @@ describe("saga de checkout — compensação", () => {
     assert.equal(saga.status, "compensated");
     assert.equal(lastErrorCode(saga), "coupon_exhausted");
 
-    const paymentRows = await db.query.payments.findMany({ where: eq(payments.orderId, checkout.orderId) });
-    assert.equal(paymentRows.length, 1);
-    assert.equal(paymentRows[0].status, "refunded", "cobrança estornada");
+    assert.equal(
+      (await db.query.payments.findMany({ where: eq(payments.orderId, checkout.orderId) })).length,
+      0,
+      "nada foi cobrado",
+    );
+    assert.ok(!(await outboxTypes()).includes("payments.authorize"), "o comando de cobrança nem foi enviado");
+    assert.ok(!(await outboxTypes()).includes("payments.refund"), "logo, nada a estornar");
 
     assert.equal(await stockOf(fixture.product.id), 4, "estoque devolvido");
-    const coupon = await db.query.coupons.findFirst({ where: eq(coupons.id, fixture.couponId!) });
-    assert.equal(coupon?.usageCount, 1, "uso do cupom não foi incrementado");
-
     const order = await db.query.orders.findFirst({ where: eq(orders.id, checkout.orderId) });
     assert.equal(order?.status, "cancelled");
 
     const statuses = await stepStatuses(checkout.sagaId);
     assert.equal(statuses["reserve-stock"], "compensated");
+    assert.equal(statuses["consume-coupon"], "failed");
+    assert.equal(statuses["authorize-payment"], undefined);
+  });
+});
+
+describe("saga de checkout — depois do pivô", () => {
+  it("erro de regra depois do pagamento não estorna: a saga para e, retomada, termina", async () => {
+    const fixture = await seedCheckoutFixture({ stock: 5, quantity: 1, priceCents: 30_000 });
+    const checkout = await startCheckout(fixture);
+
+    // Pagamento aprovado e resposta na fila; antes de a saga confirmar, o
+    // pedido muda por fora (aqui: alguém cancelou à mão) — confirmar vira
+    // transição inválida, um erro de REGRA num passo depois do pivô.
+    assert.equal((await runSagaInline(checkout.sagaId)).status, "waiting");
+    await work("payments");
+    await db.update(orders).set({ status: "cancelled" }).where(eq(orders.id, checkout.orderId));
+
+    const halted = await settleSaga(checkout.sagaId, { inline: false });
+    assert.equal(halted.status, "halted");
+    assert.equal(lastErrorCode(halted), "invalid_order_transition");
+    assert.equal((await stepStatuses(checkout.sagaId))["confirm-order"], "failed");
+
+    const [payment] = await db.query.payments.findMany({ where: eq(payments.orderId, checkout.orderId) });
+    assert.equal(payment.status, "paid", "o pagamento aprovado NÃO é estornado");
+    assert.ok(!(await outboxTypes()).includes("payments.refund"));
+    assert.equal(await stockOf(fixture.product.id), 4, "o estoque segue reservado para o pedido pago");
+    assert.equal((await work("all")).received, 0, "parada de verdade: ninguém tenta sozinho");
+
+    // Alguém corrige a causa e retoma pelo painel.
+    await db.update(orders).set({ status: "pending" }).where(eq(orders.id, checkout.orderId));
+    assert.deepEqual(await resumeHaltedSaga(checkout.sagaId), { resumed: true });
+    assert.deepEqual(await resumeHaltedSaga(checkout.sagaId), { resumed: false }, "retomar duas vezes não duplica");
+
+    const done = await settleSaga(checkout.sagaId, { inline: false });
+    assert.equal(done.status, "completed");
+    const order = await db.query.orders.findFirst({ where: eq(orders.id, checkout.orderId) });
+    assert.equal(order?.status, "paid");
+    assert.equal(
+      (await db.query.payments.findMany({ where: eq(payments.orderId, checkout.orderId) })).length,
+      1,
+      "uma cobrança só, do começo ao fim",
+    );
+  });
+});
+
+describe("saga de checkout — versão da definição", () => {
+  it("saga que começou na v1 termina na v1 (cupom depois da cobrança, com estorno)", async () => {
+    const fixture = await seedCheckoutFixture({
+      stock: 4,
+      quantity: 1,
+      priceCents: 20_000,
+      coupon: { discountType: "fixed", discountValue: 5_000, maxUsage: 1, usageCount: 1 },
+    });
+    const checkout = await startCheckout(fixture, { useCoupon: true, definitionVersion: 1 });
+
+    const saga = await settleSaga(checkout.sagaId);
+    assert.equal(saga.status, "compensated");
+    assert.equal(lastErrorCode(saga), "coupon_exhausted");
+
+    const [payment] = await db.query.payments.findMany({ where: eq(payments.orderId, checkout.orderId) });
+    assert.equal(payment.status, "refunded", "na v1 a cobrança vinha antes do cupom: estorna");
+    const statuses = await stepStatuses(checkout.sagaId);
     assert.equal(statuses["authorize-payment"], "compensated");
     assert.equal(statuses["consume-coupon"], "failed");
+  });
+
+  it("versão que não existe mais falha com o motivo, sem tentar adivinhar", async () => {
+    const fixture = await seedCheckoutFixture();
+    const checkout = await startCheckout(fixture, { definitionVersion: 99 });
+
+    const outcome = await advanceSaga(checkout.sagaId);
+    assert.deepEqual(outcome, { status: "failed", reason: "Saga desconhecida: checkout v99" });
   });
 });
 

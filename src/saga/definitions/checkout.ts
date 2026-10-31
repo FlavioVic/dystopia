@@ -1,28 +1,35 @@
 /**
- * SAGA de checkout — a orquestração do pedido.
+ * SAGA de checkout — a orquestração do pedido (versão 2).
  *
  * O pedido nasce `pending` (junto com a saga e a mensagem, numa transação só) e
  * cada passo abaixo é atômico, de um serviço diferente:
  *
- *   1. reserve-stock      → inventory   | comp: devolve as unidades
- *   2. authorize-payment  → payments    | comp: estorna
- *   3. consume-coupon      → coupons    | comp: devolve o uso
- *   4. confirm-order      → orders      | comp: cancela o pedido
- *   5. clear-cart         → carts       | comp: restaura os itens
- *   6. notify-customer    → notifications (sem compensação: só avisa)
+ *   1. reserve-stock      → inventory      compensável | devolve as unidades
+ *   2. consume-coupon     → coupons        compensável | devolve o uso
+ *   3. authorize-payment  → payments       PIVÔ (o ponto sem volta)
+ *   4. confirm-order      → orders         retentável
+ *   5. clear-cart         → carts          retentável
+ *   6. notify-customer    → notifications  retentável
  *
- * Ordem pensada para o caminho triste: pagamento vem ANTES do cupom, então
- * pagamento recusado (o caso mais comum) compensa só o estoque.
+ * A ordem segue o custo de desfazer. Devolver estoque e cupom é barato e
+ * interno; estornar uma cobrança custa taxa e aparece na fatura do cliente.
+ * Então tudo que pode falhar por regra (sem estoque, cupom esgotado) vem ANTES
+ * da cobrança, e a cobrança é o pivô: recusada, desfaz cupom e estoque; aprovada,
+ * a saga TEM que terminar. Os passos depois dela não desistem — tentam de novo
+ * e, se não andarem, a saga para em `halted` para alguém retomar. Pedido
+ * pago nunca é estornado por um erro de confirmação.
  *
  * O pagamento é um passo REMOTO: o serviço de pagamentos roda em outro
  * processo (`npm run worker:payments`) e a saga fala com ele só por mensagem,
- * pelo contrato em services/payments/contract — cobrar e estornar são
- * comandos na fila `payments`, com a resposta voltando para a saga.
+ * pelo contrato em services/payments/contract.
+ *
+ * A versão 1 (cupom depois do pagamento, tudo compensável) está em
+ * `checkout.v1.ts`, para as sagas que começaram nela terminarem nela.
  */
 
 import { PermanentError } from "@/shared/errors";
-import type { SagaDefinition, SagaStep } from "@/saga/types";
-import { clearCart, restoreCart } from "@/services/carts";
+import type { LocalStepBody, RemoteStepBody, SagaDefinition, StepContext } from "@/saga/types";
+import { clearCart } from "@/services/carts";
 import { consumeCoupon, releaseCoupon } from "@/services/coupons";
 import {
   isCardPaymentMethodId,
@@ -72,109 +79,118 @@ export function paymentIdempotencyKey(orderNumber: string): string {
   return `order:${orderNumber}:payment`;
 }
 
-const steps: SagaStep<CheckoutSagaPayload>[] = [
-  {
-    name: "reserve-stock",
-    invoke: async (ctx, tx) => {
-      const result = await reserveStock(tx, ctx.payload.lines);
-      return { reservedLines: result.reserved.length };
-    },
-    compensate: async (ctx, tx) => {
-      await releaseStock(tx, ctx.payload.lines);
-    },
+// Passos do checkout, sem papel: cada versão da saga diz o papel de cada um.
+// A compensação mora em constante separada porque só vale onde o passo é compensável.
+
+type LocalStep = LocalStepBody<CheckoutSagaPayload>;
+type Context = StepContext<CheckoutSagaPayload>;
+
+export const reserveStockStep = {
+  name: "reserve-stock",
+  invoke: async (ctx, tx) => {
+    const result = await reserveStock(tx, ctx.payload.lines);
+    return { reservedLines: result.reserved.length };
   },
-  {
-    name: "authorize-payment",
-    request: (ctx) => ({
-      type: PAYMENT_AUTHORIZE,
-      queue: PAYMENTS_QUEUE,
-      payload: {
-        orderId: ctx.payload.orderId,
-        method: ctx.payload.paymentMethod,
-        amountCents: ctx.payload.totalCents,
-        idempotencyKey: paymentIdempotencyKey(ctx.payload.orderNumber),
-        ...(ctx.payload.simulate ? { mode: ctx.payload.simulate } : {}),
-        ...(ctx.payload.cardPaymentMethodId ? { cardPaymentMethodId: ctx.payload.cardPaymentMethodId } : {}),
-      } satisfies AuthorizeCommand,
-    }),
-    compensateRequest: (ctx) => ({
-      type: PAYMENT_REFUND,
-      queue: PAYMENTS_QUEUE,
-      payload: {
-        orderId: ctx.payload.orderId,
-        idempotencyKey: paymentIdempotencyKey(ctx.payload.orderNumber),
-      } satisfies RefundCommand,
-    }),
+  compensate: async (ctx, tx) => {
+    await releaseStock(tx, ctx.payload.lines);
   },
-  {
-    name: "consume-coupon",
-    skip: (ctx) => ctx.payload.couponId == null,
-    invoke: async (ctx, tx) => {
-      const couponId = ctx.payload.couponId;
-      if (!couponId) return { skipped: true };
-      const result = await consumeCoupon(tx, couponId);
-      return { couponUsageCount: result.usageCount };
-    },
-    compensate: async (ctx, tx) => {
-      if (ctx.payload.couponId) await releaseCoupon(tx, ctx.payload.couponId);
-    },
+} satisfies LocalStep;
+
+export const consumeCouponStep = {
+  name: "consume-coupon",
+  skip: (ctx) => ctx.payload.couponId == null,
+  invoke: async (ctx, tx) => {
+    const couponId = ctx.payload.couponId;
+    if (!couponId) return { skipped: true };
+    const result = await consumeCoupon(tx, couponId);
+    return { couponUsageCount: result.usageCount };
   },
-  {
-    name: "confirm-order",
-    invoke: async (ctx, tx) => {
-      const result = await markOrderPaid(tx, ctx.payload.orderId);
-      return { orderConfirmed: result.changed };
-    },
-    compensate: async (ctx, tx) => {
-      await markOrderCancelled(tx, ctx.payload.orderId);
-    },
+  compensate: async (ctx, tx) => {
+    if (ctx.payload.couponId) await releaseCoupon(tx, ctx.payload.couponId);
   },
-  {
-    name: "clear-cart",
-    invoke: async (ctx, tx) => {
-      const result = await clearCart(tx, ctx.payload.cartId);
-      return { cartItemsRemoved: result.removed };
-    },
-    compensate: async (ctx, tx) => {
-      await restoreCart(
-        tx,
-        ctx.payload.cartId,
-        ctx.payload.lines.map((line) => ({
-          productId: line.productId,
-          variantId: line.variantId,
-          quantity: line.quantity,
-          unitPriceCents: line.unitPriceCents,
-        })),
-      );
-    },
+} satisfies LocalStep;
+
+export const authorizePaymentStep = {
+  name: "authorize-payment",
+  request: (ctx: Context) => ({
+    type: PAYMENT_AUTHORIZE,
+    queue: PAYMENTS_QUEUE,
+    payload: {
+      orderId: ctx.payload.orderId,
+      method: ctx.payload.paymentMethod,
+      amountCents: ctx.payload.totalCents,
+      idempotencyKey: paymentIdempotencyKey(ctx.payload.orderNumber),
+      ...(ctx.payload.simulate ? { mode: ctx.payload.simulate } : {}),
+      ...(ctx.payload.cardPaymentMethodId ? { cardPaymentMethodId: ctx.payload.cardPaymentMethodId } : {}),
+    } satisfies AuthorizeCommand,
+  }),
+} satisfies RemoteStepBody<CheckoutSagaPayload>;
+
+/** Estorno: só existe na v1, em que o pagamento ainda era compensável. */
+export function refundPaymentRequest(ctx: Context) {
+  return {
+    type: PAYMENT_REFUND,
+    queue: PAYMENTS_QUEUE,
+    payload: {
+      orderId: ctx.payload.orderId,
+      idempotencyKey: paymentIdempotencyKey(ctx.payload.orderNumber),
+    } satisfies RefundCommand,
+  };
+}
+
+export const confirmOrderStep = {
+  name: "confirm-order",
+  invoke: async (ctx, tx) => {
+    const result = await markOrderPaid(tx, ctx.payload.orderId);
+    return { orderConfirmed: result.changed };
   },
-  {
-    name: "notify-customer",
-    invoke: async (ctx, tx) => {
-      const result = await sendOrderConfirmation(tx, {
-        orderNumber: ctx.payload.orderNumber,
-        recipient: ctx.payload.customerEmail,
-        customerName: ctx.payload.customerName,
-        totalCents: ctx.payload.totalCents,
-        paymentMethod: ctx.payload.paymentMethod,
-        items: ctx.payload.lines.map((line) => ({ name: line.name, quantity: line.quantity, unitPriceCents: line.unitPriceCents })),
-      });
-      return { notificationId: result.notificationId, duplicate: result.duplicate };
-    },
+} satisfies LocalStep;
+
+export const clearCartStep = {
+  name: "clear-cart",
+  invoke: async (ctx, tx) => {
+    const result = await clearCart(tx, ctx.payload.cartId);
+    return { cartItemsRemoved: result.removed };
   },
-];
+} satisfies LocalStep;
+
+export const notifyCustomerStep = {
+  name: "notify-customer",
+  invoke: async (ctx, tx) => {
+    const result = await sendOrderConfirmation(tx, {
+      orderNumber: ctx.payload.orderNumber,
+      recipient: ctx.payload.customerEmail,
+      customerName: ctx.payload.customerName,
+      totalCents: ctx.payload.totalCents,
+      paymentMethod: ctx.payload.paymentMethod,
+      items: ctx.payload.lines.map((line) => ({ name: line.name, quantity: line.quantity, unitPriceCents: line.unitPriceCents })),
+    });
+    return { notificationId: result.notificationId, duplicate: result.duplicate };
+  },
+} satisfies LocalStep;
+
+/** Rede de segurança do caminho triste, igual nas duas versões. */
+export const cancelOrderOnCompensated: SagaDefinition<CheckoutSagaPayload>["onCompensated"] = async (ctx, tx) => {
+  // Mesmo que o passo `confirm-order` nunca tenha rodado, o pedido não pode
+  // ficar preso em `pending`.
+  await markOrderCancelled(tx, ctx.payload.orderId);
+};
 
 export const checkoutSaga: SagaDefinition<CheckoutSagaPayload> = {
   type: CHECKOUT_SAGA_TYPE,
+  version: 2,
   maxAttemptsPerStep: 3,
-  steps,
+  steps: [
+    { ...reserveStockStep, kind: "compensatable" },
+    { ...consumeCouponStep, kind: "compensatable" },
+    { ...authorizePaymentStep, kind: "pivot" },
+    { ...confirmOrderStep, kind: "retriable" },
+    { ...clearCartStep, kind: "retriable" },
+    { ...notifyCustomerStep, kind: "retriable" },
+  ],
   parsePayload: parseCheckoutPayload,
   describeFailure: describeCheckoutFailure,
-  onCompensated: async (ctx, tx) => {
-    // Rede de segurança: mesmo que o passo `confirm-order` nunca tenha rodado,
-    // o pedido não pode ficar preso em `pending`.
-    await markOrderCancelled(tx, ctx.payload.orderId);
-  },
+  onCompensated: cancelOrderOnCompensated,
 };
 
 /** Mensagem curta para o cliente final — sem vazar detalhe de infraestrutura. */

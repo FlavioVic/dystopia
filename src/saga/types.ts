@@ -21,8 +21,28 @@ export type StepRequest = {
   payload: Record<string, unknown>;
 };
 
+/**
+ * Papel do passo na saga — o vocabulário de Garcia-Molina & Salem (1987),
+ * popularizado por Chris Richardson em "Microservices Patterns":
+ *
+ * - `compensatable` → tem como desfazer. Vem ANTES do pivô: se algo falha
+ *   depois dele (até o pivô), a saga desfaz em ordem reversa.
+ * - `pivot` → o ponto sem volta (no checkout, a cobrança). Se ele passa, a
+ *   saga TEM que terminar; se ele falha, desfaz os compensáveis. Nunca é
+ *   desfeito pela saga.
+ * - `retriable` → vem DEPOIS do pivô e não pode desistir: falha transitória
+ *   tenta de novo; falha de regra (ou tentativas esgotadas) para a saga em
+ *   `halted` para alguém corrigir a causa e retomar. Nunca desfaz nada.
+ *
+ * `validateSagaDefinition` (registry) recusa uma definição fora dessa ordem.
+ */
+export type StepKind = "compensatable" | "pivot" | "retriable";
+
 type StepBase<TPayload> = {
   name: string;
+  kind: StepKind;
+  /** Tentativas deste passo antes de desistir (sobrepõe o padrão da definição). */
+  maxAttempts?: number;
   /** Pula o passo quando ele não faz sentido (ex.: pedido sem cupom). */
   skip?: (ctx: StepContext<TPayload>) => boolean;
 };
@@ -53,14 +73,28 @@ export type RemoteSagaStep<TPayload> = StepBase<TPayload> & {
 
 export type SagaStep<TPayload> = LocalSagaStep<TPayload> | RemoteSagaStep<TPayload>;
 
+/** Passo sem papel: o mesmo passo reaproveitado em versões diferentes da saga. */
+export type LocalStepBody<TPayload> = Omit<LocalSagaStep<TPayload>, "kind">;
+export type RemoteStepBody<TPayload> = Omit<RemoteSagaStep<TPayload>, "kind">;
+
 export function isRemoteStep<TPayload>(step: SagaStep<TPayload>): step is RemoteSagaStep<TPayload> {
   return "request" in step;
 }
 
+export function hasCompensation<TPayload>(step: SagaStep<TPayload>): boolean {
+  return isRemoteStep(step) ? step.compensateRequest != null : step.compensate != null;
+}
+
 export type SagaDefinition<TPayload> = {
   type: string;
+  /**
+   * Versão da definição. A saga grava a versão com que começou e termina
+   * nela: mudar a ordem dos passos é uma versão NOVA, e a antiga fica
+   * registrada até não haver mais saga dela em andamento.
+   */
+  version: number;
   steps: SagaStep<TPayload>[];
-  /** Tentativas por passo antes de desistir e compensar. */
+  /** Tentativas por passo antes de desistir (compensar ou parar). */
   maxAttemptsPerStep?: number;
   /** Valida/normaliza o payload persistido (jsonb). */
   parsePayload: (raw: unknown) => TPayload;
@@ -74,3 +108,8 @@ export type SagaDefinition<TPayload> = {
 };
 
 export const DEFAULT_MAX_ATTEMPTS_PER_STEP = 3;
+/**
+ * Passo depois do pivô não desiste fácil: com o backoff (1 s, 2 s, 4 s… até
+ * 60 s), 8 tentativas cobrem uns 2 minutos de instabilidade antes de parar.
+ */
+export const DEFAULT_RETRIABLE_MAX_ATTEMPTS = 8;

@@ -12,57 +12,79 @@ virar uma chamada HTTP para um provedor, que não participa do `COMMIT`.
 Hoje o fluxo é:
 
 ```
-placeOrder (Server Action)
+placeOrder (Server Action) → placeOrder (caso de uso, src/application/checkout.ts)
   └─ 1 transação: endereço + pedido(pending) + itens + saga + mensagem na outbox
+         │  e responde — a página do pedido mostra "processando" e se
+         │  atualiza sozinha
          │
-         ├─ caminho rápido: o próprio request avança os passos LOCAIS até o
-         │                  pagamento, que é remoto, e responde — a página do
-         │                  pedido mostra "processando" e se atualiza sozinha
-         │
-         └─ caminho durável: relay ──▶ RabbitMQ ──▶ worker (fila `saga`)
-                            (se o processo do Next morrer, o worker termina)
+         └─ relay ──▶ RabbitMQ ──▶ consumidor da fila `saga`
+            (`npm run worker` em container; no deploy só-Vercel, o dreno
+             depois da resposta — o mesmo código de consumo)
 
-            o lease da saga garante que só um dos dois avança por vez
+            o lease da saga garante que só um consumidor avança por vez
 ```
 
 Nada aqui é *fire and forget*: quando o request responde, o pedido e a
 mensagem já estão commitados juntos. A partir daí tudo é **assíncrono e
 durável** — os passos rodam em ordem, um de cada vez, mas fora do request.
 
-| # | Passo | Serviço | Compensação |
-|---|---|---|---|
-| 1 | `reserve-stock` | `services/inventory` | devolve as unidades |
-| 2 | `authorize-payment` | `services/payments` — **processo próprio**, por mensagem | estorna a cobrança (também por mensagem) |
-| 3 | `consume-coupon` | `services/coupons` | devolve o uso do cupom |
-| 4 | `confirm-order` | `services/orders` | cancela o pedido |
-| 5 | `clear-cart` | `services/carts` | restaura os itens do carrinho |
-| 6 | `notify-customer` | `services/notifications` | — (só avisa) |
+| # | Passo | Serviço | Papel | Se falhar |
+|---|---|---|---|---|
+| 1 | `reserve-stock` | `services/inventory` | compensável | desfaz (devolve as unidades) |
+| 2 | `consume-coupon` | `services/coupons` | compensável | desfaz (devolve o uso do cupom) |
+| 3 | `authorize-payment` | `services/payments` — **processo próprio**, por mensagem | **pivô** | recusado: desfaz 2 e 1 |
+| 4 | `confirm-order` | `services/orders` | retentável | tenta de novo; não andou, para em `halted` |
+| 5 | `clear-cart` | `services/carts` | retentável | idem |
+| 6 | `notify-customer` | `services/notifications` | retentável | idem |
 
 ```mermaid
 flowchart LR
-    REQ(["request do checkout<br/>(responde depois do passo 1)"]) --> S1[1 · reserva estoque]
-    S1 -- "comando por mensagem<br/>(fila payments)" --> S2[2 · autoriza pagamento<br/>processo próprio]
-    S2 -- "resposta por mensagem<br/>(fila saga)" --> S3[3 · consome cupom]
-    S3 --> S4[4 · confirma pedido] --> S5[5 · limpa carrinho] --> S6[6 · avisa cliente] --> OK([pedido pago])
+    REQ(["request do checkout<br/>(grava pedido + saga e responde)"]) --> S1[1 · reserva estoque]
+    S1 --> S2[2 · consome cupom]
+    S2 -- "comando por mensagem<br/>(fila payments)" --> S3{{3 · cobra<br/>PIVÔ}}
+    S3 -- "resposta por mensagem<br/>(fila saga)" --> S4[4 · confirma pedido]
+    S4 --> S5[5 · limpa carrinho] --> S6[6 · avisa cliente] --> OK([pedido pago])
 
-    S3 -. falha permanente .-> C2[estorna cobrança]
-    C2 -.-> C1[devolve estoque] -.-> X([pedido cancelado])
-
-    S3 -. falha transitória .-> Q[(fila de espera<br/>TTL + DLX)]
-    Q -. "até 3 tentativas" .-> S3
+    S3 -. recusado .-> C2[devolve cupom] -.-> C1[devolve estoque] -.-> X([pedido cancelado])
+    S4 -. "erro de regra<br/>ou tentativas esgotadas" .-> H([halted: retomar no painel])
 ```
 
-*As setas indicam ORDEM, não chamada síncrona: entre um passo e outro há uma
-mensagem durável. Exemplo com falha no passo 3: só o que já foi aplicado (2 e
-1) é desfeito, do mais recente para o mais antigo. Qualquer passo segue o mesmo
-padrão.*
+### Por que essa ordem: compensável → pivô → retentável
 
-- **Falha de negócio** (sem estoque, pagamento recusado, cupom esgotado) →
-  compensa na hora, em ordem reversa, e o pedido vira `cancelled`.
+É o desenho clássico de saga (Garcia-Molina & Salem; Chris Richardson,
+*Microservices Patterns*). Cada passo tem um papel:
+
+- **Compensável** (estoque, cupom): tem como desfazer, e desfazer é barato e
+  interno. Vem primeiro tudo o que pode falhar por regra (sem estoque, cupom
+  esgotado) — quando falha, nada foi cobrado.
+- **Pivô** (cobrança): o ponto sem volta. Estornar custa taxa, demora e aparece
+  na fatura do cliente, então a cobrança só acontece quando o resto já está
+  garantido. Recusada, a saga desfaz os compensáveis; aprovada, a saga **tem**
+  que terminar.
+- **Retentável** (confirmar, limpar carrinho, avisar): vem depois do pivô e não
+  desiste. Falha passageira tenta de novo (até 8 vezes, ~2 min de backoff);
+  erro de regra ou tentativas esgotadas param a saga em `halted`, com alerta
+  crítico no painel e botão **Retomar** — depois de alguém corrigir a causa.
+  **Pedido pago nunca é estornado por um erro de confirmação.**
+
+`validateSagaDefinition` (registry) recusa uma definição fora dessa ordem, com
+dois pivôs ou com compensação depois do ponto sem volta.
+
+### Versão da definição
+
+Cada saga grava `definition_version` ao nascer e termina naquela versão. Mudar
+a ordem dos passos com saga em andamento faria `current_step` apontar para o
+passo errado — por isso a ordem nova é a **v2** e a antiga (cobrança antes do
+cupom, tudo compensável) segue registrada como **v1** em
+`definitions/checkout.v1.ts` até não haver mais saga dela rodando.
+
+- **Falha de negócio** antes do pivô ou no pivô (sem estoque, cupom esgotado,
+  pagamento recusado) → compensa na hora, em ordem reversa, e o pedido vira
+  `cancelled`.
 - **Falha transitória** (provedor fora, deadlock) → retry com backoff
-  exponencial, até 3 tentativas por passo; depois compensa. Durante o backoff
-  a saga fica "ocupada" até a hora do retry, então mensagem duplicada não
-  adianta a tentativa.
+  exponencial (3 tentativas nos compensáveis, 8 nos retentáveis). Durante o
+  backoff a saga fica "ocupada" até a hora do retry, então mensagem duplicada
+  não adianta a tentativa.
 - O cliente vê isso em `/pedido/[orderNumber]`: pedido "em processamento" com a
   linha do tempo dos passos (a página se atualiza sozinha), confirmado, ou
   cancelado com o motivo.
@@ -93,8 +115,9 @@ saga ◀──── saga.reply ──────── fila saga ◀─relay�
 - **Retry é de quem executa**: falha transitória volta pela fila de espera da
   `payments` com backoff; na última tentativa, pagamentos **responde com
   falha** — a saga compensa em vez de esperar para sempre.
-- **Estorno também é comando**: a compensação espera a resposta do estorno
-  antes de desfazer o passo anterior.
+- **Estorno também é comando** (só na v1, em que a cobrança era
+  compensável): a compensação espera a resposta do estorno antes de desfazer o
+  passo anterior. Na v2 a cobrança é o pivô e a saga nunca a desfaz.
 - **Serviço fora do ar**: a saga só espera (a reconciliação não a trata como
   parada); passando de 5 min, o alerta de "saga parada" aparece no admin.
 
@@ -122,7 +145,7 @@ saga ── payments.authorize { pm_… } ──▶ processo de pagamentos ─�
   via `fetch` (`services/payments/stripe.ts`).
 - **Idempotência ponta a ponta**: a chave do pedido vai no header
   `Idempotency-Key`; retry nunca cobra duas vezes.
-- **Erro do Stripe → taxonomia da saga**: cartão recusado compensa na hora;
+- **Erro do Stripe → taxonomia de erro**: cartão recusado compensa na hora;
   429, 5xx, erro de rede e `processing_error` voltam pela fila de espera;
   chave inválida é erro de configuração.
 - **Só chave de teste**: com `sk_live_`, o processo de pagamentos se recusa a
@@ -210,7 +233,8 @@ que cobre o atraso pedido (arredonda para cima: nunca sai antes da hora).
 | Camada | Tentativas | Onde |
 |---|---|---|
 | Publicação na outbox → broker | ilimitadas, backoff até 1 min | `queue/relay.ts` |
-| Passo local da saga | 3 por passo, depois compensa | `saga/orchestrator.ts` |
+| Passo compensável da saga | 3 por passo, depois compensa | `saga/orchestrator.ts` |
+| Passo retentável (depois do pivô) | 8 por passo, depois `halted` (retomar no painel) | `saga/orchestrator.ts` |
 | Comando de pagamento | 3; na última, responde com falha | `services/payments/consumer.ts` |
 | Entrega de e-mail | 5; depois DLQ e `failed` | `services/notifications/delivery.ts` |
 | Mensagem de saga (banco fora, bug) | 5; depois DLQ — a reconciliação recria o avanço | `saga/runner.ts` + `saga/reconcile.ts` |

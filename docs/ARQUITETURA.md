@@ -90,21 +90,28 @@ passo remoto (pagamento):
   saga ◀──── saga.reply ─────── fila `saga` ◀── (cobrança + resposta: 1 tx)
   (as duas setas passam pela outbox de quem envia + relay)
 
-SAGA checkout (src/saga/definitions/checkout.ts)
-  1 reserve-stock       inventory      ⇄ devolve as unidades
-  2 authorize-payment   payments (remoto, por mensagem)  ⇄ estorna (também por mensagem)
-  3 consume-coupon      coupons        ⇄ devolve o uso
-  4 confirm-order       orders         ⇄ cancela o pedido
-  5 clear-cart          carts          ⇄ restaura os itens
-  6 notify-customer     notifications  (sem compensação)
+SAGA checkout v2 (src/saga/definitions/checkout.ts)
+  1 reserve-stock       inventory      compensável  ⇄ devolve as unidades
+  2 consume-coupon      coupons        compensável  ⇄ devolve o uso
+  3 authorize-payment   payments (remoto, por mensagem)   PIVÔ — ponto sem volta
+  4 confirm-order       orders         retentável
+  5 clear-cart          carts          retentável
+  6 notify-customer     notifications  retentável
 
-falha permanente em qualquer passo → compensa de 1..n-1 em ordem REVERSA
-falha transitória → retry com backoff (3 tentativas por passo); a saga SEGURA
-                    o lease até a hora do retry, então mensagem duplicada não
-                    adianta a tentativa; no passo remoto quem tenta de novo é o
-                    processo de pagamentos, e na última tentativa ele RESPONDE
-                    com falha (a saga não espera para sempre)
+falha permanente até o pivô (inclusive) → compensa o que foi aplicado, em
+                    ordem REVERSA, e cancela o pedido
+falha depois do pivô → NUNCA desfaz: tenta de novo (8 tentativas) e, se não
+                    andar, a saga para em `halted` até alguém retomar
+falha transitória → retry com backoff; a saga SEGURA o lease até a hora do
+                    retry, então mensagem duplicada não adianta a tentativa; no
+                    passo remoto quem tenta de novo é o processo de pagamentos,
+                    e na última tentativa ele RESPONDE com falha (a saga não
+                    espera para sempre)
 ```
+
+A saga roda na versão da definição com que começou (`sagas.definition_version`).
+A v1 (cobrança antes do cupom, tudo compensável) fica em
+`definitions/checkout.v1.ts` até não haver saga dela em andamento.
 
 Estado durável: `sagas` (instância), `saga_steps` (log por passo = registro de
 idempotência), `outbox` (caixa de saída) e as filas no RabbitMQ. Visível em
@@ -143,10 +150,14 @@ dead-letter-exchange de volta para a de trabalho) e a DLQ `<p>.<fila>.dlq`. `<p>
    idempotência (ex.: `payments.idempotency_key`).
 4. **Tentativa é contada antes de executar** — crash no meio não vira retry
    infinito.
-5. **Erro tem taxonomia**: `PermanentError` (regra de negócio → compensa já) vs
+5. **Erro tem taxonomia** (`src/shared/errors.ts`): `PermanentError` (regra
+   de negócio → compensa já, ou para em `halted` depois do pivô) vs
    `RetryableError` (transitório → backoff). Erro desconhecido é tratado como
    transitório de propósito.
 6. **Compensação é idempotente** e nunca lança por estado terminal.
+6a. **Depois do pivô nada se desfaz.** A cobrança aprovada obriga a saga a
+   terminar: passo retentável que não anda para a saga em `halted` (alerta
+   crítico + "Retomar" no painel), nunca estorna.
 7. **Estoque sai com UPDATE condicional** (`where stock >= qtd`): se não
    atualizou linha, não tem estoque — erro permanente. Nunca `GREATEST(0, ...)`,
    que esconde venda sem estoque.
@@ -186,11 +197,13 @@ dead-letter-exchange de volta para a de trabalho) e a DLQ `<p>.<fila>.dlq`. `<p>
 
 ## Como estender
 
-**Novo passo na saga**: adicione em `steps` de `src/saga/definitions/checkout.ts`
-com `invoke` + `compensate`, implemente a regra num serviço, e dê um rótulo em
-`src/lib/saga-ui.ts`. Passo novo entra **no fim** se já houver saga em voo em
-produção (saga antiga guarda `current_step`; inserir no meio desalinha a
-retomada).
+**Novo passo na saga**: implemente a regra num serviço, escolha o papel
+(`compensatable` com `compensate` antes do pivô; `retriable`, sem compensação,
+depois dele) e dê um rótulo em `src/lib/saga-ui.ts`. Mudou a lista ou a ordem
+dos passos? É uma **versão nova** da definição: copie a atual para
+`checkout.vN.ts`, registre as duas em `src/saga/registry.ts` e suba o
+`version` — saga em andamento guarda `current_step` e termina na versão dela.
+O registry valida a forma (compensáveis → pivô → retentáveis) na subida.
 
 **Novo passo remoto** (efeito em outro processo): no lugar de `invoke`, use
 `request` (e `compensateRequest`) devolvendo `{ type, queue, payload }`; o

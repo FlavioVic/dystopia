@@ -1,14 +1,16 @@
 /**
- * Monta um checkout igual ao que a Server Action monta (pedido `pending` +
- * saga + job na mesma transação), mas sem precisar de request HTTP.
+ * Monta um checkout igual ao que o caso de uso monta (pedido `pending` +
+ * saga + mensagem na mesma transação), mas sem precisar de carrinho válido —
+ * dá para anexar cupom esgotado, forçar o gateway simulado e a versão da saga.
  *
  * Os testes de integração usam isso para exercitar exatamente o caminho de
- * produção: `createOrder` + `startSaga` + `runSagaInline`/worker.
+ * produção: `createOrder` + `startSaga`, e depois os consumidores (ou
+ * `runSagaInline` para avançar um passo por vez).
  */
 
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { cartItems, coupons } from "@/db/schema";
+import { cartItems, coupons, sagas } from "@/db/schema";
 import { shippingFor } from "@/lib/shipping";
 import { CHECKOUT_SAGA_TYPE, type CheckoutSagaPayload } from "@/saga/definitions/checkout";
 import { startSaga } from "@/saga/runner";
@@ -30,7 +32,12 @@ export type StartedCheckout = {
 
 export async function startCheckout(
   fixture: CheckoutFixture,
-  options: { simulate?: SimulationMode; useCoupon?: boolean } = {},
+  options: {
+    simulate?: SimulationMode;
+    useCoupon?: boolean;
+    /** Simula uma saga que começou numa versão antiga da definição (em andamento num deploy). */
+    definitionVersion?: number;
+  } = {},
 ): Promise<StartedCheckout> {
   const items = await db.query.cartItems.findMany({ where: eq(cartItems.cartId, fixture.cartId) });
 
@@ -109,6 +116,9 @@ export async function startCheckout(
       correlationId: orderNumber,
       payload: payload as unknown as Record<string, unknown>,
     });
+    if (options.definitionVersion !== undefined) {
+      await tx.update(sagas).set({ definitionVersion: options.definitionVersion }).where(eq(sagas.id, sagaId));
+    }
 
     return { sagaId, orderId };
   });
