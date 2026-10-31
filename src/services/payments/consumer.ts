@@ -12,14 +12,13 @@
  * Reentrega do mesmo comando é segura: `idempotency_key` no banco e no Stripe.
  */
 
-import { db, type Transaction } from "@/db";
 import type { MessageHandler, QueueMessage } from "@/queue";
 import { readReplyTo, sendReply, type ReplyTo } from "@/queue/reply";
 import { errorCode, errorMessage, isRetryable, PermanentError } from "@/shared/errors";
 import {
-  isCardPaymentMethodId,
   isPaymentMethod,
-  isSimulationMode,
+  isPaymentToken,
+  isTestPaymentScenario,
   PAYMENT_AUTHORIZE,
   PAYMENT_REFUND,
   PAYMENT_STATUS,
@@ -29,7 +28,9 @@ import {
   type RefundReply,
   type StatusCommand,
   type StatusReply,
+  TEST_PAYMENT_TOKENS,
 } from "./contract";
+import { paymentsDb, type PaymentsTransaction } from "./db";
 import { cardProvider } from "./gateway";
 import { authorizePayment, getPaymentStatus, refundPayment } from "./index";
 
@@ -38,10 +39,9 @@ export { cardProvider };
 /** Handlers que o processo de pagamentos registra no worker. */
 export const paymentHandlers: Record<string, MessageHandler> = {
   [PAYMENT_AUTHORIZE]: (message) =>
-    handle(message, parseAuthorize, async (tx, command): Promise<AuthorizeReply> => {
-      const result = await authorizePayment(tx, { ...command, attempt: message.attempt });
-      return { paymentId: result.paymentId, transactionId: result.transactionId };
-    }),
+    handle(message, parseAuthorize, (tx, command): Promise<AuthorizeReply> =>
+      authorizePayment(tx, { ...command, attempt: message.attempt }),
+    ),
   [PAYMENT_REFUND]: (message) =>
     handle(message, parseRefund, async (tx, command): Promise<RefundReply> => refundPayment(tx, command)),
   [PAYMENT_STATUS]: (message) =>
@@ -51,7 +51,7 @@ export const paymentHandlers: Record<string, MessageHandler> = {
 async function handle<TCommand, TReply extends Record<string, unknown>>(
   message: QueueMessage,
   parse: (payload: Record<string, unknown>) => TCommand,
-  run: (tx: Transaction, command: TCommand) => Promise<TReply>,
+  run: (tx: PaymentsTransaction, command: TCommand) => Promise<TReply>,
 ): Promise<void> {
   const replyTo = readReplyTo(message.payload);
   // Sem endereço não há a quem responder: erro de quem montou o comando, que
@@ -60,7 +60,9 @@ async function handle<TCommand, TReply extends Record<string, unknown>>(
 
   try {
     const command = parse(message.payload);
-    await db.transaction(async (tx) => {
+    // Efeito e resposta no banco de PAGAMENTOS, na mesma transação: a
+    // resposta sai pela outbox dele, publicada pelo relay deste processo.
+    await paymentsDb.transaction(async (tx) => {
       const output = await run(tx, command);
       await sendReply(tx, replyTo, { ok: true, output, attempts: message.attempt });
     });
@@ -71,7 +73,7 @@ async function handle<TCommand, TReply extends Record<string, unknown>>(
 }
 
 async function replyFailure(replyTo: ReplyTo, message: QueueMessage, error: unknown): Promise<void> {
-  await sendReply(db, replyTo, {
+  await sendReply(paymentsDb, replyTo, {
     ok: false,
     code: errorCode(error),
     message: errorMessage(error),
@@ -88,22 +90,24 @@ function invalid(type: string, field: string): PermanentError {
 }
 
 function parseAuthorize(payload: Record<string, unknown>): AuthorizeCommand {
-  const { orderId, method, amountCents, idempotencyKey, mode, cardPaymentMethodId } = payload;
+  const { orderId, method, amountCents, idempotencyKey } = payload;
   if (typeof orderId !== "string") throw invalid(PAYMENT_AUTHORIZE, "orderId");
   if (!isPaymentMethod(method)) throw invalid(PAYMENT_AUTHORIZE, "method");
   if (typeof amountCents !== "number" || !Number.isInteger(amountCents)) throw invalid(PAYMENT_AUTHORIZE, "amountCents");
   if (typeof idempotencyKey !== "string") throw invalid(PAYMENT_AUTHORIZE, "idempotencyKey");
-  if (cardPaymentMethodId !== undefined && !isCardPaymentMethodId(cardPaymentMethodId)) {
-    throw invalid(PAYMENT_AUTHORIZE, "cardPaymentMethodId");
-  }
-  return {
-    orderId,
-    method,
-    amountCents,
-    idempotencyKey,
-    ...(isSimulationMode(mode) ? { mode } : {}),
-    ...(cardPaymentMethodId ? { cardPaymentMethodId } : {}),
-  };
+  const paymentToken = legacyToken(payload) ?? payload.paymentToken;
+  if (paymentToken !== undefined && !isPaymentToken(paymentToken)) throw invalid(PAYMENT_AUTHORIZE, "paymentToken");
+  return { orderId, method, amountCents, idempotencyKey, ...(paymentToken ? { paymentToken } : {}) };
+}
+
+/**
+ * Comando gravado antes do token existir (`mode`, `cardPaymentMethodId`) e
+ * ainda na fila no deploy: vira o token equivalente.
+ */
+function legacyToken(payload: Record<string, unknown>): string | undefined {
+  const { mode, cardPaymentMethodId } = payload;
+  if (isTestPaymentScenario(mode) && mode !== "approve") return TEST_PAYMENT_TOKENS[mode];
+  return typeof cardPaymentMethodId === "string" ? cardPaymentMethodId : undefined;
 }
 
 function parseRefund(payload: Record<string, unknown>): RefundCommand {

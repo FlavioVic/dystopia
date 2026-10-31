@@ -8,7 +8,7 @@
 import { db } from "@/db";
 import { createLogger } from "@/lib/logger";
 import { sagaHandlers } from "@/queue/handlers";
-import { pruneOutbox, relayAll } from "@/queue/relay";
+import { pruneOutbox, relayAll, type OutboxDatabase } from "@/queue/relay";
 import { drainQueues, type DrainReport, type Handlers } from "@/queue/worker";
 import { errorMessage } from "@/shared/errors";
 import { SAGA_QUEUE } from "@/saga/messaging";
@@ -16,6 +16,7 @@ import { reconcile, type ReconcileReport } from "@/saga/reconcile";
 import { createNotificationHandlers } from "@/services/notifications/delivery";
 import { NOTIFICATIONS_QUEUE } from "@/services/notifications";
 import { paymentHandlers } from "@/services/payments/consumer";
+import { paymentsDb } from "@/services/payments/db";
 import { PAYMENTS_QUEUE } from "@/services/payments/contract";
 import { pruneRateLimits } from "@/services/rate-limit";
 import { pruneExpiredSessions } from "@/services/sessions";
@@ -24,6 +25,13 @@ const logger = createLogger("worker");
 
 /** Todas as filas do sistema (painel, worker embutido). */
 export const ALL_QUEUES = [SAGA_QUEUE, PAYMENTS_QUEUE, NOTIFICATIONS_QUEUE];
+
+/**
+ * As duas caixas de saída: a da loja e a de pagamentos (cada uma no banco
+ * dela). O worker embutido roda pagamentos no mesmo processo, então publica
+ * as duas; em container, cada processo publica a sua.
+ */
+export const ALL_OUTBOXES: OutboxDatabase[] = [db, paymentsDb];
 
 /** Mensagem publicada fica 7 dias na outbox (auditoria) e depois sai. */
 const OUTBOX_RETENTION_MS = 7 * 24 * 60 * 60_000;
@@ -34,11 +42,12 @@ export function workerHandlers(): Handlers {
 
 /** Faxina que só um executor periódico faz (worker de pé ou cron). */
 export async function housekeeping(): Promise<void> {
-  const [rateLimits, published, sessions] = await Promise.all([
+  const [rateLimits, sessions, ...outboxes] = await Promise.all([
     pruneRateLimits(db, 24 * 60 * 60),
-    pruneOutbox(OUTBOX_RETENTION_MS),
     pruneExpiredSessions(db),
+    ...ALL_OUTBOXES.map((database) => pruneOutbox(database, OUTBOX_RETENTION_MS)),
   ]);
+  const published = outboxes.reduce((sum, count) => sum + count, 0);
   if (rateLimits + published + sessions > 0) logger.info("faxina", { rateLimits, outbox: published, sessions });
 }
 
@@ -62,8 +71,9 @@ export async function runInlineWorker(
   try {
     const reconciled = options.reconcile ? await reconcile() : undefined;
     if (options.housekeeping) await housekeeping();
-    await relayAll();
+    await relayAll(ALL_OUTBOXES);
     const report = await drainQueues({
+      outboxes: ALL_OUTBOXES,
       queues: ALL_QUEUES,
       handlers: workerHandlers(),
       budgetMs: options.budgetMs,

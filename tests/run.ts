@@ -3,10 +3,11 @@
  * precisa de banco).
  *
  * O que ele faz antes de rodar:
- * 1. calcula a URL do banco de teste (`dystopia_test`, derivado do
- *    DATABASE_URL de dev — ver tests/helpers/env.ts);
- * 2. cria o banco se não existir e aplica as migrations;
- * 3. aponta `DATABASE_URL` para o banco de teste, isola as filas do RabbitMQ
+ * 1. calcula as URLs dos bancos de teste (`dystopia_test` e o de pagamentos,
+ *    `dystopia_payments_test`, derivados do DATABASE_URL de dev — ver
+ *    tests/helpers/env.ts);
+ * 2. cria os bancos se não existirem e aplica as migrations de cada um;
+ * 3. aponta `DATABASE_URL`/`PAYMENTS_DATABASE_URL` para eles, isola as filas do RabbitMQ
  *    num prefixo próprio (`dystopia_test.*`) com filas de espera curtas — o
  *    retry é exercitado de verdade no broker, só que em milissegundos —, e
  *    passa `--import tsx` para os
@@ -25,7 +26,7 @@ import { spec } from "node:test/reporters";
 import { Pool } from "pg";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
-import { adminDatabaseUrl, testDatabaseName, testDatabaseUrl } from "./helpers/env";
+import { adminDatabaseUrl, testDatabaseUrl, testPaymentsDatabaseUrl } from "./helpers/env";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 const unitOnly = process.argv.includes("--unit");
@@ -40,8 +41,13 @@ function testFiles(dir: string): string[] {
     .map((file) => path.join(absolute, file));
 }
 
-async function ensureTestDatabase(): Promise<void> {
-  const name = testDatabaseName();
+async function ensureTestDatabases(): Promise<void> {
+  await ensureDatabase(testDatabaseUrl(), "drizzle");
+  await ensureDatabase(testPaymentsDatabaseUrl(), "drizzle-payments");
+}
+
+async function ensureDatabase(url: string, migrationsFolder: string): Promise<void> {
+  const name = new URL(url).pathname.replace(/^\//, "");
   const admin = new Pool({ connectionString: adminDatabaseUrl() });
 
   try {
@@ -57,9 +63,9 @@ async function ensureTestDatabase(): Promise<void> {
     await admin.end();
   }
 
-  const pool = new Pool({ connectionString: testDatabaseUrl() });
+  const pool = new Pool({ connectionString: url });
   try {
-    await migrate(drizzle(pool), { migrationsFolder: path.join(ROOT, "drizzle") });
+    await migrate(drizzle(pool), { migrationsFolder: path.join(ROOT, migrationsFolder) });
   } finally {
     await pool.end();
   }
@@ -70,10 +76,13 @@ async function main(): Promise<void> {
   const files = filters.length === 0 ? all : all.filter((file) => filters.some((term) => path.basename(file).includes(term)));
 
   if (!unitOnly) {
-    await ensureTestDatabase();
+    await ensureTestDatabases();
   }
 
   process.env.DATABASE_URL = testDatabaseUrl();
+  process.env.PAYMENTS_DATABASE_URL = testPaymentsDatabaseUrl();
+  // Os testes usam os tokens de teste do provedor simulado (recusar, instável…).
+  process.env.ALLOW_CHECKOUT_SIMULATION ??= "1";
   process.env.RABBITMQ_PREFIX = "dystopia_test";
   process.env.RABBITMQ_RETRY_TIERS_MS = "50,100,200,400";
   process.env.NODE_OPTIONS = ["--import", "tsx", process.env.NODE_OPTIONS ?? ""].join(" ").trim();

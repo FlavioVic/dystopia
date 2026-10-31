@@ -9,7 +9,9 @@ import assert from "node:assert/strict";
 import { after, beforeEach, describe, it } from "node:test";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { orders, outbox, payments, products, sagas } from "@/db/schema";
+import { orders, outbox, products, sagas } from "@/db/schema";
+import { paymentsDb } from "@/services/payments/db";
+import { payments } from "@/services/payments/schema";
 import { enqueue } from "@/queue";
 import { purgeQueues, queueDepths } from "@/queue/broker";
 import { sendReply, readReplyTo } from "@/queue/reply";
@@ -89,14 +91,15 @@ describe("passo remoto — resposta", () => {
     assert.equal((await settleSaga(checkout.sagaId)).status, "completed");
 
     // Reentrega da mesma resposta (broker reentrega o que ficou sem ack).
-    const original = await db.query.outbox.findFirst({ where: eq(outbox.type, SAGA_REPLY) });
+    // A resposta nasce na outbox do banco de pagamentos (junto com a cobrança).
+    const original = await paymentsDb.query.outbox.findFirst({ where: eq(outbox.type, SAGA_REPLY) });
     assert.ok(original);
     await enqueue(db, { type: SAGA_REPLY, queue: SAGA_QUEUE, payload: original.payload as Record<string, unknown> });
 
     assert.deepEqual(await work("saga"), { received: 1, acked: 1, retried: 0, dead: 0 });
     const saga = await db.query.sagas.findFirst({ where: eq(sagas.id, checkout.sagaId) });
     assert.equal(saga?.status, "completed");
-    assert.equal((await db.query.payments.findMany({ where: eq(payments.orderId, checkout.orderId) })).length, 1);
+    assert.equal((await paymentsDb.query.payments.findMany({ where: eq(payments.orderId, checkout.orderId) })).length, 1);
     assert.equal(await stockOf(fixture.product.id), 4, "nada aplicado de novo");
   });
 
@@ -154,13 +157,13 @@ describe("passo remoto — compensação", () => {
     assert.equal((await step(checkout.sagaId, "authorize-payment"))?.status, "waiting");
     assert.equal((await commands(PAYMENT_REFUND)).length, 1, "pedido de estorno enviado");
     assert.equal(await stockOf(fixture.product.id), 3, "desfaz em ordem: estoque ainda não voltou");
-    const [payment] = await db.query.payments.findMany({ where: eq(payments.orderId, checkout.orderId) });
+    const [payment] = await paymentsDb.query.payments.findMany({ where: eq(payments.orderId, checkout.orderId) });
     assert.equal(payment.status, "paid");
 
     const done = await settleSaga(checkout.sagaId, { inline: false });
     assert.equal(done.status, "compensated");
     assert.equal(await stockOf(fixture.product.id), 4);
-    const [refunded] = await db.query.payments.findMany({ where: eq(payments.orderId, checkout.orderId) });
+    const [refunded] = await paymentsDb.query.payments.findMany({ where: eq(payments.orderId, checkout.orderId) });
     assert.equal(refunded.status, "refunded");
     assert.equal((await step(checkout.sagaId, "authorize-payment"))?.status, "compensated");
   });

@@ -182,3 +182,58 @@ describe("migration 0013 — eventos do pedido", () => {
     assert.deepEqual(await events(pending), [["placed", {}]], "pendente só foi recebido");
   });
 });
+
+describe("migration 0014 — resumo do pagamento no pedido", () => {
+  it("o pedido ganha o resumo da cobrança mais recente da tabela antiga; sem cobrança, fica vazio", async () => {
+    await recreateDatabase();
+    await migrateUntil("0014");
+    const { rows: [user] } = await pool.query(
+      "insert into users (email, password_hash, name) values ('a@b.dev', 'h', 'A') returning id",
+    );
+    const { rows: [address] } = await pool.query(
+      `insert into addresses (user_id, recipient_name, street, number, neighborhood, city, state, zip_code)
+       values ($1, 'A', 'Rua', '1', 'Centro', 'SP', 'SP', '01000-000') returning id`,
+      [user.id],
+    );
+    const order = async (number: string) =>
+      (
+        await pool.query(
+          `insert into orders (order_number, user_id, status, shipping_address_id, billing_address_id, subtotal_cents, total_cents)
+           values ($1, $2, 'paid', $3, $3, 1000, 1000) returning id`,
+          [number, user.id, address.id],
+        )
+      ).rows[0].id as string;
+    const paid = await order("DYS-1");
+    const unpaid = await order("DYS-2");
+    await pool.query(
+      `insert into payments (order_id, provider, method, status, amount_cents, transaction_id, idempotency_key, paid_at, created_at) values
+        ($1, 'simulado', 'pix', 'refunded', 1000, 'SIM-ANTIGA', 'k-1', now() - interval '2 hours', now() - interval '2 hours'),
+        ($1, 'stripe', 'credit_card', 'paid', 1000, 'pi_NOVA', 'k-2', now() - interval '1 hour', now() - interval '1 hour')`,
+      [paid],
+    );
+
+    await migrateAll();
+
+    const summary = async (orderId: string) =>
+      (
+        await pool.query(
+          "select payment_method, payment_status, payment_provider, payment_transaction_id, paid_at is not null as has_paid_at from orders where id = $1",
+          [orderId],
+        )
+      ).rows[0];
+    assert.deepEqual(await summary(paid), {
+      payment_method: "credit_card",
+      payment_status: "paid",
+      payment_provider: "stripe",
+      payment_transaction_id: "pi_NOVA",
+      has_paid_at: true,
+    });
+    assert.deepEqual(await summary(unpaid), {
+      payment_method: null,
+      payment_status: null,
+      payment_provider: null,
+      payment_transaction_id: null,
+      has_paid_at: false,
+    });
+  });
+});

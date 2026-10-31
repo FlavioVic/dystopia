@@ -29,12 +29,24 @@ describe("payload da saga de checkout", () => {
     const payload = parseCheckoutPayload(valid);
     assert.equal(payload.orderNumber, "DYS-2026-123456");
     assert.equal(payload.lines.length, 1);
-    assert.equal(payload.simulate, undefined);
+    assert.equal(payload.paymentToken, undefined);
   });
 
-  it("mantém o modo de simulação só quando ele é válido", () => {
-    assert.equal(parseCheckoutPayload({ ...valid, simulate: "decline" }).simulate, "decline");
-    assert.equal(parseCheckoutPayload({ ...valid, simulate: "qualquer-coisa" }).simulate, undefined);
+  it("token de pagamento é opaco para a saga, mas tem que ter formato de token", () => {
+    assert.equal(parseCheckoutPayload({ ...valid, paymentToken: "pm_card_visa" }).paymentToken, "pm_card_visa");
+    assert.equal(parseCheckoutPayload({ ...valid, paymentToken: "sim_decline" }).paymentToken, "sim_decline");
+    assert.throws(() => parseCheckoutPayload({ ...valid, paymentToken: "'; drop table" }), /token/);
+  });
+
+  it("saga gravada antes do token (simulate/cardPaymentMethodId) vira o token equivalente", () => {
+    assert.equal(parseCheckoutPayload({ ...valid, simulate: "decline" }).paymentToken, "sim_decline");
+    assert.equal(
+      parseCheckoutPayload({ ...valid, simulate: "flaky_once", cardPaymentMethodId: "pm_card_visa" }).paymentToken,
+      "sim_flaky_once",
+      "o modo demonstração vinha antes do cartão",
+    );
+    assert.equal(parseCheckoutPayload({ ...valid, simulate: "approve", cardPaymentMethodId: "pm_card_visa" }).paymentToken, "pm_card_visa");
+    assert.equal(parseCheckoutPayload({ ...valid, simulate: "qualquer-coisa" }).paymentToken, undefined);
   });
 
   it("rejeita payload que não é objeto", () => {

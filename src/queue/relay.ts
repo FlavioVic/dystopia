@@ -13,8 +13,8 @@
  */
 
 import { and, asc, eq, inArray, isNull, lt, lte, sql } from "drizzle-orm";
-import { db } from "@/db";
-import { outbox } from "@/db/schema";
+import type { Database, Transaction } from "@/db";
+import { outbox } from "@/db/outbox";
 import { createLogger } from "@/lib/logger";
 import { errorMessage } from "@/shared/errors";
 import { nextRunAt } from "./backoff";
@@ -27,7 +27,21 @@ const PUBLISH_BACKOFF = { baseMs: 1_000, maxMs: 60_000 };
 
 export type RelayReport = { published: number; failed: number };
 
-export async function relayOutbox(options: { limit?: number; now?: Date } = {}): Promise<RelayReport> {
+/**
+ * Um banco com a tabela `outbox` — a loja ou pagamentos, cada um publica a
+ * própria caixa de saída; quem monta o processo diz quais. Descrito só pelo
+ * que o relay usa, para servir aos dois schemas.
+ */
+export type OutboxDatabase = {
+  transaction<T>(run: (tx: Pick<Transaction, "select" | "update">) => Promise<T>): Promise<T>;
+  select: Database["select"];
+  delete: Database["delete"];
+};
+
+export async function relayOutbox(
+  database: OutboxDatabase,
+  options: { limit?: number; now?: Date } = {},
+): Promise<RelayReport> {
   const now = options.now ?? new Date();
   const limit = options.limit ?? 100;
 
@@ -39,7 +53,7 @@ export async function relayOutbox(options: { limit?: number; now?: Date } = {}):
   // drenagem. `options.now` continua valendo para teste com relógio fixo.
   const due = options.now ? lte(outbox.nextAttemptAt, options.now) : lte(outbox.nextAttemptAt, sql`now()`);
 
-  const report = await db.transaction(async (tx) => {
+  const report = await database.transaction(async (tx) => {
     const rows = await tx
       .select()
       .from(outbox)
@@ -90,21 +104,30 @@ export async function relayOutbox(options: { limit?: number; now?: Date } = {}):
   return report;
 }
 
-/** Publica até não sobrar nada pronto (ou até o broker recusar). */
-export async function relayAll(options: { maxBatches?: number } = {}): Promise<RelayReport> {
+/** Publica até não sobrar nada pronto (ou até o broker recusar), em cada outbox. */
+export async function relayAll(
+  outboxes: OutboxDatabase[],
+  options: { maxBatches?: number } = {},
+): Promise<RelayReport> {
   const total: RelayReport = { published: 0, failed: 0 };
-  for (let batch = 0; batch < (options.maxBatches ?? 20); batch += 1) {
-    const report = await relayOutbox();
-    total.published += report.published;
-    total.failed += report.failed;
-    if (report.published === 0) break;
+  for (const database of outboxes) {
+    for (let batch = 0; batch < (options.maxBatches ?? 20); batch += 1) {
+      const report = await relayOutbox(database);
+      total.published += report.published;
+      total.failed += report.failed;
+      if (report.published === 0) break;
+    }
   }
   return total;
 }
 
 /** Faxina: o que já foi publicado há mais de `olderThanMs` sai da outbox. */
-export async function pruneOutbox(olderThanMs: number, now: Date = new Date()): Promise<number> {
-  const rows = await db
+export async function pruneOutbox(
+  database: OutboxDatabase,
+  olderThanMs: number,
+  now: Date = new Date(),
+): Promise<number> {
+  const rows = await database
     .delete(outbox)
     .where(lt(outbox.publishedAt, new Date(now.getTime() - olderThanMs)))
     .returning({ id: outbox.id });

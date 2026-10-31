@@ -28,20 +28,27 @@ function quoteIdentifier(name: string): string {
  */
 export async function applyAppRole(
   client: ClientBase,
-  options: { password: string; role?: string },
+  options: { password?: string; role?: string },
 ): Promise<{ created: boolean }> {
   const role = quoteIdentifier(options.role ?? APP_ROLE);
-  // O Neon exige 60 bits de entropia na senha de papel criado por SQL.
-  if (options.password.length < 16) throw new Error("a senha do papel do app precisa de 16+ caracteres (openssl rand -base64 24)");
-  const password = client.escapeLiteral(options.password);
-
   const existing = await client.query("select 1 from pg_roles where rolname = $1", [options.role ?? APP_ROLE]);
   const created = existing.rowCount === 0;
   // Atributos explícitos: nada de superusuário, criar banco/papel, replicação ou furar RLS.
   const attributes = "login nosuperuser nocreatedb nocreaterole noreplication nobypassrls";
-  await client.query(created
-    ? `create role ${role} ${attributes} password ${password}`
-    : `alter role ${role} ${attributes} password ${password}`);
+
+  if (options.password !== undefined) {
+    // O Neon exige 60 bits de entropia na senha de papel criado por SQL.
+    if (options.password.length < 16) throw new Error("a senha do papel do app precisa de 16+ caracteres (openssl rand -base64 24)");
+    const password = client.escapeLiteral(options.password);
+    await client.query(created
+      ? `create role ${role} ${attributes} password ${password}`
+      : `alter role ${role} ${attributes} password ${password}`);
+  } else if (created) {
+    throw new Error(`o papel ${options.role ?? APP_ROLE} não existe: rode com APP_DB_PASSWORD para criá-lo`);
+  }
+  // Sem senha e com o papel já existindo: só (re)aplica os GRANTs — é o caso
+  // de um banco NOVO no mesmo servidor (o papel é do servidor, a senha que o
+  // deploy usa continua a mesma).
 
   const { rows } = await client.query<{ db: string }>("select current_database() as db");
   const database = client.escapeIdentifier(rows[0].db);

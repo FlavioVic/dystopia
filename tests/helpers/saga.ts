@@ -10,9 +10,10 @@
  */
 
 import { eq, isNull } from "drizzle-orm";
-import { ALL_QUEUES } from "@/composition/worker";
+import { ALL_OUTBOXES, ALL_QUEUES } from "@/composition/worker";
 import { db } from "@/db";
 import { outbox, sagas } from "@/db/schema";
+import { paymentsDb } from "@/services/payments/db";
 import { queueDepths } from "@/queue/broker";
 import { sagaHandlers } from "@/queue/handlers";
 import { drainQueues, type DrainReport } from "@/queue/worker";
@@ -43,7 +44,7 @@ const QUEUES = { saga: SAGA_QUEUE, payments: PAYMENTS_QUEUE, notifications: NOTI
  */
 export async function work(queue: keyof typeof QUEUES | "all" = "all"): Promise<DrainReport> {
   const queues = queue === "all" ? ALL_QUEUES : [QUEUES[queue]];
-  return drainQueues({ queues, handlers: testHandlers, budgetMs: 5_000 });
+  return drainQueues({ queues, handlers: testHandlers, budgetMs: 5_000, outboxes: ALL_OUTBOXES });
 }
 
 /** Espera as mensagens das filas de espera (retry) voltarem para a fila de trabalho. */
@@ -82,7 +83,12 @@ export function lastErrorCode(saga: SagaRow): string | null {
 export async function pendingWork(): Promise<{ outbox: number; ready: number; retrying: number; dead: number }> {
   const depths = await queueDepths(ALL_QUEUES);
   const sum = (key: "ready" | "retrying" | "dead") => depths.reduce((total, depth) => total + depth[key], 0);
-  const unpublished = await db.select({ id: outbox.id }).from(outbox).where(isNull(outbox.publishedAt));
+  // As duas caixas de saída: a da loja e a de pagamentos (banco próprio).
+  const unpublished = (
+    await Promise.all(
+      [db, paymentsDb].map((database) => database.select({ id: outbox.id }).from(outbox).where(isNull(outbox.publishedAt))),
+    )
+  ).flat();
   return { outbox: unpublished.length, ready: sum("ready"), retrying: sum("retrying"), dead: sum("dead") };
 }
 

@@ -3,15 +3,16 @@
  * `queue/`: não sabe o que as mensagens fazem.
  *
  * Duas fontes:
- * - **outbox** (Postgres): o que ainda não chegou no broker. Crescendo sem
- *   parar = relay parado ou broker fora;
+ * - **outbox** (Postgres, uma por banco — loja e pagamentos — somadas): o
+ *   que ainda não chegou no broker. Crescendo sem parar = relay parado ou
+ *   broker fora;
  * - **broker** (RabbitMQ): por fila, quanto está pronto, esperando retry e na
  *   DLQ. Broker inacessível não derruba o painel: vira `broker: "down"`.
  */
 
 import { sql } from "drizzle-orm";
 import type { Executor } from "@/db";
-import { outbox } from "@/db/schema";
+import { outbox } from "@/db/outbox";
 import { errorMessage } from "@/shared/errors";
 import { queueDepths, type QueueDepth } from "./broker";
 
@@ -34,7 +35,10 @@ export type QueueMetrics = {
   dead: number;
 };
 
-export async function getOutboxMetrics(executor: Executor, options: { now?: Date } = {}): Promise<OutboxMetrics> {
+export async function getOutboxMetrics(
+  executor: Pick<Executor, "select">,
+  options: { now?: Date } = {},
+): Promise<OutboxMetrics> {
   const now = options.now ?? new Date();
   const [row] = await executor
     .select({
@@ -52,10 +56,17 @@ export async function getOutboxMetrics(executor: Executor, options: { now?: Date
 }
 
 export async function getQueueMetrics(
-  executor: Executor,
-  options: { queues: string[]; now?: Date },
+  executor: Pick<Executor, "select">,
+  options: { queues: string[]; now?: Date; outboxes?: Pick<Executor, "select">[] },
 ): Promise<QueueMetrics> {
-  const outboxMetrics = await getOutboxMetrics(executor, options);
+  const perOutbox = await Promise.all(
+    (options.outboxes ?? [executor]).map((database) => getOutboxMetrics(database, options)),
+  );
+  const outboxMetrics: OutboxMetrics = {
+    pending: perOutbox.reduce((sum, metrics) => sum + metrics.pending, 0),
+    failing: perOutbox.reduce((sum, metrics) => sum + metrics.failing, 0),
+    oldestPendingAgeMs: Math.max(0, ...perOutbox.map((metrics) => metrics.oldestPendingAgeMs)),
+  };
   try {
     const queues = await queueDepths(options.queues);
     const sum = (key: "ready" | "retrying" | "dead") => queues.reduce((total, depth) => total + depth[key], 0);

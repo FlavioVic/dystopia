@@ -18,7 +18,8 @@ estoque, pagamento ou fila.
 | `npm test -- <termo>` | Só os arquivos de teste com o termo no nome |
 | `npm run test:unit` | Só os testes que não precisam de banco |
 | `npm run lint` · `npx tsc --noEmit` | Lint e tipos — ambos têm que ficar limpos |
-| `npm run db:generate` → `db:migrate` | Nova migration a partir de `src/db/schema.ts` |
+| `npm run db:generate` → `db:migrate` | Nova migration a partir de `src/db/schema.ts` (`db:migrate` aplica os dois bancos) |
+| `npm run db:generate:payments` | Nova migration do banco de pagamentos (`src/services/payments/schema.ts` → `drizzle-payments/`) |
 | `npm run db:seed` | Repopula o banco de dev (TRUNCATE + inserts) |
 | `APP_DB_PASSWORD=… npm run db:app-role` | Cria/atualiza o usuário do app (`dystopia_app`, só DML). Roda com a conexão do dono, depois de migrar |
 
@@ -70,10 +71,14 @@ A dependência só aponta para baixo: **borda → aplicação → saga → servi
   para a tela. Compor serviços numa transação é caso de uso;
 - o **orquestrador** não conhece a definição concreta — chega nela via
   `src/saga/registry.ts`;
-- **pagamentos roda em processo próprio**: fora de `services/payments` (e dos
-  scripts que montam processos), só `@/services/payments/contract` pode ser
-  importado. A saga fala com ele por mensagem; a fila recebe os handlers dele
-  por injeção (`startWorker({ handlers })`), nunca importando o serviço.
+- **pagamentos roda em processo próprio, com banco próprio**: fora de
+  `services/payments` (e dos scripts/composição que montam processos), só
+  `@/services/payments/contract` pode ser importado — o banco dele
+  (`services/payments/db.ts`, `PAYMENTS_DATABASE_URL`) e o schema dele não. O
+  contrato não importa nada. A saga fala com ele por mensagem; a fila recebe
+  os handlers dele por injeção (`startWorker({ handlers, outboxes })`), nunca
+  importando o serviço. Cada banco tem a própria outbox; quem monta o processo
+  diz quais publicar (`ALL_OUTBOXES` no worker embutido).
 
 Isso não é só estilo: `tests/unit/architecture.test.ts` falha se alguém furar.
 É o que mantém cada serviço extraível para um processo/deploy separado sem

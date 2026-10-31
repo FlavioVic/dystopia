@@ -35,7 +35,7 @@ const methods = [
   { id: "boleto", label: "Boleto", hint: "vence em 3 dias" },
 ];
 
-// Valores de SIMULATION_MODES (services/payments/contract); o texto diz o que a
+// Cenários de TEST_PAYMENT_TOKENS (services/payments/contract); o texto diz o que a
 // saga vai fazer, que é o ponto da demonstração.
 const simulations = [
   { id: "approve", label: "Aprovar", hint: "caminho feliz: os 6 passos concluem" },

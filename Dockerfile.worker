@@ -17,8 +17,9 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci && npm cache clean --force
 
-COPY tsconfig.json drizzle.config.ts ./
+COPY tsconfig.json drizzle.config.ts drizzle.payments.config.ts ./
 COPY drizzle ./drizzle
+COPY drizzle-payments ./drizzle-payments
 COPY src ./src
 
 ENV NODE_ENV=production

@@ -148,7 +148,7 @@ const TOOLS: Record<string, ToolDefinition> = {
         status: statusLabel(order.status),
         itens: order.items.map((item) => `${item.quantity}× ${item.productNameSnapshot}`),
         total: formatPriceCents(order.totalCents),
-        pagamento: order.payments.map((payment) => `${payment.method}: ${payment.status}`),
+        pagamento: order.paymentMethod ? `${order.paymentMethod}: ${order.paymentStatus}` : "aguardando confirmação",
         link: `/pedido/${order.orderNumber}`,
       };
     },

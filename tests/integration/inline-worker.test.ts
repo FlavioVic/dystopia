@@ -81,13 +81,14 @@ describe("worker embutido", () => {
     // checkout. Mensagem sem ack não aparece em contagem nenhuma do broker;
     // se este saísse por ver tudo "vazio", ela ficava órfã.
     await enqueue(db, { type: "teste.instavel", queue: Q });
-    await relayOutbox();
+    await relayOutbox(db);
     const broker = await getBroker();
     const other = await broker.connection.createChannel();
     assert.ok(await other.get(names(Q, broker.config).work, { noAck: false }), "o outro executor pegou");
 
     let handled = 0;
     const drain = drainQueues({
+      outboxes: [db],
       queues: [Q],
       budgetMs: 5_000,
       waitForScheduled: true,
@@ -104,10 +105,10 @@ describe("worker embutido", () => {
   it("não espera retry que só volta depois do orçamento", async () => {
     // Fila de espera de 400 ms, orçamento de 200 ms.
     await enqueue(db, { type: "teste.noop", queue: Q, delayMs: 400 });
-    await relayOutbox();
+    await relayOutbox(db);
 
     const startedAt = Date.now();
-    await drainQueues({ queues: [Q], budgetMs: 200, waitForScheduled: true, handlers: {} });
+    await drainQueues({ outboxes: [db], queues: [Q], budgetMs: 200, waitForScheduled: true, handlers: {} });
     assert.ok(Date.now() - startedAt < 350, "saiu em vez de dormir até o retry");
   });
 });

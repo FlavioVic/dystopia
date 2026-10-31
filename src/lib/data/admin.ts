@@ -52,7 +52,6 @@ export const getAdminOrder = cache(async (orderNumber: string) => {
     with: {
       user: { columns: { name: true, email: true } },
       items: true,
-      payments: true,
       shippingAddress: true,
       coupon: true,
     },

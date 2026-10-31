@@ -19,7 +19,8 @@ import { resolveCoupon } from "@/services/coupons";
 import {
   isCardPaymentMethodId,
   isPaymentMethod,
-  isSimulationMode,
+  isTestPaymentScenario,
+  TEST_PAYMENT_TOKENS,
   type PaymentMethod,
 } from "@/services/payments/contract";
 import { getStripePublishableKey } from "@/lib/stripe-public";
@@ -89,15 +90,17 @@ export async function placeOrder(_prev: CheckoutState, formData: FormData): Prom
     cardPaymentMethodId = token;
   }
 
+  // Modo demonstração: o caminho escolhido vira token de teste do provedor
+  // simulado (como um cartão de teste do Stripe). "Aprovar" segue o meio real.
   const simulate = simulationFromForm(formData);
+  const paymentToken = simulate && simulate !== "approve" ? TEST_PAYMENT_TOKENS[simulate] : cardPaymentMethodId;
   const result = await placeOrderUseCase({
     customer: { id: user.id, name: user.name, email: user.email },
     cartId,
     address,
     paymentMethod: method,
     couponCode: req(formData, "couponCode"),
-    ...(cardPaymentMethodId ? { cardPaymentMethodId } : {}),
-    ...(simulate ? { simulate } : {}),
+    ...(paymentToken ? { paymentToken } : {}),
   });
   if (!result.ok) return { message: result.message };
 
@@ -107,10 +110,11 @@ export async function placeOrder(_prev: CheckoutState, formData: FormData): Prom
 /**
  * Permite forçar um caminho do gateway simulado (`decline`, `flaky_once`…)
  * para demonstrar a compensação. Com o modo demonstração desligado, o campo do
- * formulário é ignorado (ver `lib/checkout-simulation`).
+ * formulário é ignorado (ver `lib/checkout-simulation`) — e o processo de
+ * pagamentos recusa token de teste de qualquer jeito.
  */
 function simulationFromForm(formData: FormData) {
   if (!isCheckoutSimulationEnabled()) return null;
   const raw = String(formData.get("simulate") ?? "");
-  return isSimulationMode(raw) ? raw : null;
+  return isTestPaymentScenario(raw) ? raw : null;
 }

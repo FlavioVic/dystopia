@@ -54,19 +54,30 @@ desligar a flag.
    Nas duas, troque `sslmode=require` por `sslmode=verify-full`: é o que o
    `pg` já faz hoje (verifica o certificado), e o `require` vai enfraquecer
    numa versão futura do driver — ele avisa isso no log.
-3. Migre e popule uma vez, pela string **direta** (a senha de admin fica só
+3. Crie o **banco de pagamentos**, no mesmo projeto (pagamentos tem banco
+   próprio; no Neon, outro database é grátis):
+
+   ```bash
+   neon databases create --name dystopia_payments --project-id <projeto>
+   ```
+
+   A string direta dele é a mesma do banco da loja com `/dystopia_payments`
+   no lugar do nome do banco (`neon connection-string --database-name
+   dystopia_payments --pooled false`).
+4. Migre e popule uma vez, pelas strings **diretas** (a senha de admin fica só
    com você):
 
    ```bash
    export DATABASE_URL='<string direta do Neon>'
-   npm run db:migrate
+   export PAYMENTS_DATABASE_URL='<string direta do banco dystopia_payments>'
+   npm run db:migrate          # aplica drizzle/ na loja e drizzle-payments/ em pagamentos
    SEED_ALLOW_REMOTE=1 SEED_ADMIN_PASSWORD="$(openssl rand -base64 24)" npm run db:seed
    ```
 
    Guarde a senha gerada num gerenciador antes — o seed não a imprime. Toda
    migration nova depois disso: o mesmo `npm run db:migrate`, antes do deploy
    que depende dela.
-4. Crie o **usuário do app** — o que a Vercel usa. Ele só lê e grava linha:
+5. Crie o **usuário do app** — o que a Vercel usa. Ele só lê e grava linha:
    não apaga nem cria tabela, não lê o histórico de migrations
    (`src/db/app-role.ts`, provado em `tests/integration/db-app-role.test.ts`).
    Tem que ser por SQL (é o que o script faz): papel criado pelo console do
@@ -74,14 +85,17 @@ desligar a flag.
 
    ```bash
    export APP_DB_PASSWORD="$(openssl rand -base64 24)"   # guarde também
-   npm run db:app-role                                    # ainda com a string direta do dono
+   npm run db:app-role                                    # ainda com as strings diretas do dono
    ```
 
-   A `DATABASE_URL` do app é a string **pooled** com esse usuário no lugar do
-   dono: `postgresql://dystopia_app:<APP_DB_PASSWORD>@<host-pooler>/neondb?sslmode=verify-full`
+   O script libera os **dois** bancos para o mesmo papel. A `DATABASE_URL`
+   do app é a string **pooled** com esse usuário no lugar do dono:
+   `postgresql://dystopia_app:<APP_DB_PASSWORD>@<host-pooler>/neondb?sslmode=verify-full`
    (a senha em base64 pode ter `+`, `/` e `=`: na URL, escape com
-   `encodeURIComponent`). As tabelas das próximas migrations já nascem
-   liberadas para ele; rodar o script de novo só reaplica (e troca a senha).
+   `encodeURIComponent`); a `PAYMENTS_DATABASE_URL` é a mesma com
+   `/dystopia_payments` no lugar de `/neondb`. As tabelas das próximas
+   migrations já nascem liberadas; rodar de novo com `APP_DB_PASSWORD` troca
+   a senha, e **sem** ela só reaplica os GRANTs (banco novo, senha mantida).
 
 ## 2. CloudAMQP — RabbitMQ
 
@@ -96,7 +110,9 @@ desligar a flag.
 1. **Add New → Project** → este repositório (framework detectado: Next.js).
 2. Variáveis de ambiente (Production):
    - `DATABASE_URL` = a string **pooled** do Neon com o usuário
-     `dystopia_app` (passo 1.4) — nunca a do dono
+     `dystopia_app` (passo 1.5) — nunca a do dono
+   - `PAYMENTS_DATABASE_URL` = a mesma, com `/dystopia_payments` no lugar do
+     nome do banco
    - `RABBITMQ_URL` = a AMQP URL do CloudAMQP
    - `MFA_ENCRYPTION_KEY` = `openssl rand -base64 32` (nova, nunca a do `.env`
      local) — cifra o segredo do autenticador do admin no banco. A sessão não
@@ -166,3 +182,23 @@ Antes de usar em produção: troque as senhas, o `APP_DB_PASSWORD` e a
 `*_LIMIT_*` (o compose aumenta todos para os testes) e desligue
 `ALLOW_CHECKOUT_SIMULATION` se houver cobrança real.
 
+## Migração: pagamentos para o banco próprio (uma vez, deploy já existente)
+
+Para quem já tinha o deploy com os pagamentos no banco da loja. Antes do merge
+do PR que separa o banco; tudo pelas strings **diretas** do dono:
+
+1. Crie o banco `dystopia_payments` (passo 1.3).
+2. `npm run db:migrate` com `DATABASE_URL` e `PAYMENTS_DATABASE_URL`: cria as
+   tabelas de pagamentos e o resumo do pagamento nos pedidos (preenchido a
+   partir da tabela antiga).
+3. `npm run db:app-role` **sem** `APP_DB_PASSWORD`: libera o banco novo para
+   o `dystopia_app` sem trocar a senha que a Vercel usa.
+4. `npm run payments:copy-legacy`: copia os pagamentos da tabela antiga para o
+   banco novo (idempotente — diz quantos copiou).
+5. Na Vercel, `PAYMENTS_DATABASE_URL` (Production, sensível) = a
+   `DATABASE_URL` do app com `/dystopia_payments` no nome do banco.
+6. Merge (deploy). Depois, `npm run payments:copy-legacy` de novo: pega o que o
+   código antigo gravou no meio do caminho.
+
+A tabela antiga (`payments` no banco da loja) fica até uma limpeza à parte,
+com as contagens conferidas.

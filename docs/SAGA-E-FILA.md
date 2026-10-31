@@ -139,10 +139,19 @@ saga ◀──── saga.reply ──────── fila saga ◀─relay�
 - **Serviço fora do ar**: o comando e as consultas esperam na fila dele; quando
   ele volta, responde e a saga anda.
 
+- **Banco próprio**: pagamentos guarda as cobranças no banco dele
+  (`PAYMENTS_DATABASE_URL`, migrations em `drizzle-payments/`), com a outbox
+  dele — a resposta commita junto com a cobrança, lá, e o relay do processo
+  de pagamentos publica. A loja nunca lê essa tabela: a resposta da cobrança
+  traz o resumo (meio, provedor, transação, quando) e o passo `confirm-order`
+  grava esse resumo no pedido.
+- **Simulação é token de teste**: o modo demonstração não é campo do comando;
+  é um `paymentToken` como `sim_decline` ou `sim_flaky_once`, igual aos cartões
+  de teste do Stripe. Pagamentos só aceita token de teste com o modo
+  demonstração ligado no processo dele.
+
 O preço: o pedido deixou de fechar dentro do request — a página mostra
-"processando" por ~1–2 s. E o Postgres ainda é compartilhado (cada serviço com
-as próprias tabelas, a outbox inclusive); separar o banco seria o próximo
-passo, e o contrato por mensagem é o que torna isso possível sem mexer na saga.
+"processando" por ~1–2 s.
 
 ## Cartão pelo Stripe (modo de teste)
 
