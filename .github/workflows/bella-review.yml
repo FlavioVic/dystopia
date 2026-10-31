@@ -1,0 +1,48 @@
+# Revisão automática de PR pela Bella Reviewer (projeto externo, do Natan:
+# github.com/Natan-Lucena/bella-review-action). A action manda o diff, o
+# título e a descrição do PR para o backend da Bella, e os comentários de
+# revisão chegam no PR alguns minutos depois — o check verde só confirma que
+# o envio foi aceito. Resposta a um comentário dela também vai para lá.
+#
+# Configuração (uma vez, no painel bella-review-web.vercel.app): cadastrar
+# este repositório, as credenciais e gerar o token → secret `BELLA_TOKEN`.
+# Sem o secret, o job avisa e passa: não deixa X vermelho em todo PR.
+#
+# Fica fora do CI de propósito: depende de um serviço de fora, então não é
+# check obrigatório da main.
+
+name: Bella Reviewer
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  pull_request_review_comment:
+    types: [created]
+
+permissions:
+  pull-requests: read
+
+concurrency:
+  group: bella-${{ github.event_name }}-${{ github.event.pull_request.number }}-${{ github.event.comment.id }}
+  cancel-in-progress: true
+
+jobs:
+  bella-review:
+    name: revisão da Bella
+    runs-on: ubuntu-latest
+    # PR de fork não recebe secrets: o envio falharia com 401 em todo PR de fora.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    env:
+      BELLA_TOKEN: ${{ secrets.BELLA_TOKEN }}
+    steps:
+      - name: Sem BELLA_TOKEN, só avisa
+        if: env.BELLA_TOKEN == ''
+        run: echo "::notice::BELLA_TOKEN não configurado — revisão da Bella pulada (gere o token no painel da Bella Reviewer)."
+
+      # Fixada no commit da v1.2.0, não na tag: a action recebe o token do
+      # job, e tag de terceiro pode ser movida. Para atualizar, troque o SHA.
+      - name: Enviar o PR para a Bella
+        uses: Natan-Lucena/bella-review-action@760dc138f2a3ed7657f4d77d1980168e6d7beaaa # v1.2.0
+        if: env.BELLA_TOKEN != ''
+        with:
+          bella-token: ${{ env.BELLA_TOKEN }}
