@@ -41,7 +41,8 @@ jobs:
 
       # Fixada no commit da v1.2.0, não na tag: a action recebe o token do
       # job, e tag de terceiro pode ser movida. Para atualizar, troque o SHA.
-      - uses: Natan-Lucena/bella-review-action@760dc138f2a3ed7657f4d77d1980168e6d7beaaa # v1.2.0
+      - name: Enviar o PR para a Bella
+        uses: Natan-Lucena/bella-review-action@760dc138f2a3ed7657f4d77d1980168e6d7beaaa # v1.2.0
         if: env.BELLA_TOKEN != ''
         with:
           bella-token: ${{ env.BELLA_TOKEN }}
