@@ -4,11 +4,15 @@
  *
  * `createOrder` é a PRÉ-CONDIÇÃO da saga (o pedido nasce `pending` junto com
  * a saga e a mensagem, na mesma transação). Os passos da saga só mudam estado.
+ *
+ * Toda mudança de status grava um **evento de domínio** (`order_events`) na
+ * mesma transação: o histórico do pedido em linguagem de negócio, que é o que
+ * o cliente vê. Quem mudou o status (saga, painel) não importa para ele.
  */
 
-import { and, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import type { Executor } from "@/db";
-import { addresses, orderItems, orders } from "@/db/schema";
+import { addresses, orderEvents, orderItems, orders } from "@/db/schema";
 import { canTransition, type OrderStatus } from "@/lib/order-status";
 import { PermanentError } from "@/shared/errors";
 
@@ -87,8 +91,29 @@ export async function createOrder(executor: Executor, input: CreateOrderInput): 
       totalCents: line.unitPriceCents * line.quantity,
     })),
   );
+  await recordOrderEvent(executor, order.id, "placed");
 
   return { orderId: order.id, addressId: address.id };
+}
+
+export type OrderEventType = (typeof orderEvents.$inferInsert)["type"];
+export type OrderEvent = typeof orderEvents.$inferSelect;
+
+async function recordOrderEvent(
+  executor: Executor,
+  orderId: string,
+  type: OrderEventType,
+  data: Record<string, unknown> = {},
+): Promise<void> {
+  await executor.insert(orderEvents).values({ orderId, type, data });
+}
+
+/** Histórico do pedido, do mais antigo ao mais recente. */
+export async function listOrderEvents(executor: Executor, orderId: string): Promise<OrderEvent[]> {
+  return executor.query.orderEvents.findMany({
+    where: eq(orderEvents.orderId, orderId),
+    orderBy: [asc(orderEvents.occurredAt), asc(orderEvents.id)],
+  });
 }
 
 /**
@@ -118,6 +143,8 @@ export async function transitionOrder(
   }
 
   await executor.update(orders).set({ status: to, updatedAt: new Date() }).where(eq(orders.id, orderId));
+  // `pending` é só o estado inicial: nenhuma transição volta para ele.
+  if (to !== "pending") await recordOrderEvent(executor, orderId, to);
   return { changed: true, from };
 }
 
@@ -129,14 +156,21 @@ export async function markOrderPaid(executor: Executor, orderId: string): Promis
 
 /**
  * Compensação: cancela o pedido. Nunca lança por estado já terminal — a
- * compensação precisa ser segura de repetir.
+ * compensação precisa ser segura de repetir (o evento só nasce quando o
+ * status muda de fato). `reason` é o código do que deu errado
+ * (`payment_declined`, `out_of_stock`…), traduzido só na tela.
  */
-export async function markOrderCancelled(executor: Executor, orderId: string): Promise<{ changed: boolean }> {
+export async function markOrderCancelled(
+  executor: Executor,
+  orderId: string,
+  reason?: string,
+): Promise<{ changed: boolean }> {
   const cancelled = await executor
     .update(orders)
     .set({ status: "cancelled", updatedAt: new Date() })
     .where(and(eq(orders.id, orderId), inArray(orders.status, ["pending", "paid", "processing"])))
     .returning({ id: orders.id });
+  if (cancelled.length > 0) await recordOrderEvent(executor, orderId, "cancelled", reason ? { reason } : {});
   return { changed: cancelled.length > 0 };
 }
 

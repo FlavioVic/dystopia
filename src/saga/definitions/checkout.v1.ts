@@ -12,6 +12,7 @@
  * sai do registry quando não houver mais saga v1 rodando.
  */
 
+import { describeCancellation } from "@/lib/order-status";
 import { restoreCart } from "@/services/carts";
 import { markOrderCancelled } from "@/services/orders";
 import type { SagaDefinition } from "@/saga/types";
@@ -22,7 +23,6 @@ import {
   clearCartStep,
   confirmOrderStep,
   consumeCouponStep,
-  describeCheckoutFailure,
   notifyCustomerStep,
   parseCheckoutPayload,
   refundPaymentRequest,
@@ -64,6 +64,6 @@ export const checkoutSagaV1: SagaDefinition<CheckoutSagaPayload> = {
     { ...notifyCustomerStep, kind: "compensatable" },
   ],
   parsePayload: parseCheckoutPayload,
-  describeFailure: describeCheckoutFailure,
+  describeFailure: describeCancellation,
   onCompensated: cancelOrderOnCompensated,
 };

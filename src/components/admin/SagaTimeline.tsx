@@ -9,8 +9,9 @@ export type SagaTimelineStep = {
 };
 
 /**
- * Linha do tempo dos passos da saga. É o que torna a orquestração visível —
- * tanto para o cliente (página do pedido) quanto para o admin.
+ * Linha do tempo dos passos da saga — visão de operação (painel do admin). O
+ * cliente vê o andamento pelos eventos do pedido (`OrderTimeline`), não pelo
+ * log interno da orquestração.
  */
 export function SagaTimeline({
   steps,

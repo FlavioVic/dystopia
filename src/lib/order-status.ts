@@ -74,3 +74,23 @@ export function nextStatuses(from: OrderStatus): OrderStatus[] {
 export function isTerminalStatus(status: OrderStatus): boolean {
   return ALLOWED_TRANSITIONS[status].length === 0;
 }
+
+/**
+ * Motivo do cancelamento em palavras de cliente, a partir do código gravado no
+ * evento `cancelled` — sem vazar detalhe técnico. Fonte única: a saga usa a
+ * mesma tradução no relatório dela.
+ */
+export function describeCancellation(code: string | null | undefined): string {
+  switch (code) {
+    case "out_of_stock":
+      return "Um item do pedido ficou sem estoque antes da confirmação.";
+    case "payment_declined":
+      return "O pagamento foi recusado pela operadora.";
+    case "coupon_exhausted":
+      return "O cupom usado esgotou antes da confirmação.";
+    case "invalid_payload":
+      return "Os dados do pedido ficaram inconsistentes.";
+    default:
+      return "Não foi possível concluir o pedido.";
+  }
+}

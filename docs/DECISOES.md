@@ -22,6 +22,7 @@ conta sozinho. Os detalhes de funcionamento estão em
 | 13 | [Limite de tentativas no Postgres](#13-limite-de-tentativas-contado-no-postgres) | Contador que vale entre instâncias serverless |
 | 14 | [Busca com full-text do Postgres](#14-busca-com-o-full-text-do-postgres) | Sem serviço de busca à parte |
 | 15 | [Testes contra infraestrutura real](#15-testes-contra-infraestrutura-real) | Postgres, RabbitMQ e Stripe de verdade, não mocks |
+| 16 | [O cliente lê eventos do pedido, não a saga](#16-o-cliente-lê-eventos-do-pedido-não-a-saga) | Saga é detalhe de operação; o pedido conta a própria história |
 
 ---
 
@@ -336,6 +337,24 @@ reentrega. Exemplo real: um teste que falhava de vez em quando no CI revelou
 que o relay comparava o horário gravado pelo Postgres (microssegundos) com o
 relógio do Node (milissegundos) e pulava a mensagem gravada no mesmo
 milissegundo — corrigido para usar o relógio do banco.
+
+## 16. O cliente lê eventos do pedido, não a saga
+
+**Problema.** A página do pedido importava o orquestrador e mostrava os passos
+da saga pelo nome interno ("reserve-stock", "consume-coupon"). Trocar a ordem
+dos passos, separar um passo em dois ou mudar a saga de versão mudaria o que o
+cliente vê — e o motivo do cancelamento era tirado de um texto de erro da saga.
+
+**Decisão.** O pedido tem **eventos de domínio** próprios (`order_events`):
+recebido, pago, em separação, despachado, entregue, cancelado (com o código do
+motivo) e reembolsado. Quem grava é o serviço de pedidos, na mesma transação de
+cada mudança de status — venha ela da saga ou do painel. A página do cliente lê
+só isso (`OrderTimeline`); a saga aparece só no painel de operação. Um teste de
+arquitetura impede a borda do cliente de importar a saga.
+
+**Preço.** Uma tabela a mais e uma escrita a mais por mudança de status. Os
+pedidos antigos ganharam o histórico possível na migration (recebido + status
+atual, e o motivo do cancelamento tirado da saga).
 
 ---
 

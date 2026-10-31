@@ -210,12 +210,14 @@ async function execute(
     return { status: "halted", step: step.name, reason: message };
   };
 
-  // Já estava compensando (retomada de uma compensação que falhou antes).
+  // Já estava compensando (retomada de uma compensação que falhou antes). O
+  // código original está no começo de `last_error` ("payment_declined: …").
   if (saga.status === "compensating") {
+    const code = saga.lastError?.split(":")[0]?.trim() || "resumed";
     return compensate(saga, definition, payload, {
       ...options,
-      reason: saga.lastError ?? "Compensação retomada.",
-      code: "resumed",
+      reason: definition.describeFailure?.(code) ?? GENERIC_FAILURE,
+      code,
       context,
       stepRows,
       maxAttempts,
@@ -445,7 +447,7 @@ async function compensate(
       await definition.onCompensated(
         { sagaId: saga.id, correlationId: saga.correlationId, payload, context, attempt: 1 },
         tx,
-        reason,
+        { code, reason },
       );
     }
     await writeSaga(tx, saga.id, {

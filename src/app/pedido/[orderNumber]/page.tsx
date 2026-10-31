@@ -3,10 +3,11 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { AutoRefresh } from "@/components/AutoRefresh";
 import { buttonPrimary, buttonSecondary } from "@/components/Kit";
-import { SagaTimeline } from "@/components/SagaTimeline";
+import { OrderTimeline } from "@/components/OrderTimeline";
 import { viewOrder } from "@/composition/web";
 import { getCurrentUser } from "@/lib/data/auth";
 import { formatPriceCents } from "@/lib/format";
+import { describeCancellation } from "@/lib/order-status";
 import { PRIVATE_PAGE } from "@/lib/seo";
 
 export const metadata: Metadata = { title: "Pedido", robots: PRIVATE_PAGE };
@@ -34,9 +35,11 @@ const providerLabel: Record<string, string> = {
 };
 
 /**
- * Página do pedido. O pedido nasce `pending` e a SAGA o leva para `paid` (ou
- * `cancelled`, compensando tudo). Então esta página tem três estados — e,
- * enquanto a saga roda, ela se atualiza sozinha.
+ * Página do pedido. O pedido nasce `pending` e vira `paid` (ou `cancelled`,
+ * com tudo desfeito) — três estados, e enquanto está pendente a página se
+ * atualiza sozinha. O andamento vem dos eventos de domínio do pedido
+ * (recebido, pago, cancelado e por quê), não do log da saga: como o pedido é
+ * orquestrado é detalhe interno, visível só no painel.
  */
 export default async function OrderPage(props: PageProps<"/pedido/[orderNumber]">) {
   const { orderNumber } = await props.params;
@@ -45,7 +48,7 @@ export default async function OrderPage(props: PageProps<"/pedido/[orderNumber]"
 
   const view = await viewOrder(orderNumber, user.id);
   if (!view) notFound();
-  const { order, saga } = view;
+  const { order, events } = view;
   const payment = order.payments[0];
 
   const state =
@@ -132,29 +135,25 @@ export default async function OrderPage(props: PageProps<"/pedido/[orderNumber]"
         </dl>
       </div>
 
-      {saga ? (
-        <div className="mt-4 border border-border-faint p-5">
-          <h2 className="label text-foreground-muted">
-            Protocolo de processamento
-          </h2>
-          <div className="mt-3">
-            <SagaTimeline
-              steps={saga.steps.map((step) => ({
-                id: step.id,
-                name: step.name,
-                status: step.status,
-                attempts: step.attempts,
-                error: null,
-              }))}
-            />
-          </div>
-          {state === "failed" && saga.lastError ? (
-            <p className="mt-3 bg-signal px-4 py-3 text-sm text-on-signal">
-              {customerReason(saga.lastError)}
-            </p>
-          ) : null}
+      <div className="mt-4 border border-border-faint p-5">
+        <h2 className="label text-foreground-muted">Andamento</h2>
+        <div className="mt-3">
+          <OrderTimeline
+            pending={state === "processing"}
+            events={events.map((event) => ({
+              id: event.id,
+              type: event.type,
+              data: event.data,
+              occurredAt: event.occurredAt,
+            }))}
+          />
         </div>
-      ) : null}
+        {state === "failed" ? (
+          <p className="mt-3 bg-signal px-4 py-3 text-sm text-on-signal">
+            {cancellationReason(events)} Nenhuma cobrança ficou em aberto.
+          </p>
+        ) : null}
+      </div>
 
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
         <div className="border border-border-faint p-5 text-sm">
@@ -198,17 +197,9 @@ export default async function OrderPage(props: PageProps<"/pedido/[orderNumber]"
   );
 }
 
-/** `sagas.last_error` guarda "codigo: detalhe técnico" — o cliente só vê a parte dele. */
-function customerReason(lastError: string): string {
-  const [code] = lastError.split(":");
-  switch (code.trim()) {
-    case "out_of_stock":
-      return "Um item do pedido ficou sem estoque antes da confirmação.";
-    case "payment_declined":
-      return "O pagamento foi recusado pela operadora.";
-    case "coupon_exhausted":
-      return "O cupom usado esgotou antes da confirmação.";
-    default:
-      return "Não foi possível concluir o pedido. Nenhuma cobrança ficou em aberto.";
-  }
+/** Motivo gravado no evento de cancelamento, em palavras de cliente. */
+function cancellationReason(events: { type: string; data: unknown }[]): string {
+  const cancelled = events.findLast((event) => event.type === "cancelled");
+  const data = cancelled?.data && typeof cancelled.data === "object" ? (cancelled.data as Record<string, unknown>) : {};
+  return describeCancellation(typeof data.reason === "string" ? data.reason : null);
 }

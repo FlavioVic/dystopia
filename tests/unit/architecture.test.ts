@@ -113,14 +113,33 @@ describe("fronteiras da arquitetura", () => {
     }
   });
 
-  it("serviços não importam o orquestrador (só a taxonomia de erro)", () => {
+  it("serviços não conhecem a saga (a taxonomia de erro mora em src/shared)", () => {
     for (const file of sourceFiles("src/services")) {
       for (const specifier of importsOf(file)) {
-        if (!specifier.startsWith("@/saga")) continue;
-        assert.equal(
-          specifier,
-          "@/shared/errors",
-          `${file} importa ${specifier} — dependência invertida`,
+        assert.ok(!specifier.startsWith("@/saga"), `${file} importa ${specifier} — dependência invertida`);
+      }
+    }
+  });
+
+  it("a borda do cliente não conhece a saga: o andamento do pedido vem dos eventos de domínio", () => {
+    // Página do pedido, conta, assistente: falam a língua do pedido (recebido,
+    // pago, cancelado). Passo de saga, rótulo de passo e componente do painel
+    // são da visão de operação.
+    const operations = [
+      path.join("src", "app", "admin"),
+      path.join("src", "app", "api", "cron"),
+      path.join("src", "lib", "actions", "admin.ts"),
+      path.join("src", "components", "admin"),
+    ];
+    const edge = ["src/app", "src/lib/actions", "src/lib/assistant", "src/components"]
+      .flatMap(sourceFiles)
+      .filter((file) => !operations.some((dir) => file.startsWith(dir)));
+    const forbidden = ["@/saga", "@/lib/saga-ui", "@/components/admin"];
+    for (const file of edge) {
+      for (const specifier of importsOf(file)) {
+        assert.ok(
+          !forbidden.some((target) => specifier === target || specifier.startsWith(`${target}/`)),
+          `${file} importa ${specifier} — o cliente vê eventos do pedido, não a saga`,
         );
       }
     }

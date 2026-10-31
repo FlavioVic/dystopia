@@ -137,7 +137,11 @@ export type SagaDefinition<TPayload> = {
    */
   describeFailure?: (code: string) => string;
   /** Encerramento do caminho triste, depois de desfazer todos os passos. */
-  onCompensated?: (ctx: StepContext<TPayload>, tx: Transaction, reason: string) => Promise<void>;
+  onCompensated?: (
+    ctx: StepContext<TPayload>,
+    tx: Transaction,
+    failure: { code: string; reason: string },
+  ) => Promise<void>;
 };
 
 export const DEFAULT_MAX_ATTEMPTS_PER_STEP = 3;

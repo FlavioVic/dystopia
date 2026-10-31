@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { requireAdmin } from "@/lib/data/auth";
 import { getAdminOrder } from "@/lib/data/admin";
 import { OrderStatusForm } from "@/components/admin/OrderStatusForm";
-import { SagaTimeline } from "@/components/SagaTimeline";
+import { SagaTimeline } from "@/components/admin/SagaTimeline";
 import { getSagaForOrder } from "@/lib/data/orchestration";
 import { formatPriceCents } from "@/lib/format";
 import { ORDER_STATUS_LABELS, orderStatusClass, type OrderStatus } from "@/lib/order-status";
