@@ -8,7 +8,7 @@ import { randomUUID } from "node:crypto";
 import { after, beforeEach, describe, it } from "node:test";
 import { db } from "@/db";
 import { categories, products } from "@/db/schema";
-import { PermanentError } from "@/saga/errors";
+import { PermanentError } from "@/shared/errors";
 import {
   MAX_ALT_TEXT,
   MAX_PRODUCT_IMAGES,

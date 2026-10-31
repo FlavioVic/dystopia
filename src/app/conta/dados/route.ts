@@ -1,5 +1,4 @@
-import { db } from "@/db";
-import { exportAccountData } from "@/lib/account-privacy";
+import { exportAccountData } from "@/application/account-privacy";
 import { getCurrentUser } from "@/lib/data/auth";
 
 /**
@@ -10,7 +9,7 @@ export async function GET(): Promise<Response> {
   const user = await getCurrentUser();
   if (!user) return Response.json({ error: "Entre na sua conta." }, { status: 401 });
 
-  const data = await exportAccountData(db, user.id);
+  const data = await exportAccountData(user.id);
   if (!data) return Response.json({ error: "Conta não encontrada." }, { status: 404 });
 
   return new Response(JSON.stringify(data, null, 2), {

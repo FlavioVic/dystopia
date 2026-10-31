@@ -1,12 +1,14 @@
 /**
- * Taxonomia de erro da saga.
+ * Taxonomia de erro do sistema — compartilhada por serviços, fila e saga.
  *
- * A distinção é o que define o comportamento do orquestrador:
+ * Mora fora da saga de propósito: é o serviço que sabe se uma falha é regra
+ * de negócio ou soluço de infraestrutura, e quem decide o que fazer com isso
+ * (a fila, a saga, a borda HTTP) só lê a classificação.
  *
  * - `PermanentError`  → regra de negócio violada (sem estoque, pagamento
- *   recusado, cupom esgotado). Não existe "tentar de novo": compensa agora.
+ *   recusado, cupom esgotado). Não existe "tentar de novo".
  * - `RetryableError`  → falha transitória (rede, deadlock, provedor fora).
- *   Volta para a fila com backoff até esgotar as tentativas do passo.
+ *   Volta para a fila com backoff até esgotar as tentativas.
  *
  * Erro desconhecido é tratado como transitório de propósito: é mais seguro
  * tentar de novo algumas vezes do que cancelar um pedido por um soluço de
@@ -15,7 +17,7 @@
 
 export type ErrorDetails = Record<string, unknown>;
 
-export class SagaError extends Error {
+export class AppError extends Error {
   readonly code: string;
   readonly retryable: boolean;
   readonly details?: ErrorDetails;
@@ -29,47 +31,31 @@ export class SagaError extends Error {
   }
 }
 
-/** Falha de negócio: compensa imediatamente, sem retry. */
-export class PermanentError extends SagaError {
+/** Falha de negócio: não adianta repetir. */
+export class PermanentError extends AppError {
   constructor(code: string, message: string, details?: ErrorDetails) {
     super(code, message, false, details);
   }
 }
 
 /** Falha transitória: tenta de novo com backoff. */
-export class RetryableError extends SagaError {
+export class RetryableError extends AppError {
   constructor(code: string, message: string, details?: ErrorDetails) {
     super(code, message, true, details);
   }
 }
 
 export function isRetryable(error: unknown): boolean {
-  if (error instanceof SagaError) return error.retryable;
+  if (error instanceof AppError) return error.retryable;
   return true; // desconhecido => transitório (ver comentário do topo)
 }
 
 export function errorCode(error: unknown): string {
-  if (error instanceof SagaError) return error.code;
+  if (error instanceof AppError) return error.code;
   return "unknown_error";
 }
 
 export function errorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
   return String(error);
-}
-
-/** Mensagem curta para o cliente final — sem vazar detalhe de infraestrutura. */
-export function customerFacingMessage(code: string): string {
-  switch (code) {
-    case "out_of_stock":
-      return "Um item do pedido ficou sem estoque.";
-    case "payment_declined":
-      return "O pagamento foi recusado pela operadora.";
-    case "coupon_exhausted":
-      return "O cupom usado esgotou antes da confirmação.";
-    case "invalid_payload":
-      return "Os dados do pedido ficaram inconsistentes.";
-    default:
-      return "Não foi possível concluir o pedido.";
-  }
 }

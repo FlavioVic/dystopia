@@ -9,12 +9,13 @@
 
 import QRCode from "qrcode";
 import { redirect } from "next/navigation";
+import { confirmMfaEnrollment as enableMfa } from "@/application/mfa";
 import { db } from "@/db";
 import { limitAction } from "@/lib/action-limits";
 import { getCurrentUser, type CurrentUser } from "@/lib/data/auth";
 import { readSessionToken } from "@/lib/session";
-import { PermanentError } from "@/saga/errors";
-import { beginEnrollment, confirmEnrollment, regenerateRecoveryCodes, removeAuthenticator } from "@/services/mfa";
+import { PermanentError } from "@/shared/errors";
+import { beginEnrollment, regenerateRecoveryCodes, removeAuthenticator } from "@/services/mfa";
 import { base32Encode, otpauthUri } from "@/services/mfa/totp";
 import { revokeOtherSessions } from "@/services/sessions";
 
@@ -71,10 +72,10 @@ export async function confirmMfaEnrollment(_prev: MfaConfirmState, formData: For
   if (limited) return { message: limited };
 
   try {
-    const codes = await db.transaction(async (tx) => {
-      const confirmed = await confirmEnrollment(tx, user.id, String(formData.get("code") ?? ""));
-      if (confirmed) await revokeOtherSessions(tx, user.id, token);
-      return confirmed;
+    const codes = await enableMfa({
+      userId: user.id,
+      currentSessionToken: token,
+      code: String(formData.get("code") ?? ""),
     });
     if (!codes) return { message: "Código não confere. Confira a hora do celular e digite o código que está na tela agora." };
     return { recoveryCodes: codes };

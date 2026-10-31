@@ -10,10 +10,10 @@
  * no próprio WHERE — item de outro carrinho simplesmente não é encontrado.
  */
 
-import { and, eq, sql } from "drizzle-orm";
+import { and, asc, eq, sql } from "drizzle-orm";
 import type { Executor } from "@/db";
 import { cartItems, carts, products, productVariants } from "@/db/schema";
-import { PermanentError } from "@/saga/errors";
+import { PermanentError } from "@/shared/errors";
 
 /** Teto por linha do carrinho (além do estoque). */
 export const MAX_PER_ITEM = 10;
@@ -24,6 +24,34 @@ export type CartLineSnapshot = {
   quantity: number;
   unitPriceCents: number;
 };
+
+/** Linha do carrinho como o checkout grava no pedido: nome já com a variante. */
+export type CheckoutLine = CartLineSnapshot & { name: string };
+
+export async function getCheckoutLines(executor: Executor, cartId: string): Promise<CheckoutLine[]> {
+  const rows = await executor
+    .select({
+      productId: cartItems.productId,
+      variantId: cartItems.variantId,
+      quantity: cartItems.quantity,
+      unitPriceCents: cartItems.unitPriceCents,
+      productName: products.name,
+      variantName: productVariants.name,
+    })
+    .from(cartItems)
+    .innerJoin(products, eq(products.id, cartItems.productId))
+    .leftJoin(productVariants, eq(productVariants.id, cartItems.variantId))
+    .where(eq(cartItems.cartId, cartId))
+    .orderBy(asc(cartItems.createdAt));
+
+  return rows.map((row) => ({
+    productId: row.productId,
+    variantId: row.variantId,
+    quantity: row.quantity,
+    unitPriceCents: row.unitPriceCents,
+    name: row.variantName ? `${row.productName} — ${row.variantName}` : row.productName,
+  }));
+}
 
 export async function findCartIdByToken(executor: Executor, token: string): Promise<string | null> {
   const cart = await executor.query.carts.findFirst({

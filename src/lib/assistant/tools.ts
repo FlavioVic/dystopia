@@ -13,7 +13,7 @@ import { findProductsForAssistant, getCategories } from "@/lib/data/products";
 import { getOrderByNumber, getUserOrders } from "@/lib/data/orders";
 import { formatPriceCents } from "@/lib/format";
 import { isOrderStatus, ORDER_STATUS_LABELS } from "@/lib/order-status";
-import { submitServiceRequest } from "@/lib/service-request-submit";
+import { submitServiceRequest } from "@/composition/web";
 import { SERVICES } from "@/lib/services-catalog";
 import { parseServiceRequestForm } from "@/lib/validation/service-request";
 import type { ChatTool } from "./provider";

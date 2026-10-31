@@ -18,7 +18,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { and, count, eq, isNotNull, isNull, lt, or, sql } from "drizzle-orm";
 import type { Executor } from "@/db";
 import { mfaCredentials, mfaRecoveryCodes } from "@/db/schema";
-import { PermanentError } from "@/saga/errors";
+import { PermanentError } from "@/shared/errors";
 import { openSecret, sealSecret } from "./secret-box";
 import { base32Encode, generateTotpSecret, matchTotp } from "./totp";
 

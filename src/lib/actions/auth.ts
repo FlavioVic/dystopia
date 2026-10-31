@@ -10,7 +10,7 @@ import { limitAction, retryMessage } from "@/lib/action-limits";
 import { limitFromEnv } from "@/lib/rate-limit-config";
 import { getRequestIp } from "@/lib/request-ip";
 import { parseLoginForm, parseSignupForm } from "@/lib/validation/account";
-import { PermanentError } from "@/saga/errors";
+import { PermanentError } from "@/shared/errors";
 import { registerAccount, verifyCredentials, type Account } from "@/services/accounts";
 import { claimGuestCart } from "@/services/carts";
 import { hasConfirmedMfa, verifySecondFactor } from "@/services/mfa";

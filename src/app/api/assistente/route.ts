@@ -1,6 +1,5 @@
 import { handleAssistantMessage } from "@/lib/assistant/handler";
 import { chatConfigFromEnv, createChatCompletion } from "@/lib/assistant/provider";
-import { drainQueueAfterResponse } from "@/lib/inline-worker";
 import { getRequestIp } from "@/lib/request-ip";
 import { getCurrentUser } from "@/lib/data/auth";
 
@@ -29,7 +28,5 @@ export async function POST(request: Request): Promise<Response> {
     context: { userId: user?.id ?? null, ip: await getRequestIp() },
     complete: createChatCompletion(config),
   });
-  // Orçamento registrado pelo chat deixa o aviso na outbox; sem worker de pé, sai daqui.
-  if (result.queuedWork) drainQueueAfterResponse({ budgetMs: 15_000 });
   return Response.json(result.body, { status: result.status });
 }

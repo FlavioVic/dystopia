@@ -10,7 +10,7 @@
 import { and, eq, gte, sql } from "drizzle-orm";
 import type { Executor } from "@/db";
 import { productVariants, products } from "@/db/schema";
-import { PermanentError } from "@/saga/errors";
+import { PermanentError } from "@/shared/errors";
 
 export type StockLine = {
   productId: string;

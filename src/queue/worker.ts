@@ -12,7 +12,7 @@
 import { randomUUID } from "node:crypto";
 import type { Channel, ConsumeMessage, GetMessage } from "amqplib";
 import { createLogger } from "@/lib/logger";
-import { errorMessage, isRetryable } from "@/saga/errors";
+import { errorMessage, isRetryable } from "@/shared/errors";
 import { backoffMs } from "./backoff";
 import { declareQueue, getBroker, names, publishEnvelope, queueDepths, readEnvelope, type Envelope } from "./broker";
 import type { MessageHandler, QueueMessage } from "./index";

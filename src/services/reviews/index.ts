@@ -52,38 +52,43 @@ export async function getUserReview(executor: Executor, userId: string, productI
   });
 }
 
-/** Cria ou atualiza a avaliação do usuário e reescreve o agregado do produto. */
+/**
+ * Cria ou atualiza a avaliação do usuário e reescreve o agregado do produto.
+ * Os dois commitam juntos (savepoint quando já existe transação em volta).
+ */
 export async function upsertReview(
   executor: Executor,
   input: ReviewInput,
 ): Promise<{ reviewId: string; isVerifiedPurchase: boolean }> {
-  const isVerifiedPurchase = await hasPurchasedProduct(executor, input.userId, input.productId);
+  return executor.transaction(async (tx) => {
+    const isVerifiedPurchase = await hasPurchasedProduct(tx, input.userId, input.productId);
 
-  const [row] = await executor
-    .insert(reviews)
-    .values({
-      productId: input.productId,
-      userId: input.userId,
-      rating: input.rating,
-      title: input.title,
-      comment: input.comment,
-      isVerifiedPurchase,
-    })
-    .onConflictDoUpdate({
-      target: [reviews.productId, reviews.userId],
-      set: {
+    const [row] = await tx
+      .insert(reviews)
+      .values({
+        productId: input.productId,
+        userId: input.userId,
         rating: input.rating,
         title: input.title,
         comment: input.comment,
         isVerifiedPurchase,
-        createdAt: new Date(),
-      },
-    })
-    .returning({ id: reviews.id });
+      })
+      .onConflictDoUpdate({
+        target: [reviews.productId, reviews.userId],
+        set: {
+          rating: input.rating,
+          title: input.title,
+          comment: input.comment,
+          isVerifiedPurchase,
+          createdAt: new Date(),
+        },
+      })
+      .returning({ id: reviews.id });
 
-  await recalculateProductRating(executor, input.productId);
+    await recalculateProductRating(tx, input.productId);
 
-  return { reviewId: row.id, isVerifiedPurchase };
+    return { reviewId: row.id, isVerifiedPurchase };
+  });
 }
 
 export async function deleteReview(
@@ -91,13 +96,15 @@ export async function deleteReview(
   userId: string,
   productId: string,
 ): Promise<{ deleted: boolean }> {
-  const removed = await executor
-    .delete(reviews)
-    .where(and(eq(reviews.userId, userId), eq(reviews.productId, productId)))
-    .returning({ id: reviews.id });
+  return executor.transaction(async (tx) => {
+    const removed = await tx
+      .delete(reviews)
+      .where(and(eq(reviews.userId, userId), eq(reviews.productId, productId)))
+      .returning({ id: reviews.id });
 
-  if (removed.length > 0) await recalculateProductRating(executor, productId);
-  return { deleted: removed.length > 0 };
+    if (removed.length > 0) await recalculateProductRating(tx, productId);
+    return { deleted: removed.length > 0 };
+  });
 }
 
 /** Reescreve média e contagem a partir das avaliações existentes. */

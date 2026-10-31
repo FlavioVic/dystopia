@@ -34,8 +34,8 @@ responde (aprovar, recusar, instável, fora do ar) para ver a saga reagir.
   Playwright em desktop e celular: compras (aprovada, recusada, instável, com
   cupom, e pelo Stripe real em modo de teste), conta, carrinho, orçamento, admin, isolamento entre clientes e
   acessibilidade (axe, WCAG 2.1 AA). Testes de arquitetura impedem serviço de
-  importar serviço, Server Action de escrever no banco e action do admin sem
-  checagem de papel.
+  importar serviço, Server Action de escrever no banco ou abrir transação, a
+  borda de conhecer a fila e action do admin sem checagem de papel.
 - **Assistente com IA que usa o próprio sistema**: busca no catálogo, consulta
   o pedido de quem está logado e registra orçamento por ferramentas (tool
   calling), com a identidade vinda da sessão — nunca da conversa.
@@ -80,19 +80,20 @@ conversa real com o modelo, no site publicado.
 
 ```
 app/ + components/     UI e rotas (Server Components)
-lib/actions            borda HTTP (Server Actions): valida (Zod) e chama o serviço
+lib/actions            borda HTTP (Server Actions): valida (Zod) e chama o caso de uso
+application/           casos de uso: checkout, orçamento, LGPD, ligar o MFA
 saga/                  orquestração: ordem dos passos, retry, compensação
 services/*             regra de negócio, uma responsabilidade por serviço
 queue/                 outbox, relay, RabbitMQ, política de retry, DLQ
 db/                    schema Drizzle + migrations
 ```
 
-A dependência só aponta para baixo (borda → saga → serviços → banco), e isso
-é verificado por teste. O caminho de um pedido:
+A dependência só aponta para baixo (borda → aplicação → saga → serviços →
+banco), e isso é verificado por teste. O caminho de um pedido:
 
 ```mermaid
 flowchart LR
-    REQ(["request do checkout<br/>(responde depois do passo 1)"]) --> S1[1 · reserva estoque]
+    REQ(["request do checkout<br/>(grava pedido + saga e responde)"]) --> S1[1 · reserva estoque]
     S1 -- "comando por mensagem<br/>(fila payments)" --> S2[2 · autoriza pagamento<br/>processo próprio]
     S2 -- "resposta por mensagem<br/>(fila saga)" --> S3[3 · consome cupom]
     S3 --> S4[4 · confirma pedido] --> S5[5 · limpa carrinho] --> S6[6 · avisa cliente] --> OK([pedido pago])

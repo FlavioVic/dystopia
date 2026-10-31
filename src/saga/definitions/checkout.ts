@@ -20,7 +20,7 @@
  * comandos na fila `payments`, com a resposta voltando para a saga.
  */
 
-import { PermanentError } from "@/saga/errors";
+import { PermanentError } from "@/shared/errors";
 import type { SagaDefinition, SagaStep } from "@/saga/types";
 import { clearCart, restoreCart } from "@/services/carts";
 import { consumeCoupon, releaseCoupon } from "@/services/coupons";
@@ -169,12 +169,29 @@ export const checkoutSaga: SagaDefinition<CheckoutSagaPayload> = {
   maxAttemptsPerStep: 3,
   steps,
   parsePayload: parseCheckoutPayload,
+  describeFailure: describeCheckoutFailure,
   onCompensated: async (ctx, tx) => {
     // Rede de segurança: mesmo que o passo `confirm-order` nunca tenha rodado,
     // o pedido não pode ficar preso em `pending`.
     await markOrderCancelled(tx, ctx.payload.orderId);
   },
 };
+
+/** Mensagem curta para o cliente final — sem vazar detalhe de infraestrutura. */
+export function describeCheckoutFailure(code: string): string {
+  switch (code) {
+    case "out_of_stock":
+      return "Um item do pedido ficou sem estoque.";
+    case "payment_declined":
+      return "O pagamento foi recusado pela operadora.";
+    case "coupon_exhausted":
+      return "O cupom usado esgotou antes da confirmação.";
+    case "invalid_payload":
+      return "Os dados do pedido ficaram inconsistentes.";
+    default:
+      return "Não foi possível concluir o pedido.";
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Validação do payload persistido (jsonb não tem tipo em runtime)

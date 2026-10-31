@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { parseCheckoutPayload, paymentIdempotencyKey } from "@/saga/definitions/checkout";
-import { PermanentError } from "@/saga/errors";
+import { checkoutSaga, parseCheckoutPayload, paymentIdempotencyKey } from "@/saga/definitions/checkout";
+import { PermanentError } from "@/shared/errors";
 
 const valid = {
   orderId: "11111111-1111-1111-1111-111111111111",
@@ -71,5 +71,15 @@ describe("payload da saga de checkout", () => {
   it("chave de idempotência do pagamento é estável por pedido", () => {
     assert.equal(paymentIdempotencyKey("DYS-2026-1"), paymentIdempotencyKey("DYS-2026-1"));
     assert.notEqual(paymentIdempotencyKey("DYS-2026-1"), paymentIdempotencyKey("DYS-2026-2"));
+  });
+});
+
+describe("motivo do cancelamento para o cliente", () => {
+  it("traduz o código sem vazar detalhe técnico", () => {
+    const describe = checkoutSaga.describeFailure!;
+    assert.match(describe("out_of_stock"), /estoque/i);
+    assert.match(describe("payment_declined"), /recusado/i);
+    assert.match(describe("coupon_exhausted"), /cupom/i);
+    assert.match(describe("deadlock_detected_42P01"), /Não foi possível concluir/i);
   });
 });

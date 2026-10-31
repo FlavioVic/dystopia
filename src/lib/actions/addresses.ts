@@ -9,7 +9,7 @@ import { refresh } from "next/cache";
 import { db } from "@/db";
 import { getCurrentUser } from "@/lib/data/auth";
 import { parseAddressForm } from "@/lib/validation/address";
-import { PermanentError } from "@/saga/errors";
+import { PermanentError } from "@/shared/errors";
 import { createAddress, deleteAddress, setDefaultAddress } from "@/services/addresses";
 
 export type AddressState =

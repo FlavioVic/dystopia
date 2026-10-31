@@ -1,30 +1,21 @@
 "use server";
 
 /**
- * Server Actions do checkout.
- *
- * Esta camada é SÓ a borda HTTP: valida formulário, calcula totais no
- * servidor e abre a saga. Nenhuma regra de negócio mora aqui — quem reserva
- * estoque, cobra, consome cupom e avisa o cliente são os serviços em
- * `src/services/*`, orquestrados por `src/saga`.
- *
- * O commit inicial grava, numa única transação: endereço + pedido (`pending`)
- * + itens + saga + mensagem na outbox. Depois disso o avanço é tentado
- * inline (para o cliente já ver o resultado) e, se falhar, o worker termina.
+ * Server Actions do checkout — só a borda HTTP: lê e valida o formulário,
+ * descobre quem é o cliente (sessão) e qual o carrinho (cookie), e chama o
+ * caso de uso (`src/application/checkout.ts`). Regra de negócio, saga e fila
+ * não moram aqui.
  */
 
 import { redirect } from "next/navigation";
 import { db } from "@/db";
+import { placeOrder as placeOrderUseCase } from "@/composition/web";
 import { getCurrentUser } from "@/lib/data/auth";
-import { getCart } from "@/lib/data/cart";
-import { drainQueueAfterResponse } from "@/lib/inline-worker";
-import { shippingFor, type CouponResult } from "@/lib/shipping";
+import { getCartToken } from "@/lib/data/cart";
+import type { CouponResult } from "@/lib/shipping";
 import { parseAddressForm, type AddressFormValues } from "@/lib/validation/address";
-import { CHECKOUT_SAGA_TYPE, type CheckoutSagaPayload } from "@/saga/definitions/checkout";
-import { startSaga, tryRunSagaInline } from "@/saga/runner";
+import { findCartIdByToken } from "@/services/carts";
 import { resolveCoupon } from "@/services/coupons";
-import { createAddress, getUserAddress } from "@/services/addresses";
-import { createOrder, generateOrderNumber } from "@/services/orders";
 import {
   isCardPaymentMethodId,
   isPaymentMethod,
@@ -68,19 +59,16 @@ export async function placeOrder(_prev: CheckoutState, formData: FormData): Prom
   const user = await getCurrentUser();
   if (!user) redirect("/entrar");
 
-  const cart = await getCart();
-  if (!cart || cart.lines.length === 0) {
-    return { message: "Seu carrinho está vazio." };
-  }
+  const cartToken = await getCartToken();
+  const cartId = cartToken ? await findCartIdByToken(db, cartToken) : null;
+  if (!cartId) return { message: "Seu carrinho está vazio." };
 
   // --- endereço: um salvo na agenda ou um novo (que também é salvo) ---
   // Ou o id de um salvo, ou os dados de um novo — nunca os dois em aberto.
   let address: { savedId: string } | { values: AddressFormValues };
   const savedAddressId = req(formData, "addressId");
   if (savedAddressId) {
-    const saved = await getUserAddress(db, user.id, savedAddressId);
-    if (!saved) return { message: "Endereço não encontrado na sua conta." };
-    address = { savedId: saved.id };
+    address = { savedId: savedAddressId };
   } else {
     const parsedAddress = parseAddressForm(formData);
     if (!parsedAddress.ok) return { errors: parsedAddress.errors };
@@ -101,82 +89,19 @@ export async function placeOrder(_prev: CheckoutState, formData: FormData): Prom
     cardPaymentMethodId = token;
   }
 
-  // Conta só a tentativa que chegaria a criar pedido (formulário já válido).
-  const limited = await limitAction("checkout", `user:${user.id}`);
-  if (limited) return { message: limited };
-
-  // --- totais (recalculados no servidor, nunca vindos do cliente) ---
-  const subtotalCents = cart.subtotalCents;
-  const coupon = await resolveCoupon(db, req(formData, "couponCode"), subtotalCents);
-  const discountCents = coupon.ok ? coupon.discountCents : 0;
-  const shippingCents = shippingFor(subtotalCents);
-  const totalCents = Math.max(0, subtotalCents - discountCents) + shippingCents;
-  const orderNumber = generateOrderNumber();
-
-  const lines = cart.lines.map((line) => ({
-    productId: line.productId,
-    variantId: line.variantId,
-    name: line.variantName ? `${line.name} — ${line.variantName}` : line.name,
-    quantity: line.quantity,
-    unitPriceCents: line.unitPriceCents,
-  }));
-
-  // --- commit inicial: pedido + saga + mensagem, tudo ou nada (outbox) ---
-  const { sagaId } = await db.transaction(async (tx) => {
-    // Endereço novo entra na agenda do cliente — é o que alimenta
-    // /conta/enderecos e o seletor do próximo checkout.
-    const shippingAddressId =
-      "savedId" in address ? address.savedId : (await createAddress(tx, user.id, address.values)).id;
-
-    const { orderId } = await createOrder(tx, {
-      orderNumber,
-      userId: user.id,
-      shippingAddressId,
-      couponId: coupon.ok ? coupon.couponId : null,
-      subtotalCents,
-      shippingCents,
-      discountCents,
-      totalCents,
-      lines: lines.map((line) => ({
-        productId: line.productId,
-        variantId: line.variantId,
-        productNameSnapshot: line.name,
-        unitPriceCents: line.unitPriceCents,
-        quantity: line.quantity,
-      })),
-    });
-
-    const payload: CheckoutSagaPayload = {
-      orderId,
-      orderNumber,
-      userId: user.id,
-      customerName: user.name,
-      customerEmail: user.email,
-      cartId: cart.id,
-      paymentMethod: method,
-      totalCents,
-      couponId: coupon.ok ? coupon.couponId : null,
-      lines,
-      ...(simulationFromForm(formData) ? { simulate: simulationFromForm(formData)! } : {}),
-      ...(cardPaymentMethodId ? { cardPaymentMethodId } : {}),
-    };
-
-    return startSaga(tx, {
-      type: CHECKOUT_SAGA_TYPE,
-      correlationId: orderNumber,
-      payload: payload as unknown as Record<string, unknown>,
-    });
+  const simulate = simulationFromForm(formData);
+  const result = await placeOrderUseCase({
+    customer: { id: user.id, name: user.name, email: user.email },
+    cartId,
+    address,
+    paymentMethod: method,
+    couponCode: req(formData, "couponCode"),
+    ...(cardPaymentMethodId ? { cardPaymentMethodId } : {}),
+    ...(simulate ? { simulate } : {}),
   });
+  if (!result.ok) return { message: result.message };
 
-  // Caminho rápido: tenta terminar a saga no próprio request para o cliente já
-  // cair na página do pedido com o resultado. Se não der, a mensagem na
-  // outbox garante que o worker termina (ver src/saga/runner.ts).
-  await tryRunSagaInline(sagaId);
-  // Sem worker de pé (deploy só-Vercel): pagamento, resposta e e-mail saem
-  // daqui, depois do redirect — esperando retries em backoff se precisar.
-  drainQueueAfterResponse({ budgetMs: 45_000, waitForScheduled: true });
-
-  redirect(`/pedido/${orderNumber}`);
+  redirect(`/pedido/${result.orderNumber}`);
 }
 
 /**

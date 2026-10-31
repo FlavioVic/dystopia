@@ -8,7 +8,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { notifications, outbox, serviceRequests } from "@/db/schema";
 import { sendServiceRequestAlert } from "@/services/notifications";
-import { PermanentError } from "@/saga/errors";
+import { PermanentError } from "@/shared/errors";
 import {
   createServiceRequest,
   listServiceRequests,

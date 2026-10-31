@@ -29,6 +29,10 @@ app/ + components/        borda: UI, rotas, formulários
 lib/actions/*             borda HTTP (Server Actions): valida entrada, nada de regra
 lib/assistant/*           borda conversacional: o chatbot chama dado e serviço
                           pelas mesmas portas que as telas usam
+composition/web.ts        raiz da borda web: liga os casos de uso ao que só o
+                          Next tem (o `after()` do worker embutido)
+application/*             casos de uso: o que cruza mais de um serviço ou abre
+                          transação (checkout, orçamento, LGPD, ligar o MFA)
 saga/                     orquestração: ordem dos passos, retry, compensação
 services/*                regra de negócio, uma responsabilidade cada
                           (inventory, payments, orders, coupons, carts,
@@ -37,19 +41,29 @@ services/*                regra de negócio, uma responsabilidade cada
                            service-requests)
 queue/                    fila genérica: outbox + relay, RabbitMQ, política
                           de retry (filas de espera com TTL), DLQ
+shared/errors.ts          taxonomia de erro (PermanentError x RetryableError),
+                          usada por serviços, fila e saga
 db/                       schema Drizzle + pool + usuário do app (app-role.ts)
 ```
 
-A dependência só aponta para baixo: **borda → saga → serviços → db**.
+A dependência só aponta para baixo: **borda → aplicação → saga → serviços → db**.
 
-- um **serviço** não importa outro serviço (quem compõe é a saga), não importa
-  `next/*`, não importa `lib/actions`/`lib/data`/`components`. Do `saga/` ele
-  só pode importar `@/saga/errors`;
+- um **caso de uso** (`src/application`) não importa `next/*` nem a borda. Ele
+  recebe a entrada já validada, compõe serviços (numa transação, quando é o
+  caso) e, se deixou mensagem na outbox, chama `afterCommit` — sem saber se do
+  outro lado tem worker em container ou o dreno do `after()`;
+- a **borda do cliente** (páginas, actions, assistente) não importa `@/queue`,
+  `@/saga/runner`, `@/saga/definitions` nem `composition/worker`: chama o caso
+  de uso por `@/composition/web`. O painel de operação (`app/admin`, cron,
+  `actions/admin.ts`) é a exceção — o trabalho dele é olhar a fila;
+- um **serviço** não importa outro serviço (quem compõe é a saga ou o caso de
+  uso), não importa `next/*`, não importa `lib/actions`/`lib/data`/`components`
+  nem `saga/` (a taxonomia de erro mora em `src/shared`);
 - a **fila** não conhece saga nenhuma em específico (só o registry de handlers)
   e não importa serviço nenhum;
-- uma **Server Action** não escreve no banco: valida (parser de
-  `lib/validation`), chama o serviço e traduz o resultado para a tela. Abrir uma
-  transação para compor serviços pode (é o outbox do checkout);
+- uma **Server Action** não escreve no banco nem abre transação: valida (parser
+  de `lib/validation`), chama o serviço ou o caso de uso e traduz o resultado
+  para a tela. Compor serviços numa transação é caso de uso;
 - o **orquestrador** não conhece a definição concreta — chega nela via
   `src/saga/registry.ts`;
 - **pagamentos roda em processo próprio**: fora de `services/payments` (e dos
@@ -64,14 +78,12 @@ reescrever regra.
 ## O fluxo do checkout
 
 ```
-placeOrder (Server Action)
+placeOrder (Server Action) → placeOrder (caso de uso, src/application/checkout.ts)
   └─ 1 transação: endereço + pedido(pending) + itens + saga + mensagem na outbox
-         │
-         ├─ caminho rápido: o próprio request avança a saga (tryRunSagaInline)
-         │                  até o pagamento, que é remoto → saga em `waiting`
-         └─ caminho durável: relay publica no RabbitMQ → `npm run worker`
-                 consome a fila `saga`
-                 (lease na saga garante que só um dos dois avança por vez)
+         │  (o request não executa passo nenhum: grava e responde)
+         └─ relay publica no RabbitMQ → o consumidor da fila `saga` avança
+            (`npm run worker` em container; no deploy só-Vercel, o dreno do
+             `after()` que o `afterCommit` liga — mesmo código de consumo)
 
 passo remoto (pagamento):
   saga ── payments.authorize ──▶ fila `payments` ──▶ npm run worker:payments
@@ -267,8 +279,8 @@ revise o SQL → `npm run db:migrate`. Nunca edite migration já aplicada.
 - **Assistente** (`lib/assistant`, `POST /api/assistente`): o modelo escolhe
   ferramenta e argumento, mas QUEM é a pessoa vem da sessão, nunca de
   argumento — pedido de outra conta é "não encontrado". Argumento passa por
-  Zod; orçamento pelo chat usa o MESMO fluxo do formulário
-  (`lib/service-request-submit.ts`, com o mesmo limite por IP); link na
+  Zod; orçamento pelo chat usa o MESMO caso de uso do formulário
+  (`application/service-requests.ts`, com o mesmo limite por IP); link na
   resposta só para caminho interno (`rich-text.ts`). Sem `CHAT_API_KEY` o
   botão não aparece. Teste: o modelo é falso nos testes (roteiro de respostas),
   as ferramentas rodam contra o banco real.
@@ -280,10 +292,12 @@ revise o SQL → `npm run db:migrate`. Nunca edite migration já aplicada.
   pública (`lib/stripe-public.ts`). Só chave de teste é aceita. Exceção
   consciente: com `INLINE_WORKER=1` (demo só-Vercel) pagamentos roda no
   mesmo runtime do app, então a secreta de teste vai para Vercel também.
-- **Worker embutido** (`INLINE_WORKER=1`, `src/lib/inline-worker.ts`): sem
-  worker de pé, checkout, página do pedido e painel de orquestração publicam
-  a outbox e drenam o RabbitMQ por pull no `after()`, e `/api/cron/fila` (cron
-  da Vercel) é a rede de segurança. Quem pluga os handlers é
+- **Worker embutido** (`INLINE_WORKER=1`, `src/composition/web.ts`): sem
+  worker de pé, os casos de uso que deixam mensagem na outbox (checkout,
+  orçamento), a página do pedido em andamento e o painel de orquestração
+  publicam a outbox e drenam o RabbitMQ por pull no `after()`, e
+  `/api/cron/fila` (cron da Vercel) é a rede de segurança. A borda não sabe
+  disso: quem decide é a raiz de composição. Quem pluga os handlers é
   `src/composition/worker.ts`, o mesmo que o `npm run worker` usa — a fila e a
   saga não mudam. Broker do deploy: CloudAMQP (plano grátis), `RABBITMQ_URL`.
 - Identidade do design system "DYSTOPIA": tokens de `globals.css` por papel

@@ -1,9 +1,10 @@
 /**
- * Direitos do titular (LGPD, art. 18) que o site atende sozinho: baixar os
- * próprios dados (acesso e portabilidade) e excluir a conta (eliminação).
+ * Casos de uso dos direitos do titular (LGPD, art. 18) que o site atende
+ * sozinho: baixar os próprios dados (acesso e portabilidade) e excluir a
+ * conta (eliminação).
  *
- * Mora fora de `services/` porque cruza vários donos (pedido, saga, e-mail,
- * avaliação, orçamento) — o mesmo motivo de `service-request-submit.ts`.
+ * Moram na aplicação, não em `services/`, porque cruzam vários donos (pedido,
+ * saga, e-mail, avaliação, orçamento).
  *
  * A exclusão apaga, não anonimiza: a loja é demonstração (nenhuma venda real,
  * nenhuma nota fiscal a guardar), então não há obrigação legal que justifique
@@ -13,7 +14,7 @@
  */
 
 import { eq, inArray, like, or } from "drizzle-orm";
-import type { Executor } from "@/db";
+import { db, type Executor } from "@/db";
 import {
   addresses,
   notifications,
@@ -26,22 +27,22 @@ import {
   users,
   wishlistItems,
 } from "@/db/schema";
-import { PermanentError } from "@/saga/errors";
+import { PermanentError } from "@/shared/errors";
 import { recalculateProductRating } from "@/services/reviews";
 
-export async function exportAccountData(executor: Executor, userId: string) {
-  const user = await executor.query.users.findFirst({
+export async function exportAccountData(userId: string) {
+  const user = await db.query.users.findFirst({
     where: eq(users.id, userId),
     columns: { name: true, email: true, role: true, createdAt: true },
   });
   if (!user) return null;
 
   const [userAddresses, userOrders, userReviews, wishlist, requests, logins] = await Promise.all([
-    executor.query.addresses.findMany({
+    db.query.addresses.findMany({
       where: eq(addresses.userId, userId),
       columns: { id: false, userId: false },
     }),
-    executor.query.orders.findMany({
+    db.query.orders.findMany({
       where: eq(orders.userId, userId),
       columns: { orderNumber: true, status: true, subtotalCents: true, shippingCents: true, discountCents: true, totalCents: true, createdAt: true },
       with: {
@@ -49,22 +50,22 @@ export async function exportAccountData(executor: Executor, userId: string) {
         payments: { columns: { provider: true, method: true, status: true, amountCents: true, paidAt: true } },
       },
     }),
-    executor.query.reviews.findMany({
+    db.query.reviews.findMany({
       where: eq(reviews.userId, userId),
       columns: { rating: true, title: true, comment: true, createdAt: true },
       with: { product: { columns: { name: true } } },
     }),
-    executor.query.wishlistItems.findMany({
+    db.query.wishlistItems.findMany({
       where: eq(wishlistItems.userId, userId),
       columns: { createdAt: true },
       with: { product: { columns: { name: true } } },
     }),
-    executor.query.serviceRequests.findMany({
+    db.query.serviceRequests.findMany({
       where: or(eq(serviceRequests.userId, userId), eq(serviceRequests.email, user.email)),
       columns: { protocol: true, kind: true, name: true, email: true, phone: true, details: true, status: true, createdAt: true },
     }),
     // Só quando entrou e até quando vale: o hash do token não é dado da pessoa e não sai daqui.
-    executor.query.sessions.findMany({
+    db.query.sessions.findMany({
       where: eq(sessions.userId, userId),
       columns: { createdAt: true, expiresAt: true },
     }),
@@ -82,8 +83,15 @@ export async function exportAccountData(executor: Executor, userId: string) {
   };
 }
 
-/** Apaga a conta e tudo que é dela. Admin não se exclui (o painel ficaria sem dono). */
-export async function deleteAccount(executor: Executor, userId: string): Promise<{ deleted: boolean }> {
+/**
+ * Apaga a conta e tudo que é dela, numa transação só. Admin não se exclui (o
+ * painel ficaria sem dono).
+ */
+export async function deleteAccount(userId: string): Promise<{ deleted: boolean }> {
+  return db.transaction((tx) => deleteAccountData(tx, userId));
+}
+
+async function deleteAccountData(executor: Executor, userId: string): Promise<{ deleted: boolean }> {
   const user = await executor.query.users.findFirst({
     where: eq(users.id, userId),
     columns: { id: true, email: true, role: true },

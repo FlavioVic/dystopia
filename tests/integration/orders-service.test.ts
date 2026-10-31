@@ -8,7 +8,7 @@ import { after, beforeEach, describe, it } from "node:test";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { orderItems, orders } from "@/db/schema";
-import { PermanentError } from "@/saga/errors";
+import { PermanentError } from "@/shared/errors";
 import { createAddress } from "@/services/addresses";
 import {
   createOrder,

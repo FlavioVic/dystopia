@@ -9,7 +9,7 @@
 import { and, eq, isNull, ne, or, sql } from "drizzle-orm";
 import type { Executor } from "@/db";
 import { coupons } from "@/db/schema";
-import { PermanentError } from "@/saga/errors";
+import { PermanentError } from "@/shared/errors";
 import { evaluateCoupon, normalizeCode, type CouponEvaluation, type CouponLike } from "./rules";
 
 export async function findCouponByCode(executor: Executor, rawCode: string): Promise<CouponLike | null> {

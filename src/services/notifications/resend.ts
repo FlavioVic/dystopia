@@ -5,7 +5,7 @@
  * então o retry da fila nunca manda o mesmo e-mail duas vezes.
  */
 
-import { PermanentError, RetryableError } from "@/saga/errors";
+import { PermanentError, RetryableError } from "@/shared/errors";
 
 export const RESEND_PROVIDER = "resend";
 const API = "https://api.resend.com/emails";

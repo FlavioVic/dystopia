@@ -15,7 +15,7 @@
 import { db, type Transaction } from "@/db";
 import type { MessageHandler, QueueMessage } from "@/queue";
 import { readReplyTo, sendReply, type ReplyTo } from "@/queue/reply";
-import { errorCode, errorMessage, isRetryable, PermanentError } from "@/saga/errors";
+import { errorCode, errorMessage, isRetryable, PermanentError } from "@/shared/errors";
 import {
   isCardPaymentMethodId,
   isPaymentMethod,
