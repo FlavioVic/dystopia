@@ -11,6 +11,7 @@ import { randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
 import { ALL_QUEUES } from "@/composition/worker";
 import { db, pgPool } from "@/db";
+import { paymentsDb, paymentsPool } from "@/services/payments/db";
 import { closeBroker, purgeQueues } from "@/queue/broker";
 import {
   cartItems,
@@ -35,7 +36,6 @@ const TABLES = [
   "wishlist_items",
   "service_requests",
   "reviews",
-  "payments",
   "order_items",
   "orders",
   "cart_items",
@@ -49,14 +49,19 @@ const TABLES = [
   "users",
 ];
 
+/** Banco de pagamentos (próprio): as duas tabelas dele. */
+const PAYMENTS_TABLES = ["payments", "outbox"];
+
 export async function resetDatabase(): Promise<void> {
   await db.execute(sql.raw(`truncate table ${TABLES.join(", ")} restart identity cascade`));
+  await paymentsDb.execute(sql.raw(`truncate table ${PAYMENTS_TABLES.join(", ")} restart identity cascade`));
   await purgeQueues(ALL_QUEUES);
 }
 
 export async function closeDatabase(): Promise<void> {
   await closeBroker();
   await pgPool.end();
+  await paymentsPool.end();
 }
 
 export type ProductFixture = {

@@ -7,7 +7,7 @@
  */
 
 import type { Executor } from "@/db";
-import { outbox } from "@/db/schema";
+import { outbox } from "@/db/outbox";
 
 export const DEFAULT_MAX_ATTEMPTS = 5;
 
@@ -22,8 +22,12 @@ export type EnqueueInput = {
   delayMs?: number;
 };
 
-/** Grava a mensagem na outbox — DENTRO da transação do fato de negócio. */
-export async function enqueue(executor: Executor, input: EnqueueInput): Promise<{ id: string }> {
+/**
+ * Grava a mensagem na outbox — DENTRO da transação do fato de negócio. A
+ * outbox é a do banco de quem grava: a loja na dela, pagamentos na dele (a
+ * tabela tem a mesma forma nos dois).
+ */
+export async function enqueue(executor: Pick<Executor, "insert">, input: EnqueueInput): Promise<{ id: string }> {
   const [row] = await executor
     .insert(outbox)
     .values({

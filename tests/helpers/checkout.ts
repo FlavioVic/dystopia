@@ -17,7 +17,7 @@ import { startSaga } from "@/saga/runner";
 import { createAddress } from "@/services/addresses";
 import { createOrder, generateOrderNumber } from "@/services/orders";
 import { evaluateCoupon } from "@/services/coupons/rules";
-import type { SimulationMode } from "@/services/payments/contract";
+import { TEST_PAYMENT_TOKENS, type TestPaymentScenario } from "@/services/payments/contract";
 import type { CheckoutFixture } from "./db";
 
 export type StartedCheckout = {
@@ -33,7 +33,8 @@ export type StartedCheckout = {
 export async function startCheckout(
   fixture: CheckoutFixture,
   options: {
-    simulate?: SimulationMode;
+    /** Cenário do provedor simulado (vira o token de teste correspondente). */
+    simulate?: TestPaymentScenario;
     useCoupon?: boolean;
     /** Simula uma saga que começou numa versão antiga da definição (em andamento num deploy). */
     definitionVersion?: number;
@@ -108,7 +109,7 @@ export async function startCheckout(
       totalCents,
       couponId,
       lines,
-      ...(options.simulate ? { simulate: options.simulate } : {}),
+      ...(options.simulate && options.simulate !== "approve" ? { paymentToken: TEST_PAYMENT_TOKENS[options.simulate] } : {}),
     };
 
     const { sagaId } = await startSaga(tx, {

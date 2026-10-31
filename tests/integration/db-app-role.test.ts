@@ -83,6 +83,11 @@ describe("usuário do app (menor privilégio)", () => {
     assert.deepEqual(await applyAppRole(owner, { role: ROLE, password: PASSWORD }), { created: false });
   });
 
+  it("sem senha, só reaplica os GRANTs (banco novo no mesmo servidor) — e não cria papel", async () => {
+    assert.deepEqual(await applyAppRole(owner, { role: ROLE }), { created: false });
+    await assert.rejects(applyAppRole(owner, { role: "papel_que_nao_existe" }), /não existe/);
+  });
+
   it("recusa senha curta e nome de papel com SQL dentro", async () => {
     await assert.rejects(applyAppRole(owner, { role: ROLE, password: "curta" }), /16\+ caracteres/);
     await assert.rejects(applyAppRole(owner, { role: 'x"; drop table users; --', password: PASSWORD }), /nome de papel inválido/);

@@ -1,6 +1,6 @@
 import { cache } from "react";
 import { asc, desc, eq } from "drizzle-orm";
-import { ALL_QUEUES } from "@/composition/worker";
+import { ALL_OUTBOXES, ALL_QUEUES } from "@/composition/worker";
 import { db } from "@/db";
 import { notifications, sagaSteps, sagas } from "@/db/schema";
 import { computeAlerts, HEALTH_WINDOWS, type HealthWindow } from "@/lib/observability";
@@ -30,7 +30,7 @@ export const getOperationalHealth = cache(async (window: HealthWindow = "24h") =
   const now = new Date();
   const [sagaMetrics, queueMetrics] = await Promise.all([
     getSagaMetrics(db, { since: new Date(now.getTime() - HEALTH_WINDOWS[window].ms), now }),
-    getQueueMetrics(db, { queues: ALL_QUEUES, now }),
+    getQueueMetrics(db, { queues: ALL_QUEUES, now, outboxes: ALL_OUTBOXES }),
   ]);
   const alerts = computeAlerts(queueMetrics, {
     stuck: sagaMetrics.stuck,

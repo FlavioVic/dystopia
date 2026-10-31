@@ -63,6 +63,9 @@ services:
     build: { context: ., dockerfile: Dockerfile.web }
     environment: &app-env
       DATABASE_URL: postgresql://dystopia_app:${APP_DB_PASSWORD:-dystopia_app_dev_pw}@db:5432/${POSTGRES_DB:-dystopia}
+      # Banco próprio do serviço de pagamentos (mesmo servidor Postgres aqui;
+      # em produção, outro database do projeto no Neon).
+      PAYMENTS_DATABASE_URL: postgresql://dystopia_app:${APP_DB_PASSWORD:-dystopia_app_dev_pw}@db:5432/${POSTGRES_DB:-dystopia}_payments
       RABBITMQ_URL: amqp://${RABBITMQ_USER:-dystopia}:${RABBITMQ_PASSWORD:-dystopia_dev_pw}@rabbitmq:5672
       # Chave de DESENVOLVIMENTO para cifrar o segredo do autenticador do admin.
       MFA_ENCRYPTION_KEY: ${MFA_ENCRYPTION_KEY:-ZGVzZW52b2x2aW1lbnRvLXNvbWVudGUtdHJvcXVlLWo=}
@@ -116,6 +119,9 @@ services:
     environment:
       <<: *app-env
       DATABASE_URL: postgresql://${POSTGRES_USER:-dystopia}:${POSTGRES_PASSWORD:-dystopia_dev_pw}@db:5432/${POSTGRES_DB:-dystopia}
+      PAYMENTS_DATABASE_URL: postgresql://${POSTGRES_USER:-dystopia}:${POSTGRES_PASSWORD:-dystopia_dev_pw}@db:5432/${POSTGRES_DB:-dystopia}_payments
+      # Cria o banco de pagamentos na primeira subida (em produção, à mão).
+      PAYMENTS_DATABASE_CREATE: "1"
       APP_DB_PASSWORD: ${APP_DB_PASSWORD:-dystopia_app_dev_pw}
     depends_on:
       db: { condition: service_healthy }
@@ -144,13 +150,15 @@ services:
     depends_on: *after-migrate
     restart: unless-stopped
 
-  # Serviço de pagamentos em processo próprio (fila `payments`).
+  # Serviço de pagamentos em processo próprio (fila `payments`), com banco
+  # próprio: sem DATABASE_URL de propósito — ele não conecta no banco da loja.
   payments:
     profiles: [app]
     build: { context: ., dockerfile: Dockerfile.worker }
     command: ["node", "--import", "tsx", "src/scripts/payments-worker.ts"]
     environment:
       <<: *app-env
+      DATABASE_URL: ""
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
     depends_on: *after-migrate
     restart: unless-stopped

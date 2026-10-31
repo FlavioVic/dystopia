@@ -1,20 +1,20 @@
 /**
  * Gateway de pagamento: o único ponto do sistema que fala com infraestrutura
- * externa. Roteia por provedor — o resto do serviço (e a saga) não sabe qual:
+ * externa. Roteia pelo token do meio de pagamento — o resto do serviço (e a
+ * saga) não sabe qual provedor cobrou:
  *
- * - cartão com `pm_…` (Stripe Elements no navegador) + Stripe configurado
+ * - `pm_…` (cartão digitado no Stripe Elements) + Stripe configurado
  *   → Stripe, modo de teste (`stripe.ts`);
- * - o resto (Pix, boleto, cartão sem Stripe) → provedor SIMULADO.
- *
- * `mode` é o modo demonstração: injeta a falha ANTES de qualquer provedor,
- * para mostrar os caminhos tristes de forma determinística (o Stripe não tem
- * como simular "fora do ar"). Recusa de verdade no Stripe vem do cartão
- * 4000 0000 0000 0002.
+ * - token de teste (`sim_decline`, `sim_flaky_once`…) → provedor simulado no
+ *   caminho pedido, só com o modo demonstração ligado NESTE processo — como
+ *   os cartões de teste do Stripe, é um valor de token, não um campo
+ *   especial do comando;
+ * - sem token (Pix, boleto) → provedor simulado, aprovando.
  */
 
 import { createHash } from "node:crypto";
 import { PermanentError, RetryableError } from "@/shared/errors";
-import type { SimulationMode } from "./contract";
+import { TEST_PAYMENT_TOKENS, type TestPaymentScenario } from "./contract";
 import {
   STRIPE_PROVIDER,
   stripeCharge,
@@ -29,11 +29,10 @@ export type ChargeInput = {
   method: string;
   /** Mesma chave => mesma cobrança, no provedor e no nosso banco. */
   idempotencyKey: string;
-  mode?: SimulationMode;
-  /** Tentativa atual do passo (usada pelo modo `flaky_once`). */
+  /** Tentativa atual do comando (usada pelo token `sim_flaky_once`). */
   attempt?: number;
-  /** PaymentMethod do Stripe criado no navegador (`pm_…`). */
-  cardPaymentMethodId?: string;
+  /** `pm_…` do Stripe, token de teste, ou nada (simulado). */
+  paymentToken?: string;
   orderId?: string;
 };
 
@@ -46,9 +45,25 @@ export type ChargeResult = {
 export const PROVIDER = "simulado";
 
 /** Dependências externas — os testes injetam um `fetch` falso e a config. */
-export type GatewayDeps = { stripe: StripeConfig | null; fetch: FetchLike };
+export type GatewayDeps = {
+  stripe: StripeConfig | null;
+  fetch: FetchLike;
+  /** Aceita token de teste? Só com o modo demonstração ligado no processo de pagamentos. */
+  allowTestTokens?: boolean;
+};
 
-const defaultDeps = (): GatewayDeps => ({ stripe: stripeConfigFromEnv(), fetch });
+const defaultDeps = (): GatewayDeps => ({
+  stripe: stripeConfigFromEnv(),
+  fetch,
+  allowTestTokens: process.env.ALLOW_CHECKOUT_SIMULATION === "1",
+});
+
+/** Cenário do provedor simulado pedido pelo token de teste, ou `null`. */
+export function testScenarioOf(token: string | undefined): TestPaymentScenario | null {
+  if (!token) return null;
+  const entry = Object.entries(TEST_PAYMENT_TOKENS).find(([, value]) => value === token);
+  return entry ? (entry[0] as TestPaymentScenario) : null;
+}
 
 /**
  * Quem processa cartão neste processo. Chamado na subida do worker: chave de
@@ -59,14 +74,22 @@ export function cardProvider(): typeof STRIPE_PROVIDER | typeof PROVIDER {
 }
 
 export async function charge(input: ChargeInput, deps: GatewayDeps = defaultDeps()): Promise<ChargeResult> {
-  const mode = input.mode ?? "approve";
   const attempt = input.attempt ?? 1;
+  const scenario = testScenarioOf(input.paymentToken);
 
   if (input.amountCents <= 0) {
     throw new PermanentError("invalid_amount", "Valor do pagamento inválido.", {
       amountCents: input.amountCents,
     });
   }
+
+  if (scenario && !deps.allowTestTokens) {
+    // Token de teste com cobrança de verdade: o cliente não pode escolher o
+    // resultado da própria cobrança.
+    throw new PermanentError("test_token_rejected", "Meio de pagamento inválido.");
+  }
+
+  const mode = scenario ?? "approve";
 
   if (mode === "decline") {
     throw new PermanentError("payment_declined", "Pagamento recusado pela operadora.", {
@@ -81,7 +104,12 @@ export async function charge(input: ChargeInput, deps: GatewayDeps = defaultDeps
     });
   }
 
-  if (input.cardPaymentMethodId) {
+  const cardToken = !scenario && input.paymentToken?.startsWith("pm_") ? input.paymentToken : undefined;
+  if (input.paymentToken && !scenario && !cardToken) {
+    throw new PermanentError("invalid_payment_token", "Meio de pagamento inválido.");
+  }
+
+  if (cardToken) {
     // O comprador digitou o cartão no Elements: sem Stripe aqui, não há como
     // cobrar — e cair no simulado aprovaria um cartão que ninguém validou.
     if (!deps.stripe) {
@@ -91,7 +119,7 @@ export async function charge(input: ChargeInput, deps: GatewayDeps = defaultDeps
       deps.stripe,
       {
         amountCents: input.amountCents,
-        paymentMethodId: input.cardPaymentMethodId,
+        paymentMethodId: cardToken,
         idempotencyKey: input.idempotencyKey,
         orderId: input.orderId,
       },

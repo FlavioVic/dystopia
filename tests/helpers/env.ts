@@ -31,3 +31,16 @@ export function adminDatabaseUrl(): string {
 export function testDatabaseName(): string {
   return new URL(testDatabaseUrl()).pathname.replace(/^\//, "");
 }
+
+/**
+ * Banco de TESTE do serviço de pagamentos: `<nome>_payments_test`, no mesmo
+ * Postgres (pagamentos tem banco próprio também nos testes — é o que prova
+ * que nada da loja depende das tabelas dele). Sobrescreve com
+ * `TEST_PAYMENTS_DATABASE_URL`.
+ */
+export function testPaymentsDatabaseUrl(): string {
+  if (process.env.TEST_PAYMENTS_DATABASE_URL) return process.env.TEST_PAYMENTS_DATABASE_URL;
+  const url = new URL(testDatabaseUrl());
+  url.pathname = url.pathname.replace(/_test$/, "_payments_test");
+  return url.toString();
+}

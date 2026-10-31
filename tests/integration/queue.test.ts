@@ -53,7 +53,7 @@ function recorder(behave: (message: QueueMessage) => Promise<unknown> | unknown 
 }
 
 const drain = (handlers: Handlers, waitForScheduled = false) =>
-  drainQueues({ queues: [Q], handlers, budgetMs: 5_000, waitForScheduled });
+  drainQueues({ outboxes: [db], queues: [Q], handlers, budgetMs: 5_000, waitForScheduled });
 
 describe("outbox", () => {
   it("grava a mensagem com os padrões e não publica nada sozinha", async () => {
@@ -85,7 +85,7 @@ describe("relay", () => {
     await enqueue(db, { type: "teste.job", queue: Q });
     t.mock.timers.enable({ apis: ["Date"], now: Date.now() - 60 * 60 * 1000 });
     try {
-      assert.deepEqual(await relayOutbox(), { published: 1, failed: 0 });
+      assert.deepEqual(await relayOutbox(db), { published: 1, failed: 0 });
     } finally {
       t.mock.timers.reset();
     }
@@ -94,7 +94,7 @@ describe("relay", () => {
   it("publica com confirmação, marca como publicada e preserva o id da mensagem", async () => {
     const { id } = await enqueue(db, { type: "teste.job", queue: Q, payload: { a: 1 }, maxAttempts: 3 });
 
-    assert.deepEqual(await relayOutbox(), { published: 1, failed: 0 });
+    assert.deepEqual(await relayOutbox(db), { published: 1, failed: 0 });
     const row = await db.query.outbox.findFirst({ where: eq(outbox.id, id) });
     assert.ok(row?.publishedAt);
     assert.deepEqual(await depth(), { ready: 1, retrying: 0, dead: 0 });
@@ -105,7 +105,7 @@ describe("relay", () => {
     assert.deepEqual(seen[0].payload, { a: 1 });
     assert.equal(seen[0].attempt, 1);
     assert.equal(seen[0].maxAttempts, 3);
-    assert.equal((await relayOutbox()).published, 0, "não publica de novo");
+    assert.equal((await relayOutbox(db)).published, 0, "não publica de novo");
   });
 
   it("broker fora do ar: nada se perde — a outbox tenta de novo com backoff", async () => {
@@ -114,7 +114,7 @@ describe("relay", () => {
     await closeBroker();
     process.env.RABBITMQ_URL = "amqp://ninguem:nada@127.0.0.1:1"; // porta sem broker
     try {
-      assert.deepEqual(await relayOutbox(), { published: 0, failed: 1 });
+      assert.deepEqual(await relayOutbox(db), { published: 0, failed: 1 });
     } finally {
       await closeBroker();
       if (realUrl === undefined) delete process.env.RABBITMQ_URL;
@@ -126,24 +126,24 @@ describe("relay", () => {
     assert.equal(row.publishAttempts, 1);
     assert.ok(row.lastError);
     assert.ok(row.nextAttemptAt.getTime() > Date.now(), "próxima tentativa com backoff, não em laço");
-    assert.equal((await relayOutbox()).published, 0, "antes da hora, não tenta");
+    assert.equal((await relayOutbox(db)).published, 0, "antes da hora, não tenta");
 
     // Broker de volta: na hora da próxima tentativa, publica.
-    assert.equal((await relayOutbox({ now: row.nextAttemptAt })).published, 1);
+    assert.equal((await relayOutbox(db, { now: row.nextAttemptAt })).published, 1);
     assert.deepEqual(await depth(), { ready: 1, retrying: 0, dead: 0 });
   });
 
   it("relays em paralelo não publicam a mesma mensagem duas vezes (SKIP LOCKED)", async () => {
     for (let i = 0; i < 20; i += 1) await enqueue(db, { type: "teste.job", queue: Q, payload: { i } });
-    const reports = await Promise.all([relayOutbox({ limit: 7 }), relayOutbox({ limit: 7 }), relayOutbox({ limit: 7 })]);
+    const reports = await Promise.all([relayOutbox(db, { limit: 7 }), relayOutbox(db, { limit: 7 }), relayOutbox(db, { limit: 7 })]);
     const total = reports.reduce((sum, report) => sum + report.published, 0);
-    assert.equal(total + (await relayOutbox()).published, 20);
+    assert.equal(total + (await relayOutbox(db)).published, 20);
     assert.equal((await depth()).ready, 20);
   });
 
   it("entrega adiada sai pela fila de espera e só chega depois do atraso", async () => {
     await enqueue(db, { type: "teste.job", queue: Q, delayMs: 100 });
-    await relayOutbox();
+    await relayOutbox(db);
     assert.deepEqual(await depth(), { ready: 0, retrying: 1, dead: 0 });
 
     const { seen, handlers } = recorder();
@@ -234,7 +234,7 @@ describe("política de retentativa", () => {
 
   it("consumidor que morre sem ack: o broker reentrega (pelo menos uma vez)", async () => {
     await enqueue(db, { type: "teste.job", queue: Q });
-    await relayOutbox();
+    await relayOutbox(db);
 
     const broker = await getBroker();
     const channel = await broker.connection.createChannel();
@@ -309,7 +309,7 @@ describe("DLQ: inspeção e reprocessamento", () => {
 describe("worker de longa duração (push)", () => {
   it("conexão com o broker cai no meio: o worker reconecta sozinho e volta a consumir", async () => {
     const { seen, handlers } = recorder();
-    const worker = startWorker({ workerId: "teste-reconexao", queues: [Q], handlers, relayEveryMs: 50 });
+    const worker = startWorker({ outboxes: [db], workerId: "teste-reconexao", queues: [Q], handlers, relayEveryMs: 50 });
     const until = async (cond: () => boolean) => {
       const deadline = Date.now() + 8_000;
       while (!cond() && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 25));
@@ -335,7 +335,7 @@ describe("worker de longa duração (push)", () => {
     const { seen, handlers } = recorder(async () => {
       await new Promise((resolve) => setTimeout(resolve, 100));
     });
-    const worker = startWorker({ workerId: "teste", queues: [Q], handlers, relayEveryMs: 50 });
+    const worker = startWorker({ outboxes: [db], workerId: "teste", queues: [Q], handlers, relayEveryMs: 50 });
 
     await enqueue(db, { type: "teste.job", queue: Q, payload: { n: 1 } });
     await enqueue(db, { type: "teste.job", queue: Q, payload: { n: 2 } });

@@ -49,7 +49,10 @@ export default async function OrderPage(props: PageProps<"/pedido/[orderNumber]"
   const view = await viewOrder(orderNumber, user.id);
   if (!view) notFound();
   const { order, events } = view;
-  const payment = order.payments[0];
+  // Resumo que o pedido guardou da resposta da cobrança (pagamentos tem banco próprio).
+  const payment = order.paymentMethod
+    ? { method: order.paymentMethod, status: order.paymentStatus ?? "paid", provider: order.paymentProvider ?? "—" }
+    : null;
 
   const state =
     order.status === "pending" ? "processing" : order.status === "cancelled" ? "failed" : "confirmed";
@@ -170,8 +173,8 @@ export default async function OrderPage(props: PageProps<"/pedido/[orderNumber]"
         </div>
         <div className="border border-border-faint p-5 text-sm">
           <h2 className="label text-foreground-muted">Pagamento</h2>
-          {/* Sem linha de pagamento: ou a saga ainda não chegou lá, ou a
-              autorização foi recusada (a transação do passo não commita nada). */}
+          {/* Sem resumo: ou a saga ainda não confirmou o pedido, ou a cobrança
+              foi recusada (recusa não cobra nada — a cobrança é o pivô). */}
           <p className="mt-2 font-medium">
             {payment ? methodLabel[payment.method] ?? payment.method : state === "failed" ? "Nenhuma cobrança" : "—"}
           </p>

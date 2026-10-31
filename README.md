@@ -22,8 +22,8 @@ responde (aprovar, recusar, instável, fora do ar) para ver a saga reagir.
   pedido e um relay publica com *publisher confirm*. Retry com backoff em
   filas de espera (TTL + dead-letter exchange), DLQ com reprocessamento no
   painel admin, reconciliação automática.
-- **Pagamentos em processo próprio**, falando com a saga só por mensagem;
-  cartão real pelo Stripe em modo de teste.
+- **Pagamentos em processo e banco próprios**, falando com a saga só por
+  mensagem; cartão real pelo Stripe em modo de teste.
 - **Concorrência tratada no banco**: carrinho e cadastro são uma instrução
   atômica (`INSERT … ON CONFLICT`), estoque sai com `UPDATE` condicional.
 - **Busca full-text** do Postgres (português, sem acento, por prefixo,
@@ -137,7 +137,7 @@ Para desenvolver, só a infraestrutura sobe em container:
 cp .env.example .env              # MFA_ENCRYPTION_KEY: openssl rand -base64 32
 npm install
 docker compose up -d              # Postgres (5544) + RabbitMQ (5672)
-npm run db:migrate && npm run db:seed
+PAYMENTS_DATABASE_CREATE=1 npm run db:migrate && npm run db:seed   # loja + banco de pagamentos
 npm run dev                       # app em http://localhost:3000
 npm run worker                    # outro terminal: filas saga e notifications
 npm run worker:payments           # outro terminal: processo de pagamentos
@@ -185,8 +185,8 @@ depende de `FOR UPDATE SKIP LOCKED`, índice parcial, `NULLS NOT DISTINCT` e
 
 **Serviços no mesmo deploy.** O custo de operar cada serviço separado não se
 paga aqui; o de não ter fronteira, sim. As fronteiras são reais (sem import
-cruzado, verificado por teste) e pagamentos já roda em processo próprio — o
-próximo passo seria banco próprio para ele.
+cruzado, verificado por teste) e pagamentos já é separado de verdade: processo,
+banco e outbox próprios, e a loja só sabe dele o que chega por mensagem.
 
 ## Segurança
 

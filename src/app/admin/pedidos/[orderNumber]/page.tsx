@@ -25,7 +25,10 @@ export default async function AdminOrderDetail(props: PageProps<"/admin/pedidos/
   if (!order) notFound();
 
   const saga = await getSagaForOrder(orderNumber);
-  const payment = order.payments[0];
+  // Resumo que o pedido guardou da resposta da cobrança (pagamentos tem banco próprio).
+  const payment = order.paymentMethod
+    ? { method: order.paymentMethod, status: order.paymentStatus ?? "paid", provider: order.paymentProvider ?? "—" }
+    : null;
 
   return (
     <div>

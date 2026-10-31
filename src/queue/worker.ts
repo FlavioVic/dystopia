@@ -16,7 +16,7 @@ import { errorMessage, isRetryable } from "@/shared/errors";
 import { backoffMs } from "./backoff";
 import { declareQueue, getBroker, names, publishEnvelope, queueDepths, readEnvelope, type Envelope } from "./broker";
 import type { MessageHandler, QueueMessage } from "./index";
-import { relayAll } from "./relay";
+import { relayAll, type OutboxDatabase } from "./relay";
 
 const logger = createLogger("queue:worker");
 
@@ -119,6 +119,8 @@ function count(report: DrainReport, outcome: Outcome): void {
 export type DrainOptions = {
   queues: string[];
   handlers: Handlers;
+  /** Outboxes que este dreno publica (a da loja, a de pagamentos, ou as duas). */
+  outboxes: OutboxDatabase[];
   /** Tempo máximo drenando. */
   budgetMs?: number;
   /** Teto de mensagens processadas numa chamada. */
@@ -157,7 +159,7 @@ export async function drainQueues(options: DrainOptions): Promise<DrainReport> {
     while (elapsed() < budgetMs && report.received < maxMessages) {
       // Handler grava mensagem nova na outbox (resposta, próximo passo): o
       // relay roda a cada volta para ela entrar no mesmo dreno.
-      await relayAll();
+      await relayAll(options.outboxes);
 
       let got = 0;
       for (const queue of options.queues) {
@@ -228,6 +230,8 @@ export type WorkerOptions = {
   prefetch?: number;
   /** Intervalo do relay da outbox. */
   relayEveryMs?: number;
+  /** Outboxes que este processo publica (a da loja, a de pagamentos, ou as duas). */
+  outboxes: OutboxDatabase[];
   /** Tarefas periódicas extras (reconciliação, faxina). */
   periodic?: Array<{ name: string; everyMs: number; run: () => Promise<unknown> }>;
 };
@@ -316,7 +320,7 @@ export function startWorker(options: WorkerOptions): WorkerHandle {
 
 function startPeriodic(options: WorkerOptions, workerId: string): NodeJS.Timeout[] {
   const tasks = [
-    { name: "relay", everyMs: options.relayEveryMs ?? 500, run: () => relayAll() },
+    { name: "relay", everyMs: options.relayEveryMs ?? 500, run: () => relayAll(options.outboxes) },
     ...(options.periodic ?? []),
   ];
   return tasks.map((task) => {

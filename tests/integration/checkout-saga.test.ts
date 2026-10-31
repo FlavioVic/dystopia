@@ -15,7 +15,9 @@ import { after, beforeEach, describe, it } from "node:test";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { and } from "drizzle-orm";
-import { cartItems, coupons, notifications, orders, outbox, payments, products, sagas } from "@/db/schema";
+import { cartItems, coupons, notifications, orders, outbox, products, sagas } from "@/db/schema";
+import { paymentsDb } from "@/services/payments/db";
+import { payments } from "@/services/payments/schema";
 import { queueDepths } from "@/queue/broker";
 import { advanceSaga, getSagaWithSteps } from "@/saga/orchestrator";
 import { listOrderEvents } from "@/services/orders";
@@ -83,13 +85,20 @@ describe("saga de checkout — caminho feliz", () => {
     assert.equal(order?.discountCents, 1_998, "10% de R$ 199,80");
     assert.equal(order?.shippingCents, 0, "frete grátis acima de R$ 149,90");
     assert.equal(order?.totalCents, 17_982);
+    // O pedido guarda o resumo que veio na resposta da cobrança — a tela não
+    // lê o banco de pagamentos.
+    assert.equal(order?.paymentMethod, "pix");
+    assert.equal(order?.paymentStatus, "paid");
+    assert.equal(order?.paymentProvider, "simulado");
+    assert.ok(order?.paymentTransactionId?.startsWith("SIM-"));
+    assert.ok(order?.paidAt);
 
     assert.equal(await stockOf(fixture.product.id), 8, "estoque baixado uma vez");
 
     const coupon = await db.query.coupons.findFirst({ where: eq(coupons.id, fixture.couponId!) });
     assert.equal(coupon?.usageCount, 1);
 
-    const paymentRows = await db.query.payments.findMany({ where: eq(payments.orderId, checkout.orderId) });
+    const paymentRows = await paymentsDb.query.payments.findMany({ where: eq(payments.orderId, checkout.orderId) });
     assert.equal(paymentRows.length, 1);
     assert.equal(paymentRows[0].status, "paid");
     assert.equal(paymentRows[0].amountCents, 17_982);
@@ -120,12 +129,11 @@ describe("saga de checkout — caminho feliz", () => {
 
     // A confirmação sai por outbox: gravada no passo, entregue por OUTRA
     // mensagem (fila `notifications`) — o e-mail nunca sai de dentro do passo.
-    assert.deepEqual(await outboxTypes(), [
-      "saga.advance",
-      "payments.authorize",
-      "saga.reply",
-      "notifications.deliver",
-    ]);
+    assert.deepEqual(await outboxTypes(), ["saga.advance", "payments.authorize", "notifications.deliver"]);
+    // A resposta da cobrança nasce no banco de PAGAMENTOS, junto com a cobrança
+    // (cada serviço tem a própria caixa de saída).
+    const paymentsOutbox = await paymentsDb.query.outbox.findMany();
+    assert.deepEqual(paymentsOutbox.map((row) => row.type), ["saga.reply"]);
     const delivered = await db.query.notifications.findFirst({ where: eq(notifications.id, sent[0].id) });
     assert.equal(delivered?.status, "sent");
     assert.equal(delivered?.provider, "simulado", "sem RESEND_API_KEY a entrega é simulada");
@@ -188,7 +196,7 @@ describe("saga de checkout — compensação", () => {
 
     assert.equal(await stockOf(fixture.product.id), 1, "estoque intocado");
     assert.equal(
-      (await db.query.payments.findMany({ where: eq(payments.orderId, checkout.orderId) })).length,
+      (await paymentsDb.query.payments.findMany({ where: eq(payments.orderId, checkout.orderId) })).length,
       0,
       "não cobra quem não tem estoque",
     );
@@ -253,7 +261,7 @@ describe("saga de checkout — compensação", () => {
     assert.equal(lastErrorCode(saga), "coupon_exhausted");
 
     assert.equal(
-      (await db.query.payments.findMany({ where: eq(payments.orderId, checkout.orderId) })).length,
+      (await paymentsDb.query.payments.findMany({ where: eq(payments.orderId, checkout.orderId) })).length,
       0,
       "nada foi cobrado",
     );
@@ -288,7 +296,7 @@ describe("saga de checkout — depois do pivô", () => {
     assert.equal(lastErrorCode(halted), "invalid_order_transition");
     assert.equal((await stepStatuses(checkout.sagaId))["confirm-order"], "failed");
 
-    const [payment] = await db.query.payments.findMany({ where: eq(payments.orderId, checkout.orderId) });
+    const [payment] = await paymentsDb.query.payments.findMany({ where: eq(payments.orderId, checkout.orderId) });
     assert.equal(payment.status, "paid", "o pagamento aprovado NÃO é estornado");
     assert.ok(!(await outboxTypes()).includes("payments.refund"));
     assert.equal(await stockOf(fixture.product.id), 4, "o estoque segue reservado para o pedido pago");
@@ -304,7 +312,7 @@ describe("saga de checkout — depois do pivô", () => {
     const order = await db.query.orders.findFirst({ where: eq(orders.id, checkout.orderId) });
     assert.equal(order?.status, "paid");
     assert.equal(
-      (await db.query.payments.findMany({ where: eq(payments.orderId, checkout.orderId) })).length,
+      (await paymentsDb.query.payments.findMany({ where: eq(payments.orderId, checkout.orderId) })).length,
       1,
       "uma cobrança só, do começo ao fim",
     );
@@ -325,7 +333,7 @@ describe("saga de checkout — versão da definição", () => {
     assert.equal(saga.status, "compensated");
     assert.equal(lastErrorCode(saga), "coupon_exhausted");
 
-    const [payment] = await db.query.payments.findMany({ where: eq(payments.orderId, checkout.orderId) });
+    const [payment] = await paymentsDb.query.payments.findMany({ where: eq(payments.orderId, checkout.orderId) });
     assert.equal(payment.status, "refunded", "na v1 a cobrança vinha antes do cupom: estorna");
     const statuses = await stepStatuses(checkout.sagaId);
     assert.equal(statuses["authorize-payment"], "compensated");
@@ -368,7 +376,7 @@ describe("saga de checkout — retry e worker", () => {
 
     const finished = await db.query.orders.findFirst({ where: eq(orders.id, checkout.orderId) });
     assert.equal(finished?.status, "paid");
-    const paymentRows = await db.query.payments.findMany({ where: eq(payments.orderId, checkout.orderId) });
+    const paymentRows = await paymentsDb.query.payments.findMany({ where: eq(payments.orderId, checkout.orderId) });
     assert.equal(paymentRows.length, 1, "a tentativa que falhou não deixou cobrança");
 
     const step = (await getSagaWithSteps(checkout.sagaId))?.steps.find((row) => row.name === "authorize-payment");
@@ -433,7 +441,7 @@ describe("saga de checkout — idempotência e concorrência", () => {
 
     assert.equal(await stockOf(fixture.product.id), 8, "estoque NÃO baixou duas vezes");
     assert.equal(
-      (await db.query.payments.findMany({ where: eq(payments.orderId, checkout.orderId) })).length,
+      (await paymentsDb.query.payments.findMany({ where: eq(payments.orderId, checkout.orderId) })).length,
       1,
       "pagamento não duplicou",
     );

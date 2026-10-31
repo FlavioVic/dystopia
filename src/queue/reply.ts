@@ -46,7 +46,11 @@ export function readReplyTo(payload: Record<string, unknown>): ReplyTo | null {
  * Responde no endereço pedido. Chamar na MESMA transação do efeito (outbox):
  * cobrança e resposta commitam juntas, então não existe cobrança sem aviso.
  */
-export async function sendReply(executor: Executor, replyTo: ReplyTo, result: ReplyResult): Promise<void> {
+export async function sendReply(
+  executor: Pick<Executor, "insert">,
+  replyTo: ReplyTo,
+  result: ReplyResult,
+): Promise<void> {
   await enqueue(executor, {
     type: replyTo.type,
     queue: replyTo.queue,

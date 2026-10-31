@@ -136,7 +136,7 @@ describe("métricas da fila", () => {
   it("broker: pronta, em espera e DLQ, por fila", async () => {
     await queue.enqueue(db, { type: "x", queue: "metricas" });
     await queue.enqueue(db, { type: "x", queue: "metricas", delayMs: 400 });
-    await relayOutbox();
+    await relayOutbox(db);
 
     const metrics = await getQueueMetrics(db, { queues: ["metricas"], now: NOW });
     assert.equal(metrics.broker.status, "up");

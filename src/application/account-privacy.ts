@@ -44,10 +44,22 @@ export async function exportAccountData(userId: string) {
     }),
     db.query.orders.findMany({
       where: eq(orders.userId, userId),
-      columns: { orderNumber: true, status: true, subtotalCents: true, shippingCents: true, discountCents: true, totalCents: true, createdAt: true },
+      columns: {
+        orderNumber: true,
+        status: true,
+        subtotalCents: true,
+        shippingCents: true,
+        discountCents: true,
+        totalCents: true,
+        createdAt: true,
+        // O resumo do pagamento que o pedido guarda; a cobrança em si é do serviço de pagamentos.
+        paymentMethod: true,
+        paymentStatus: true,
+        paymentProvider: true,
+        paidAt: true,
+      },
       with: {
         items: { columns: { productNameSnapshot: true, quantity: true, unitPriceCents: true, totalCents: true } },
-        payments: { columns: { provider: true, method: true, status: true, amountCents: true, paidAt: true } },
       },
     }),
     db.query.reviews.findMany({
@@ -117,7 +129,9 @@ async function deleteAccountData(executor: Executor, userId: string): Promise<{ 
 
   if (userOrders.length > 0) {
     await executor.delete(sagas).where(inArray(sagas.correlationId, userOrders.map((o) => o.orderNumber)));
-    // Itens e pagamentos caem em cascata.
+    // Itens e eventos caem em cascata. A cobrança fica no banco de
+    // pagamentos: registro financeiro sem dado pessoal (valor, meio, id da
+    // transação) — o vínculo com a pessoa some junto com o pedido.
     await executor.delete(orders).where(inArray(orders.id, userOrders.map((o) => o.id)));
   }
   if (requests.length > 0) await executor.delete(serviceRequests).where(inArray(serviceRequests.id, requests.map((r) => r.id)));

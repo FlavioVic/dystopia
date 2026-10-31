@@ -49,6 +49,9 @@ jobs:
 
     env:
       DATABASE_URL: postgresql://dystopia:dystopia_dev_pw@localhost:5432/dystopia
+      # Pagamentos tem banco próprio (o `db:migrate` cria este no CI).
+      PAYMENTS_DATABASE_URL: postgresql://dystopia:dystopia_dev_pw@localhost:5432/dystopia_payments
+      PAYMENTS_DATABASE_CREATE: "1"
       RABBITMQ_URL: amqp://dystopia:dystopia_dev_pw@localhost:5672
       # Chave de CI para os testes do MFA (nunca use em produção).
       MFA_ENCRYPTION_KEY: Y2ktc29tZW50ZS1wYXJhLXZlcmlmaWNhY2FvLW1mYSE=
@@ -77,7 +80,7 @@ jobs:
         run: npm run db:migrate
 
       - name: Testes (unitários + integração)
-        # O runner cria e migra `dystopia_test` sozinho.
+        # O runner cria e migra `dystopia_test` e `dystopia_payments_test` sozinho.
         run: npm test
 
       - name: Build de produção

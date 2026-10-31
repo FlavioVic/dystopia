@@ -9,9 +9,12 @@ import assert from "node:assert/strict";
 import { after, beforeEach, describe, it } from "node:test";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { orders, outbox, payments } from "@/db/schema";
+import { orders, outbox } from "@/db/schema";
+import { paymentsDb } from "@/services/payments/db";
+import { payments } from "@/services/payments/schema";
 import { purgeQueues } from "@/queue/broker";
-import { relayOutbox } from "@/queue/relay";
+import { ALL_OUTBOXES } from "@/composition/worker";
+import { relayAll, relayOutbox } from "@/queue/relay";
 import { PAYMENT_REPLY_TIMEOUT_MS } from "@/saga/definitions/checkout";
 import { SAGA_QUEUE } from "@/saga/messaging";
 import { getSagaMetrics } from "@/saga/metrics";
@@ -41,7 +44,7 @@ async function waitingForPayment() {
   const fixture = await seedCheckoutFixture({ stock: 5, quantity: 1, priceCents: 12_000 });
   const checkout = await startCheckout(fixture);
   assert.equal((await runSagaInline(checkout.sagaId)).status, "waiting");
-  await relayOutbox();
+  await relayOutbox(db);
   return checkout;
 }
 
@@ -76,13 +79,13 @@ describe("passo remoto — prazo", () => {
     assert.equal(saga.status, "completed");
     const order = await db.query.orders.findFirst({ where: eq(orders.id, checkout.orderId) });
     assert.equal(order?.status, "paid");
-    assert.equal((await db.query.payments.findMany({ where: eq(payments.orderId, checkout.orderId) })).length, 1);
+    assert.equal((await paymentsDb.query.payments.findMany({ where: eq(payments.orderId, checkout.orderId) })).length, 1);
   });
 
   it("resposta perdida: a consulta acha a cobrança e a saga conclui sem cobrar de novo", async () => {
     const checkout = await waitingForPayment();
-    await work("payments"); // cobra e grava a resposta
-    await relayOutbox();
+    await work("payments"); // cobra e grava a resposta (na outbox de pagamentos)
+    await relayAll(ALL_OUTBOXES);
     await purgeQueues([SAGA_QUEUE]); // a resposta sumiu no caminho
 
     assert.equal((await reconcile({ now: later(PAYMENT_REPLY_TIMEOUT_MS + 1_000) })).overdueRemoteSteps, 1);
@@ -91,7 +94,7 @@ describe("passo remoto — prazo", () => {
 
     assert.equal(saga.status, "completed");
     assert.equal((await commands(PAYMENT_AUTHORIZE)).length, 1, "nada foi reenviado: a cobrança já existia");
-    const [payment] = await db.query.payments.findMany({ where: eq(payments.orderId, checkout.orderId) });
+    const [payment] = await paymentsDb.query.payments.findMany({ where: eq(payments.orderId, checkout.orderId) });
     assert.equal(payment.status, "paid");
     const step = await paymentStep(checkout.sagaId);
     assert.equal(step?.status, "completed");

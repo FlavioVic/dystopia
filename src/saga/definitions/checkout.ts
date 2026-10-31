@@ -40,18 +40,18 @@ import type {
 import { clearCart } from "@/services/carts";
 import { consumeCoupon, releaseCoupon } from "@/services/coupons";
 import {
-  isCardPaymentMethodId,
   isPaymentMethod,
   isPaymentState,
-  isSimulationMode,
+  isPaymentToken,
+  isTestPaymentScenario,
   PAYMENT_AUTHORIZE,
   PAYMENT_REFUND,
   PAYMENT_STATUS,
   PAYMENTS_QUEUE,
+  TEST_PAYMENT_TOKENS,
   type AuthorizeCommand,
   type PaymentMethod,
   type RefundCommand,
-  type SimulationMode,
   type StatusCommand,
 } from "@/services/payments/contract";
 import { markOrderCancelled, markOrderPaid } from "@/services/orders";
@@ -79,10 +79,11 @@ export type CheckoutSagaPayload = {
   totalCents: number;
   couponId: string | null;
   lines: CheckoutSagaLine[];
-  /** Só para demonstrar/testar os caminhos tristes do gateway simulado. */
-  simulate?: SimulationMode;
-  /** Cartão via Stripe Elements (`pm_…`). Não é dado de cartão: é um token do Stripe. */
-  cardPaymentMethodId?: string;
+  /**
+   * Token do meio de pagamento, opaco para a saga: `pm_…` (cartão no Stripe
+   * Elements — não é dado de cartão) ou token de teste do modo demonstração.
+   */
+  paymentToken?: string;
 };
 
 /** Chave de idempotência do pagamento: estável entre tentativas do passo. */
@@ -134,8 +135,7 @@ export const authorizePaymentStep = {
       method: ctx.payload.paymentMethod,
       amountCents: ctx.payload.totalCents,
       idempotencyKey: paymentIdempotencyKey(ctx.payload.orderNumber),
-      ...(ctx.payload.simulate ? { mode: ctx.payload.simulate } : {}),
-      ...(ctx.payload.cardPaymentMethodId ? { cardPaymentMethodId: ctx.payload.cardPaymentMethodId } : {}),
+      ...(ctx.payload.paymentToken ? { paymentToken: ctx.payload.paymentToken } : {}),
     } satisfies AuthorizeCommand,
   }),
   // Pagamentos tenta 3 vezes com backoff (segundos) e sempre responde; dois
@@ -155,16 +155,18 @@ export const authorizePaymentStep = {
  * Lê a consulta `payments.status` quando a resposta da cobrança (ou do
  * estorno, na v1) não chegou no prazo.
  */
+function withoutState(output: Record<string, unknown>): Record<string, unknown> {
+  return Object.fromEntries(Object.entries(output).filter(([key]) => key !== "state"));
+}
+
 export function resolvePaymentStatus(output: Record<string, unknown>, phase: StepPhase): StatusResolution {
   const state = isPaymentState(output.state) ? output.state : "not_found";
   const paid = state === "paid" || state === "authorized";
 
   if (phase === "invoke") {
     if (paid) {
-      return {
-        outcome: "succeeded",
-        output: { paymentId: output.paymentId ?? null, transactionId: output.transactionId ?? null },
-      };
+      // A consulta traz o mesmo resumo que a resposta da cobrança traria.
+      return { outcome: "succeeded", output: withoutState(output) };
     }
     if (state === "pending") return { outcome: "in-progress" };
     if (state === "refunded") {
@@ -199,10 +201,27 @@ export function refundPaymentRequest(ctx: Context) {
 export const confirmOrderStep = {
   name: "confirm-order",
   invoke: async (ctx, tx) => {
-    const result = await markOrderPaid(tx, ctx.payload.orderId);
+    // O resumo veio na resposta da cobrança (saída do passo de pagamento, no
+    // contexto da saga): o pedido guarda o que mostra, sem ler pagamentos.
+    const result = await markOrderPaid(tx, ctx.payload.orderId, paymentSummaryFrom(ctx.context, ctx.payload));
     return { orderConfirmed: result.changed };
   },
 } satisfies LocalStep;
+
+/** Resumo da cobrança a partir da resposta de `payments.authorize` (ou da consulta de status). */
+export function paymentSummaryFrom(context: Record<string, unknown>, payload: CheckoutSagaPayload) {
+  const text = (value: unknown) => (typeof value === "string" && value.length > 0 ? value : null);
+  const paidAt = text(context.paidAt);
+  return {
+    // Resposta gravada antes de o resumo existir (saga em andamento no deploy)
+    // só tinha a transação: o resto vem do próprio pedido.
+    method: isPaymentMethod(context.method) ? context.method : payload.paymentMethod,
+    status: "paid" as const,
+    provider: text(context.provider),
+    transactionId: text(context.transactionId),
+    paidAt: paidAt ? new Date(paidAt) : null,
+  };
+}
 
 export const clearCartStep = {
   name: "clear-cart",
@@ -278,12 +297,26 @@ export function parseCheckoutPayload(raw: unknown): CheckoutSagaPayload {
     totalCents: int(data, "totalCents"),
     couponId: optionalStr(data.couponId),
     lines: lines(data.lines),
-    ...(isSimulationMode(data.simulate) ? { simulate: data.simulate } : {}),
-    ...(isCardPaymentMethodId(data.cardPaymentMethodId) ? { cardPaymentMethodId: data.cardPaymentMethodId } : {}),
+    ...paymentTokenOf(data),
   };
 
   if (payload.lines.length === 0) throw invalid("pedido sem itens");
   return payload;
+}
+
+/**
+ * Token do pagamento. Saga gravada antes do token existir tinha `simulate` e
+ * `cardPaymentMethodId`: vira o token equivalente (cenário de teste antes do
+ * cartão, como o modo demonstração fazia).
+ */
+function paymentTokenOf(data: Record<string, unknown>): { paymentToken?: string } {
+  if (isTestPaymentScenario(data.simulate) && data.simulate !== "approve") {
+    return { paymentToken: TEST_PAYMENT_TOKENS[data.simulate] };
+  }
+  const token = data.paymentToken ?? data.cardPaymentMethodId;
+  if (token === undefined) return {};
+  if (!isPaymentToken(token)) throw invalid("token de pagamento inválido");
+  return { paymentToken: token };
 }
 
 function invalid(detail: string): PermanentError {

@@ -23,7 +23,7 @@ import { createAddress, getUserAddress } from "@/services/addresses";
 import { getCheckoutLines } from "@/services/carts";
 import { resolveCoupon } from "@/services/coupons";
 import { createOrder, generateOrderNumber } from "@/services/orders";
-import type { PaymentMethod, SimulationMode } from "@/services/payments/contract";
+import type { PaymentMethod } from "@/services/payments/contract";
 import type { UseCaseHooks } from "./hooks";
 
 export type PlaceOrderInput = {
@@ -34,10 +34,11 @@ export type PlaceOrderInput = {
   address: { savedId: string } | { values: AddressFormValues };
   paymentMethod: PaymentMethod;
   couponCode: string;
-  /** Cartão via Stripe Elements (`pm_…`): token do Stripe, não dado de cartão. */
-  cardPaymentMethodId?: string;
-  /** Modo demonstração: resultado escolhido para o gateway simulado. */
-  simulate?: SimulationMode;
+  /**
+   * Token do meio de pagamento, opaco: `pm_…` (cartão no Stripe Elements) ou
+   * token de teste do modo demonstração. Quem decide o que ele vale é pagamentos.
+   */
+  paymentToken?: string;
 };
 
 export type PlaceOrderResult = { ok: true; orderNumber: string } | { ok: false; message: string };
@@ -101,8 +102,7 @@ export async function placeOrder(input: PlaceOrderInput, hooks: UseCaseHooks = {
       totalCents,
       couponId,
       lines,
-      ...(input.simulate ? { simulate: input.simulate } : {}),
-      ...(input.cardPaymentMethodId ? { cardPaymentMethodId: input.cardPaymentMethodId } : {}),
+      ...(input.paymentToken ? { paymentToken: input.paymentToken } : {}),
     };
 
     await startSaga(tx, {

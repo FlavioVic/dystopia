@@ -128,11 +128,11 @@ describe("estorno no Stripe", () => {
 
 describe("roteamento do gateway", () => {
   const base = { amountCents: 5_000, method: "credit_card", idempotencyKey: "order:DYS-2:payment" };
-  const withStripe = (fetch: FetchLike): GatewayDeps => ({ stripe: config, fetch });
+  const withStripe = (fetch: FetchLike, allowTestTokens = true): GatewayDeps => ({ stripe: config, fetch, allowTestTokens });
 
   it("cartão tokenizado vai para o Stripe", async () => {
     const fetch = fakeFetch({ status: 200, body: { id: "pi_9", status: "succeeded" } });
-    const result = await charge({ ...base, cardPaymentMethodId: "pm_card_visa" }, withStripe(fetch));
+    const result = await charge({ ...base, paymentToken: "pm_card_visa" }, withStripe(fetch));
     assert.deepEqual([result.provider, result.transactionId], ["stripe", "pi_9"]);
   });
 
@@ -144,19 +144,37 @@ describe("roteamento do gateway", () => {
   });
 
   it("cartão tokenizado sem Stripe configurado não é aprovado no simulado", async () => {
-    await rejectsWith(charge({ ...base, cardPaymentMethodId: "pm_card_visa" }, { stripe: null, fetch: fakeFetch() }), {
+    await rejectsWith(charge({ ...base, paymentToken: "pm_card_visa" }, { stripe: null, fetch: fakeFetch() }), {
       type: PermanentError,
       code: "gateway_misconfigured",
     });
   });
 
-  it("modo demonstração injeta a falha antes do provedor", async () => {
+  it("token de teste escolhe o caminho do provedor simulado, sem chamar o Stripe", async () => {
     const fetch = fakeFetch();
-    await rejectsWith(charge({ ...base, cardPaymentMethodId: "pm_card_visa", mode: "unavailable" }, withStripe(fetch)), {
+    await rejectsWith(charge({ ...base, paymentToken: "sim_unavailable" }, withStripe(fetch)), {
       type: RetryableError,
       code: "gateway_unavailable",
     });
+    await rejectsWith(charge({ ...base, paymentToken: "sim_decline" }, withStripe(fetch)), {
+      type: PermanentError,
+      code: "payment_declined",
+    });
     assert.equal(fetch.calls.length, 0, "o Stripe nem foi chamado");
+  });
+
+  it("token de teste sem o modo demonstração ligado é recusado (cobrança de verdade não escolhe resultado)", async () => {
+    await rejectsWith(charge({ ...base, paymentToken: "sim_approve" }, withStripe(fakeFetch(), false)), {
+      type: PermanentError,
+      code: "test_token_rejected",
+    });
+  });
+
+  it("token que não é de ninguém é recusado", async () => {
+    await rejectsWith(charge({ ...base, paymentToken: "xyz_123456" }, withStripe(fakeFetch())), {
+      type: PermanentError,
+      code: "invalid_payment_token",
+    });
   });
 
   it("estorno vai para o provedor que cobrou", async () => {

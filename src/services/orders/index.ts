@@ -148,9 +148,34 @@ export async function transitionOrder(
   return { changed: true, from };
 }
 
-/** Passo da saga: confirma o pagamento do pedido. */
-export async function markOrderPaid(executor: Executor, orderId: string): Promise<{ changed: boolean }> {
+/** Resumo do pagamento que o pedido guarda (veio na resposta do serviço de pagamentos). */
+export type OrderPaymentSummary = {
+  method: NonNullable<(typeof orders.$inferInsert)["paymentMethod"]>;
+  status: NonNullable<(typeof orders.$inferInsert)["paymentStatus"]>;
+  provider: string | null;
+  transactionId: string | null;
+  paidAt: Date | null;
+};
+
+/** Passo da saga: confirma o pagamento do pedido e guarda o resumo dele. */
+export async function markOrderPaid(
+  executor: Executor,
+  orderId: string,
+  payment?: OrderPaymentSummary,
+): Promise<{ changed: boolean }> {
   const { changed } = await transitionOrder(executor, orderId, "paid");
+  if (payment) {
+    await executor
+      .update(orders)
+      .set({
+        paymentMethod: payment.method,
+        paymentStatus: payment.status,
+        paymentProvider: payment.provider,
+        paymentTransactionId: payment.transactionId,
+        paidAt: payment.paidAt,
+      })
+      .where(eq(orders.id, orderId));
+  }
   return { changed };
 }
 
@@ -180,7 +205,6 @@ export async function findCustomerOrder(executor: Executor, orderNumber: string,
     where: and(eq(orders.orderNumber, orderNumber), eq(orders.userId, userId)),
     with: {
       items: true,
-      payments: true,
       shippingAddress: true,
       coupon: true,
     },

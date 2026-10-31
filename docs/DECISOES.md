@@ -12,7 +12,7 @@ conta sozinho. Os detalhes de funcionamento estão em
 | 3 | [Outbox transacional](#3-outbox-transacional) | A mensagem nasce no mesmo commit do pedido |
 | 4 | [Retry por filas de espera e DLQ](#4-retry-por-filas-de-espera-e-dlq) | Backoff planejado; erro de regra não tenta de novo |
 | 5 | [Pelo menos uma vez + idempotência](#5-pelo-menos-uma-vez--idempotência) | Duplicata é aceita; efeito duplicado, não |
-| 6 | [Pagamentos em processo próprio](#6-pagamentos-em-processo-próprio) | O único passo que fala com o mundo de fora só conversa por mensagem |
+| 6 | [Pagamentos em processo próprio](#6-pagamentos-em-processo-próprio) | Processo e banco próprios; só conversa por mensagem |
 | 7 | [Monólito modular, fronteiras testadas](#7-monólito-modular-fronteiras-testadas) | Serviços separados por regra, não por deploy; casos de uso numa camada própria |
 | 8 | [Custo zero: worker embutido na Vercel](#8-custo-zero-worker-embutido-na-vercel) | Ninguém de pé; a fila é drenada depois do request |
 | 9 | [Sessão no banco, não JWT](#9-sessão-no-banco-não-jwt) | Sair derruba o login na hora |
@@ -176,10 +176,24 @@ provedor externo: em algum ponto, ou se arrisca perder, ou se arrisca repetir.
 mais pode ficar lento ou fora do ar.
 
 **Decisão.** Pagamentos roda em outro processo (`npm run worker:payments`),
-consumindo a fila `payments`. A saga fala com ele **só por mensagem**: comando
-com endereço de resposta, outbox dos dois lados, resposta aplicada uma vez. Fora
-de `services/payments`, só o contrato (`contract.ts`) pode ser importado — o
-teste de arquitetura falha se alguém importar a implementação.
+consumindo a fila `payments`, **com banco próprio** (`PAYMENTS_DATABASE_URL`,
+migrations próprias em `drizzle-payments/`, outbox própria). A saga fala com
+ele **só por mensagem**: comando com endereço de resposta, resposta aplicada
+uma vez. Fora de `services/payments`, só o contrato (`contract.ts`) pode ser
+importado — e o contrato não importa nada, nem o schema de ninguém. O teste de
+arquitetura falha se alguém importar a implementação ou o banco dele.
+
+A fronteira é de **dados**, não só de processo: a loja não lê a tabela de
+pagamentos. A resposta da cobrança traz o resumo (meio, provedor, transação,
+quando) e o pedido guarda isso ao ser confirmado — é o que a página do
+cliente, o painel, a exportação LGPD e o assistente mostram. O processo de
+pagamentos nem tem a URL do banco da loja (no compose ela vai vazia de
+propósito).
+
+O modo demonstração também saiu do contrato: em vez de um campo `mode` no
+comando, ele virou **token de teste** do provedor simulado (`sim_decline`,
+`sim_flaky_once`…), como os cartões de teste do Stripe — e pagamentos só aceita
+esses tokens com o modo demonstração ligado no processo dele.
 
 Mensagem pode se perder no caminho (comando que morre na DLQ, resposta que
 some), então o passo remoto tem **prazo**. Vencido, a saga pergunta ao serviço
@@ -192,8 +206,12 @@ sem saber se o cliente foi cobrado.
 **Por quê.** É o primeiro serviço que valeria extrair de verdade, e o contrato
 por mensagem é o que permite separar o banco dele depois sem mexer na saga.
 
-**Preço.** O Postgres ainda é compartilhado (cada serviço com suas tabelas). Na
-demo da Vercel, por custo, pagamentos roda no mesmo runtime (decisão 8).
+**Preço.** Dois bancos para migrar e liberar, e uma migração de dados de uma
+vez (a tabela antiga para o banco novo, `npm run payments:copy-legacy`). Na
+demo da Vercel, por custo, pagamentos roda no mesmo runtime (decisão 8) — mas
+cada um falando com o próprio banco. Exclusão de conta não apaga mais a
+cobrança: ela fica no banco de pagamentos como registro financeiro sem dado
+pessoal.
 
 ## 7. Monólito modular, fronteiras testadas
 
@@ -398,8 +416,9 @@ com ack, atraso e DLQ, que o RabbitMQ entrega pronto (decisão 2).
 
 **"Por que não microserviços?"**
 Um deploy com fronteiras testadas dá o mesmo isolamento de regra sem o custo de
-rede e operação. Pagamentos já é um processo separado por mensagem; o próximo
-passo seria dar banco próprio a ele (decisões 6 e 7).
+rede e operação. Pagamentos já é separado de verdade — processo, banco e
+outbox próprios, conversa só por mensagem (decisões 6 e 7); extrair outro
+serviço segue o mesmo caminho.
 
 **"Como isso escala?"**
 O gargalo seria o worker embutido: com tráfego, sobe-se o worker em container
@@ -409,7 +428,7 @@ lease da saga e o `SKIP LOCKED` do relay já foram feitos para isso.
 ## O que eu faria com mais tempo ou tráfego
 
 - Worker de pé em container e `INLINE_WORKER` desligado.
-- Banco próprio para pagamentos, já que ele só conversa por mensagem.
+- Apagar a tabela antiga de pagamentos do banco da loja (depois da migração conferida).
 - Cobrança real: webhooks do Stripe, 3D Secure e conciliação diária.
 - Rastreamento distribuído (OpenTelemetry) do request até cada passo da saga.
 - Passkeys (WebAuthn) no lugar do TOTP para o admin.

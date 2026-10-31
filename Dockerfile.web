@@ -15,11 +15,13 @@ FROM node:22-alpine AS build
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-# O build carrega os módulos das rotas, e o do banco exige DATABASE_URL. A
-# conexão é preguiçosa: este endereço nunca é usado (nenhuma página consulta o
-# banco no build). O de verdade vem do ambiente, em runtime.
+# O build carrega os módulos das rotas, e os dos bancos exigem DATABASE_URL e
+# PAYMENTS_DATABASE_URL. A conexão é preguiçosa: estes endereços nunca são
+# usados (nenhuma página consulta o banco no build). Os de verdade vêm do
+# ambiente, em runtime.
 ENV NEXT_TELEMETRY_DISABLED=1 NEXT_OUTPUT=standalone \
-    DATABASE_URL=postgresql://build:build@127.0.0.1:1/build
+    DATABASE_URL=postgresql://build:build@127.0.0.1:1/build \
+    PAYMENTS_DATABASE_URL=postgresql://build:build@127.0.0.1:1/build_payments
 RUN npm run build
 
 FROM node:22-alpine AS runner

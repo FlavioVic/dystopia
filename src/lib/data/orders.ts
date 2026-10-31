@@ -8,7 +8,6 @@ export const getOrderByNumber = cache(async (orderNumber: string, userId: string
     where: and(eq(orders.orderNumber, orderNumber), eq(orders.userId, userId)),
     with: {
       items: true,
-      payments: true,
       shippingAddress: true,
       coupon: true,
     },
