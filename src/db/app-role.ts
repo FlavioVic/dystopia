@@ -30,26 +30,60 @@ export async function applyAppRole(
   client: ClientBase,
   options: { password?: string; role?: string },
 ): Promise<{ created: boolean }> {
-  const role = quoteIdentifier(options.role ?? APP_ROLE);
-  const existing = await client.query("select 1 from pg_roles where rolname = $1", [options.role ?? APP_ROLE]);
+  const result = await ensureAppRole(client, options);
+  await grantAppRole(client, options.role ?? APP_ROLE);
+  return result;
+}
+
+/** Atributos que o papel do app NÃO pode ter (colunas de `pg_roles`). */
+const FORBIDDEN_ATTRIBUTES = ["rolsuper", "rolcreatedb", "rolcreaterole", "rolreplication", "rolbypassrls"] as const;
+
+/**
+ * O papel em si: cria com os atributos mínimos, ou troca só a senha.
+ *
+ * Na troca, NÃO repete os atributos: o Postgres só deixa mexer em
+ * SUPERUSER/REPLICATION/BYPASSRLS de outro papel quem tem o atributo, e o
+ * dono do banco no Neon não é superusuário (tem só CREATEROLE). Em vez de
+ * reaplicar, confere — papel com privilégio a mais é recusado.
+ */
+export async function ensureAppRole(
+  client: ClientBase,
+  options: { password?: string; role?: string },
+): Promise<{ created: boolean }> {
+  const name = options.role ?? APP_ROLE;
+  const role = quoteIdentifier(name);
+  const existing = await client.query<Record<(typeof FORBIDDEN_ATTRIBUTES)[number], boolean>>(
+    `select ${FORBIDDEN_ATTRIBUTES.join(", ")} from pg_roles where rolname = $1`,
+    [name],
+  );
   const created = existing.rowCount === 0;
-  // Atributos explícitos: nada de superusuário, criar banco/papel, replicação ou furar RLS.
-  const attributes = "login nosuperuser nocreatedb nocreaterole noreplication nobypassrls";
+
+  if (!created) {
+    const extra = FORBIDDEN_ATTRIBUTES.filter((attribute) => existing.rows[0][attribute]);
+    if (extra.length > 0) throw new Error(`o papel ${name} tem privilégio a mais (${extra.join(", ")}): corrija à mão`);
+  }
 
   if (options.password !== undefined) {
     // O Neon exige 60 bits de entropia na senha de papel criado por SQL.
     if (options.password.length < 16) throw new Error("a senha do papel do app precisa de 16+ caracteres (openssl rand -base64 24)");
     const password = client.escapeLiteral(options.password);
+    // Atributos explícitos na criação: nada de superusuário, criar
+    // banco/papel, replicação ou furar RLS.
     await client.query(created
-      ? `create role ${role} ${attributes} password ${password}`
-      : `alter role ${role} ${attributes} password ${password}`);
+      ? `create role ${role} login nosuperuser nocreatedb nocreaterole noreplication nobypassrls password ${password}`
+      : `alter role ${role} with login password ${password}`);
   } else if (created) {
-    throw new Error(`o papel ${options.role ?? APP_ROLE} não existe: rode com APP_DB_PASSWORD para criá-lo`);
+    throw new Error(`o papel ${name} não existe: rode com APP_DB_PASSWORD para criá-lo`);
   }
-  // Sem senha e com o papel já existindo: só (re)aplica os GRANTs — é o caso
-  // de um banco NOVO no mesmo servidor (o papel é do servidor, a senha que o
-  // deploy usa continua a mesma).
+  // Sem senha e com o papel já existindo: nada a fazer aqui — é o caso de um
+  // banco NOVO no mesmo servidor (o papel é do servidor, a senha que o deploy
+  // usa continua a mesma); só os GRANTs abaixo.
+  return { created };
+}
 
+/** GRANTs do banco atual para o papel (o papel é do servidor; os GRANTs, de cada banco). */
+export async function grantAppRole(client: ClientBase, roleName: string = APP_ROLE): Promise<void> {
+  const role = quoteIdentifier(roleName);
   const { rows } = await client.query<{ db: string }>("select current_database() as db");
   const database = client.escapeIdentifier(rows[0].db);
 
@@ -63,5 +97,4 @@ export async function applyAppRole(
   // Tabelas das próximas migrations (criadas por quem roda isto) já nascem liberadas.
   await client.query(`alter default privileges in schema public grant select, insert, update, delete on tables to ${role}`);
   await client.query(`alter default privileges in schema public grant usage, select on sequences to ${role}`);
-  return { created };
 }

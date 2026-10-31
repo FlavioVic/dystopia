@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
 import { after, before, describe, it } from "node:test";
 import { Client } from "pg";
-import { applyAppRole } from "@/db/app-role";
+import { applyAppRole, ensureAppRole } from "@/db/app-role";
 import { closeDatabase, resetDatabase } from "../helpers/db";
 
 // Papel é global no Postgres (vale para todos os bancos): nome próprio dos testes.
@@ -91,5 +91,52 @@ describe("usuário do app (menor privilégio)", () => {
   it("recusa senha curta e nome de papel com SQL dentro", async () => {
     await assert.rejects(applyAppRole(owner, { role: ROLE, password: "curta" }), /16\+ caracteres/);
     await assert.rejects(applyAppRole(owner, { role: 'x"; drop table users; --', password: PASSWORD }), /nome de papel inválido/);
+  });
+});
+
+describe("papel do app com dono que não é superusuário (como no Neon)", () => {
+  // No Neon o dono do banco tem CREATEROLE, mas não é superusuário — e o
+  // Postgres só deixa mexer em SUPERUSER/REPLICATION/BYPASSRLS de outro papel
+  // quem tem o atributo. Trocar a senha não pode esbarrar nisso.
+  const NEON_OWNER = "dono_tipo_neon_test";
+  const NEON_APP = "app_tipo_neon_test";
+  const OWNER_PASSWORD = randomBytes(24).toString("base64url");
+  let neonOwner: Client;
+
+  before(async () => {
+    await owner.query(`drop role if exists ${NEON_APP}`);
+    await owner.query(`drop role if exists ${NEON_OWNER}`);
+    await owner.query(`create role ${NEON_OWNER} login createrole password '${OWNER_PASSWORD}'`);
+    const url = new URL(process.env.DATABASE_URL!);
+    url.username = NEON_OWNER;
+    url.password = OWNER_PASSWORD;
+    neonOwner = new Client({ connectionString: url.toString() });
+    await neonOwner.connect();
+  });
+
+  after(async () => {
+    await neonOwner?.end();
+    await owner.query(`drop owned by ${NEON_APP}`).catch(() => {});
+    await owner.query(`drop role if exists ${NEON_APP}`);
+    await owner.query(`drop role if exists ${NEON_OWNER}`);
+  });
+
+  it("cria o papel e depois troca a senha, sem pedir atributo de superusuário", async () => {
+    assert.deepEqual(await ensureAppRole(neonOwner, { role: NEON_APP, password: PASSWORD }), { created: true });
+    assert.deepEqual(await ensureAppRole(neonOwner, { role: NEON_APP, password: `${PASSWORD}-nova` }), { created: false });
+
+    const url = new URL(process.env.DATABASE_URL!);
+    url.username = NEON_APP;
+    url.password = `${PASSWORD}-nova`;
+    const rotated = new Client({ connectionString: url.toString() });
+    await rotated.connect();
+    assert.equal((await rotated.query("select current_user as who")).rows[0].who, NEON_APP, "entra com a senha nova");
+    await rotated.end();
+  });
+
+  it("papel que já existe com privilégio a mais é recusado, não silenciosamente aceito", async () => {
+    await owner.query(`alter role ${NEON_APP} createdb`);
+    await assert.rejects(ensureAppRole(neonOwner, { role: NEON_APP, password: PASSWORD }), /privilégio a mais/);
+    await owner.query(`alter role ${NEON_APP} nocreatedb`);
   });
 });
