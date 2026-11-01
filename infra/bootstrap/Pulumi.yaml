@@ -1,0 +1,12 @@
+name: dystopia-bootstrap
+description: >-
+  Base de vida longa do ambiente AWS: acesso do GitHub Actions (OIDC), registros
+  de imagem, segredos gerados e alerta de gasto. Roda uma vez, da máquina do dono
+  (docs/AWS.md). Não sobe nada que cobre por hora.
+runtime:
+  name: nodejs
+  options:
+    packagemanager: npm
+config:
+  aws:region:
+    value: us-east-1

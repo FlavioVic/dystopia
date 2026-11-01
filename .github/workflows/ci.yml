@@ -92,6 +92,12 @@ jobs:
       - name: Build de produção
         run: npm run build
 
+      - name: Infra (Pulumi) — tipos e testes com mocks
+        # Roda o programa do ambiente AWS sem nuvem e cobra as garantias de
+        # segurança e custo (infra/tests). Pacote próprio, fora do app.
+        working-directory: infra
+        run: npm ci && npm run typecheck && npm test
+
   e2e:
     name: navegador (Playwright) contra a stack em containers
     runs-on: ubuntu-latest

@@ -1,0 +1,20 @@
+{
+  "name": "dystopia-infra",
+  "private": true,
+  "description": "Ambiente AWS do DYSTOPIA em Pulumi (TypeScript). Ver docs/AWS.md.",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test tests/*.test.ts"
+  },
+  "dependencies": {
+    "@pulumi/aws": "7.51.1",
+    "@pulumi/command": "1.2.1",
+    "@pulumi/pulumi": "3.270.0",
+    "@pulumi/random": "4.21.4"
+  },
+  "devDependencies": {
+    "@types/node": "20.19.43",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3"
+  }
+}

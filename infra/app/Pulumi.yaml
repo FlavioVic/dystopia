@@ -1,0 +1,11 @@
+name: dystopia-aws
+description: >-
+  Ambiente AWS do DYSTOPIA (2º ambiente; a produção é a Vercel). Sobe e desce
+  pelo GitHub Actions (.github/workflows/aws.yml). Ver docs/AWS.md.
+runtime:
+  name: nodejs
+  options:
+    packagemanager: npm
+config:
+  aws:region:
+    value: us-east-1

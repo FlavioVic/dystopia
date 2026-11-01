@@ -1,0 +1,3 @@
+node_modules/
+# Config da base (e-mail do alerta de gasto): só na máquina de quem roda.
+bootstrap/Pulumi.*.yaml

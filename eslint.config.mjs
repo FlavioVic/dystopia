@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Infraestrutura (Pulumi): pacote próprio, com tipos e testes próprios.
+    "infra/**",
   ]),
 ]);
 
