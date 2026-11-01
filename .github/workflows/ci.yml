@@ -126,3 +126,15 @@ jobs:
       - name: Logs da stack (se falhar)
         if: failure()
         run: docker compose --profile app logs --no-color
+
+      # Trace do Playwright (DOM, rede, console) de cada teste que falhou.
+      # Só dado de teste da stack descartável — a chave secreta do Stripe
+      # fica no container de pagamentos e nunca chega ao navegador.
+      - name: Traces dos testes que falharam
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: test-results/
+          retention-days: 7
+          if-no-files-found: ignore
