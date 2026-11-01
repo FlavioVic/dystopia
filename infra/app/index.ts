@@ -12,10 +12,11 @@ import * as pulumi from "@pulumi/pulumi";
  * não dividir a cota de compute com a produção) e fila no CloudAMQP (prefixo
  * próprio de filas), que são de graça.
  *
- *   navegador → CloudFront (HTTPS) → load balancer → web (Fargate)
- *               (o load balancer só aceita conexão vinda do CloudFront)
+ *   navegador → CloudFront (HTTPS) ⇢ VPC origin (rede privada da AWS)
+ *            → load balancer INTERNO, em sub-rede privada → web (Fargate)
  *   worker e payments (Fargate Spot) consomem a fila; os três falam com o
- *   Neon e o CloudAMQP pela internet (sem NAT: tarefa com IP público).
+ *   Neon e o CloudAMQP pela internet (sem NAT: tarefa com IP público e
+ *   nenhuma porta aberta para fora).
  */
 
 const config = new pulumi.Config();
@@ -63,9 +64,11 @@ const appPaymentsUrl = pulumi.all([ownerPaymentsUrl, appDbPassword]).apply(([url
 
 // ---------------------------------------------------------------- rede
 
-// Só sub-redes públicas e nenhum NAT gateway (cobra por hora): as tarefas
-// ganham IP público para sair para Neon, CloudAMQP, Stripe e ECR, e a
-// entrada é fechada pelos security groups.
+// Duas camadas, sem NAT gateway (cobra por hora):
+// - privadas (sem rota para a internet): o load balancer, interno — só o
+//   CloudFront chega nele, pela VPC origin;
+// - públicas: as tarefas, com IP público só para SAIR (Neon, CloudAMQP,
+//   Stripe, ECR); nenhuma porta delas aceita conexão de fora.
 const vpc = new aws.ec2.Vpc("vpc", {
   cidrBlock: "10.20.0.0/16",
   enableDnsHostnames: true,
@@ -78,32 +81,46 @@ const publicRoutes = new aws.ec2.RouteTable("public", {
   routes: [{ cidrBlock: "0.0.0.0/0", gatewayId: internet.id }],
 });
 
-// O load balancer exige duas zonas.
-const zones = aws.getAvailabilityZonesOutput({ state: "available" }).names;
-const subnets = [0, 1].map(
-  (index) =>
-    new aws.ec2.Subnet(`public-${index}`, {
-      vpcId: vpc.id,
-      cidrBlock: `10.20.${index}.0/24`,
-      availabilityZone: zones[index],
-      tags: { Name: `dystopia-aws-public-${index}` },
-    }),
-);
-const routeAssociations = subnets.map(
+// O load balancer exige duas zonas. Ficam de fora as que a VPC origin do
+// CloudFront não atende (lista da documentação da AWS, por id de zona).
+const zones = aws.getAvailabilityZonesOutput({
+  state: "available",
+  excludeZoneIds: ["use1-az3", "usw1-az2", "apne1-az3", "cac1-az3"],
+}).names;
+
+function subnetPair(kind: "public" | "private", offset: number): aws.ec2.Subnet[] {
+  return [0, 1].map(
+    (index) =>
+      new aws.ec2.Subnet(`${kind}-${index}`, {
+        vpcId: vpc.id,
+        cidrBlock: `10.20.${offset + index}.0/24`,
+        availabilityZone: zones[index],
+        tags: { Name: `dystopia-aws-${kind}-${index}` },
+      }),
+  );
+}
+
+const publicSubnets = subnetPair("public", 0);
+const routeAssociations = publicSubnets.map(
   (subnet, index) => new aws.ec2.RouteTableAssociation(`public-${index}`, { subnetId: subnet.id, routeTableId: publicRoutes.id }),
 );
-const subnetIds = subnets.map((subnet) => subnet.id);
+const subnetIds = publicSubnets.map((subnet) => subnet.id);
+
+// Tabela própria, sem rota nenhuma além da local: nada sai nem entra pela internet.
+const privateRoutes = new aws.ec2.RouteTable("private", { vpcId: vpc.id });
+const privateSubnets = subnetPair("private", 10);
+privateSubnets.forEach(
+  (subnet, index) => new aws.ec2.RouteTableAssociation(`private-${index}`, { subnetId: subnet.id, routeTableId: privateRoutes.id }),
+);
 
 const anywhere = [{ protocol: "-1", fromPort: 0, toPort: 0, cidrBlocks: ["0.0.0.0/0"] }];
 
-// O load balancer só aceita o CloudFront (lista de IPs mantida pela AWS):
-// ninguém chega direto nele com um CloudFront-Viewer-Address forjado.
-const cloudfrontOrigins = aws.ec2.getManagedPrefixListOutput({ name: "com.amazonaws.global.cloudfront.origin-facing" });
+// A entrada do load balancer é liberada só para o CloudFront, mais abaixo
+// (depende da VPC origin existir). Saída: só para dentro da VPC.
 const albSecurity = new aws.ec2.SecurityGroup("alb", {
   vpcId: vpc.id,
-  description: "Load balancer: entrada so do CloudFront",
-  ingress: [{ protocol: "tcp", fromPort: 80, toPort: 80, prefixListIds: [cloudfrontOrigins.id], description: "CloudFront" }],
-  egress: anywhere,
+  description: "Load balancer interno: entrada so do CloudFront (VPC origin)",
+  egress: [{ protocol: "tcp", fromPort: 3000, toPort: 3000, cidrBlocks: [vpc.cidrBlock], description: "app web" }],
 });
 const webSecurity = new aws.ec2.SecurityGroup("web", {
   vpcId: vpc.id,
@@ -352,15 +369,19 @@ const ready = seeding ? [migration, seeding] : [migration];
 
 // ---------------------------------------------------------------- entrada: load balancer + CloudFront
 
+// Interno, em sub-rede privada: não tem endereço na internet. Ninguém chega
+// nele (nem com um CloudFront-Viewer-Address forjado) sem passar pelo CloudFront.
 const loadBalancer = new aws.lb.LoadBalancer(
   "web",
   {
     loadBalancerType: "application",
-    internal: false,
+    internal: true,
     securityGroups: [albSecurity.id],
-    subnets: subnetIds,
+    subnets: privateSubnets.map((subnet) => subnet.id),
     idleTimeout: 65,
+    dropInvalidHeaderFields: true,
   },
+  // A VPC origin exige internet gateway na VPC (não é usado para rotear).
   { dependsOn: [internet] },
 );
 const targets = new aws.lb.TargetGroup("web", {
@@ -377,6 +398,38 @@ const listener = new aws.lb.Listener("http", {
   port: 80,
   protocol: "HTTP",
   defaultActions: [{ type: "forward", targetGroupArn: targets.arn }],
+});
+
+// CloudFront → load balancer pela rede privada da AWS (VPC origin), sem
+// passar pela internet. Sem custo adicional.
+const vpcOrigin = new aws.cloudfront.VpcOrigin("web", {
+  vpcOriginEndpointConfig: {
+    name: "dystopia-web",
+    arn: loadBalancer.arn,
+    httpPort: 80,
+    httpsPort: 443,
+    originProtocolPolicy: "http-only",
+    originSslProtocols: { items: ["TLSv1.2"], quantity: 1 },
+  },
+}, { dependsOn: [listener] });
+
+// O CloudFront cria, junto com a VPC origin, um security group dele
+// (CloudFront-VPCOrigins-Service-SG). Liberar SÓ ele — e não a lista de IPs
+// do CloudFront — restringe a entrada às distribuições desta conta.
+const cloudfrontSecurity = aws.ec2.getSecurityGroupOutput(
+  {
+    vpcId: vpc.id,
+    filters: [{ name: "group-name", values: ["CloudFront-VPCOrigins-Service-SG*"] }],
+  },
+  { dependsOn: [vpcOrigin] },
+);
+new aws.vpc.SecurityGroupIngressRule("alb-from-cloudfront", {
+  securityGroupId: albSecurity.id,
+  referencedSecurityGroupId: cloudfrontSecurity.id,
+  ipProtocol: "tcp",
+  fromPort: 80,
+  toPort: 80,
+  description: "CloudFront (VPC origin)",
 });
 
 // Políticas gerenciadas da AWS, achadas pelo nome (os ids não mudam, mas o
@@ -401,15 +454,9 @@ const cdn = new aws.cloudfront.Distribution("web", {
     {
       originId: "load-balancer",
       domainName: loadBalancer.dnsName,
-      // HTTP até o load balancer: HTTPS na origem exigiria um domínio próprio
-      // com certificado (docs/AWS.md › limites).
-      customOriginConfig: {
-        httpPort: 80,
-        httpsPort: 443,
-        originProtocolPolicy: "http-only",
-        originSslProtocols: ["TLSv1.2"],
-        originReadTimeout: 60,
-      },
+      // HTTP, mas dentro da rede privada da AWS: HTTPS até a origem exigiria
+      // um domínio próprio com certificado (docs/AWS.md › limites).
+      vpcOriginConfig: { vpcOriginId: vpcOrigin.id, originReadTimeout: 60 },
     },
   ],
   defaultCacheBehavior: {

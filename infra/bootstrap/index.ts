@@ -17,8 +17,15 @@ import * as random from "@pulumi/random";
  */
 
 const config = new pulumi.Config();
-/** Só este repositório, só a `main`, assume a role de deploy. */
-const repository = config.get("githubRepository") ?? "FlavioVic/dystopia";
+/**
+ * Quem pode assumir a role de deploy: só a `main` DESTE repositório. O
+ * GitHub identifica o repositório pelos ids imutáveis do dono e do repo
+ * (formato padrão para repositórios criados depois de 15/07/2026):
+ * renomear ou recriar um repo com o mesmo nome não herda o acesso.
+ * Os ids são públicos (`gh api repos/FlavioVic/dystopia`).
+ */
+const githubSubject =
+  config.get("githubSubject") ?? "repo:FlavioVic@179766320/dystopia@1428894143:ref:refs/heads/main";
 const budgetEmail = config.get("budgetEmail");
 const monthlyBudgetUsd = config.getNumber("monthlyBudgetUsd") ?? 20;
 
@@ -40,29 +47,101 @@ const deployRole = new aws.iam.Role("deploy", {
         Effect: "Allow",
         Principal: { Federated: github.arn },
         Action: "sts:AssumeRoleWithWebIdentity",
+        // Igualdade exata nos dois: sem curinga, nenhum outro repo, branch ou fork.
         Condition: {
-          StringEquals: { "token.actions.githubusercontent.com:aud": "sts.amazonaws.com" },
-          StringLike: { "token.actions.githubusercontent.com:sub": `repo:${repository}:ref:refs/heads/main` },
+          StringEquals: {
+            "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
+            "token.actions.githubusercontent.com:sub": githubSubject,
+          },
         },
       },
     ],
   }),
 });
 
-// A conta é dedicada a este projeto: PowerUser (tudo menos IAM e conta) mais
-// IAM só para as roles do próprio ambiente (prefixo dystopia-). Afinar para
-// o mínimo de cada serviço fica como próximo passo (docs/AWS.md).
-new aws.iam.RolePolicyAttachment("deploy-power-user", {
-  role: deployRole.name,
-  policyArn: "arn:aws:iam::aws:policy/PowerUserAccess",
-});
-
+// Permissões: só os serviços que o ambiente usa, e presas aos recursos
+// dystopia-* onde a AWS deixa (ECR, Parameter Store, IAM). Nada de
+// PowerUser: o deploy não consegue, por exemplo, subir uma EC2, criar um
+// banco ou mexer em usuários.
 const account = aws.getCallerIdentityOutput().accountId;
-new aws.iam.RolePolicy("deploy-iam", {
+const region = aws.config.requireRegion();
+const arn = (service: string, resource: pulumi.Input<string>, scope: string = region) =>
+  pulumi.interpolate`arn:aws:${service}:${scope}:${account}:${resource}`;
+
+new aws.iam.RolePolicy("deploy", {
   role: deployRole.id,
   policy: pulumi.jsonStringify({
     Version: "2012-10-17",
     Statement: [
+      {
+        Sid: "Rede",
+        Effect: "Allow",
+        Action: [
+          "ec2:Describe*",
+          "ec2:Get*",
+          "ec2:CreateTags",
+          "ec2:DeleteTags",
+          "ec2:CreateVpc",
+          "ec2:DeleteVpc",
+          "ec2:ModifyVpcAttribute",
+          "ec2:CreateSubnet",
+          "ec2:DeleteSubnet",
+          "ec2:ModifySubnetAttribute",
+          "ec2:CreateInternetGateway",
+          "ec2:DeleteInternetGateway",
+          "ec2:AttachInternetGateway",
+          "ec2:DetachInternetGateway",
+          "ec2:CreateRouteTable",
+          "ec2:DeleteRouteTable",
+          "ec2:CreateRoute",
+          "ec2:DeleteRoute",
+          "ec2:ReplaceRoute",
+          "ec2:AssociateRouteTable",
+          "ec2:DisassociateRouteTable",
+          "ec2:CreateSecurityGroup",
+          "ec2:DeleteSecurityGroup",
+          "ec2:AuthorizeSecurityGroupIngress",
+          "ec2:AuthorizeSecurityGroupEgress",
+          "ec2:RevokeSecurityGroupIngress",
+          "ec2:RevokeSecurityGroupEgress",
+          "ec2:ModifySecurityGroupRules",
+          "ec2:UpdateSecurityGroupRuleDescriptionsIngress",
+          "ec2:UpdateSecurityGroupRuleDescriptionsEgress",
+        ],
+        Resource: "*",
+      },
+      {
+        Sid: "ContainersBalanceadorCdnLogs",
+        Effect: "Allow",
+        Action: ["ecs:*", "elasticloadbalancing:*", "cloudfront:*", "logs:*"],
+        Resource: "*",
+      },
+      {
+        // Montar e enviar as imagens: só para os repositórios do projeto.
+        Sid: "Imagens",
+        Effect: "Allow",
+        Action: [
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:BatchGetImage",
+          "ecr:CompleteLayerUpload",
+          "ecr:DescribeImages",
+          "ecr:DescribeRepositories",
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:InitiateLayerUpload",
+          "ecr:PutImage",
+          "ecr:UploadLayerPart",
+        ],
+        Resource: arn("ecr", "repository/dystopia-*"),
+      },
+      { Sid: "LoginNoEcr", Effect: "Allow", Action: "ecr:GetAuthorizationToken", Resource: "*" },
+      {
+        // Segredos do ambiente (SecureString com a chave gerenciada aws/ssm).
+        Sid: "Segredos",
+        Effect: "Allow",
+        Action: "ssm:*",
+        Resource: arn("ssm", "parameter/dystopia/*"),
+      },
+      { Sid: "ListarSegredos", Effect: "Allow", Action: "ssm:DescribeParameters", Resource: "*" },
       {
         Sid: "RolesDoAmbiente",
         Effect: "Allow",
@@ -84,16 +163,23 @@ new aws.iam.RolePolicy("deploy-iam", {
           "iam:ListAttachedRolePolicies",
           "iam:ListInstanceProfilesForRole",
         ],
-        Resource: pulumi.interpolate`arn:aws:iam::${account}:role/dystopia-*`,
+        Resource: arn("iam", "role/dystopia-*", ""),
       },
       {
-        // ECS e o load balancer criam a própria role de serviço no primeiro uso.
+        // ECS, load balancer e a VPC origin do CloudFront criam a própria
+        // role de serviço no primeiro uso.
         Sid: "RolesDeServico",
         Effect: "Allow",
         Action: "iam:CreateServiceLinkedRole",
         Resource: "*",
         Condition: {
-          StringEquals: { "iam:AWSServiceName": ["ecs.amazonaws.com", "elasticloadbalancing.amazonaws.com"] },
+          StringEquals: {
+            "iam:AWSServiceName": [
+              "ecs.amazonaws.com",
+              "elasticloadbalancing.amazonaws.com",
+              "vpcorigin.cloudfront.amazonaws.com",
+            ],
+          },
         },
       },
     ],

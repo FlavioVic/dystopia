@@ -11,6 +11,7 @@ import * as pulumi from "@pulumi/pulumi";
 
 type Registered = { type: string; name: string; inputs: Record<string, any> };
 const resources: Registered[] = [];
+const calls: { token: string; inputs: Record<string, any> }[] = [];
 
 pulumi.runtime.setAllConfig(
   {
@@ -49,11 +50,12 @@ pulumi.runtime.setMocks(
       };
     },
     call(args) {
+      calls.push({ token: args.token, inputs: args.inputs });
       switch (args.token) {
         case "aws:index/getAvailabilityZones:getAvailabilityZones":
           return { names: ["us-east-1a", "us-east-1b", "us-east-1c"] };
-        case "aws:ec2/getManagedPrefixList:getManagedPrefixList":
-          return { id: "pl-cloudfront", name: args.inputs.name };
+        case "aws:ec2/getSecurityGroup:getSecurityGroup":
+          return { id: "sg-cloudfront-vpc-origins" };
         case "aws:cloudfront/getCachePolicy:getCachePolicy":
         case "aws:cloudfront/getOriginRequestPolicy:getOriginRequestPolicy":
           return { id: `policy-${args.inputs.name}` };
@@ -87,12 +89,38 @@ before(async () => {
 });
 
 describe("ambiente AWS: segurança", () => {
-  it("o load balancer só aceita o CloudFront (lista gerenciada), nunca a internet inteira", () => {
-    const alb = named("aws:ec2/securityGroup:SecurityGroup", "alb");
+  it("o load balancer é interno, em sub-rede privada (sem rota para a internet)", () => {
+    const alb = named("aws:lb/loadBalancer:LoadBalancer", "web").inputs;
+    assert.equal(alb.internal, true);
+    assert.deepEqual(alb.subnets, ["private-0-id", "private-1-id"]);
+    assert.equal(alb.dropInvalidHeaderFields, true);
+    assert.equal(named("aws:ec2/routeTable:RouteTable", "private").inputs.routes ?? undefined, undefined);
+    const associations = ofType("aws:ec2/routeTableAssociation:RouteTableAssociation");
+    for (const index of [0, 1]) {
+      assert.equal(associations.find((a) => a.inputs.subnetId === `private-${index}-id`)?.inputs.routeTableId, "private-id");
+    }
+  });
+
+  it("o CloudFront chega no load balancer pela VPC origin, e só o security group dele entra", () => {
+    const origin = named("aws:cloudfront/vpcOrigin:VpcOrigin", "web").inputs.vpcOriginEndpointConfig;
+    assert.match(origin.arn, /loadBalancer.*web/);
+    const cdnOrigin = named("aws:cloudfront/distribution:Distribution", "web").inputs.origins[0];
+    assert.equal(cdnOrigin.vpcOriginConfig.vpcOriginId, "web-id");
+    assert.equal(cdnOrigin.customOriginConfig, undefined, "nada de origem pública");
+
+    const alb = named("aws:ec2/securityGroup:SecurityGroup", "alb").inputs;
+    assert.equal(alb.ingress ?? undefined, undefined, "sem regra inline aberta");
+    const rules = ofType("aws:vpc/securityGroupIngressRule:SecurityGroupIngressRule");
     assert.deepEqual(
-      alb.inputs.ingress.map((rule: any) => [rule.fromPort, rule.prefixListIds, rule.cidrBlocks ?? []]),
-      [[80, ["pl-cloudfront"], []]],
+      rules.map((rule) => [rule.inputs.securityGroupId, rule.inputs.referencedSecurityGroupId, rule.inputs.fromPort, rule.inputs.cidrIpv4]),
+      [["alb-id", "sg-cloudfront-vpc-origins", 80, undefined]],
     );
+    assert.deepEqual(alb.egress.map((rule: any) => [rule.fromPort, rule.cidrBlocks]), [[3000, ["10.20.0.0/16"]]]);
+  });
+
+  it("zonas sem suporte à VPC origin ficam de fora", () => {
+    const zones = calls.find((call) => call.token === "aws:index/getAvailabilityZones:getAvailabilityZones");
+    assert.ok(zones?.inputs.excludeZoneIds.includes("use1-az3"));
   });
 
   it("o app web só aceita o load balancer, e workers não aceitam nada", () => {
@@ -148,6 +176,7 @@ describe("ambiente AWS: segurança", () => {
 
 describe("ambiente AWS: custo", () => {
   it("sem NAT gateway, sem Secrets Manager, sem Container Insights", () => {
+    assert.equal(ofType("aws:ec2/eip:Eip").length, 0, "sem IP elástico");
     assert.equal(ofType("aws:ec2/natGateway:NatGateway").length, 0);
     assert.equal(ofType("aws:secretsmanager/secret:Secret").length, 0);
     assert.deepEqual(named("aws:ecs/cluster:Cluster", "cluster").inputs.settings, [{ name: "containerInsights", value: "disabled" }]);

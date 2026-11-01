@@ -396,7 +396,8 @@ descrita em código, sem gastar nada.
 sobe e desce pelo GitHub Actions com OIDC (nenhuma chave da AWS no GitHub):
 
 - web, worker e payments como serviços do ECS Fargate (os workers em Spot),
-  atrás de CloudFront e de um load balancer que só aceita o CloudFront;
+  atrás de CloudFront e de um load balancer **interno**, que o CloudFront
+  alcança pela rede da AWS (VPC origin) e ninguém alcança pela internet;
 - banco no Neon e fila no CloudAMQP: o modelo híbrido, porque RDS e Amazon MQ
   gastariam os créditos sozinhos;
 - a migração roda dentro do `pulumi up`, antes dos serviços.

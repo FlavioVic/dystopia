@@ -15,16 +15,19 @@ acabarem. Tudo aqui foi escolhido para gastar o mínimo de crédito, e o normal
 ## Arquitetura
 
 ```
-navegador ──HTTPS──▶ CloudFront ──HTTP──▶ load balancer ──▶ web (Fargate)
-                     (cache do _next/static)   │ só aceita o CloudFront
-                                               ▼
-                                       VPC, 2 sub-redes públicas, sem NAT
-                                               │
-                     worker (Fargate Spot) ────┤ saga + e-mail + relay da outbox
-                     payments (Fargate Spot) ──┤ só a fila de pagamentos
-                                               ▼
-                           Neon (Postgres, projeto próprio)
-                           CloudAMQP (RabbitMQ, prefixo dystopia_aws)
+navegador ──HTTPS──▶ CloudFront ─ ─ VPC origin (rede privada da AWS) ─ ─┐
+                     (cache do _next/static)                           │
+┌─ VPC ────────────────────────────────────────────────────────────────▼──┐
+│ sub-redes PRIVADAS (sem rota p/ internet): load balancer INTERNO        │
+│        │ só aceita o security group do CloudFront                       │
+│        ▼                                                                │
+│ sub-redes PÚBLICAS (só saída; nenhuma porta aberta para fora):          │
+│   web (Fargate) ◀── só o load balancer entra                            │
+│   worker (Fargate Spot)   saga + e-mail + relay da outbox               │
+│   payments (Fargate Spot) só a fila de pagamentos                       │
+└────────┬────────────────────────────────────────────────────────────────┘
+         ▼ TLS, pela internet
+   Neon (Postgres, projeto próprio) · CloudAMQP (RabbitMQ, prefixo dystopia_aws)
 ```
 
 Fica no modelo **híbrido**: os três processos do app rodam na AWS, mas o banco
@@ -48,9 +51,9 @@ Valores aproximados em us-east-1, com o ambiente **de pé**:
 |---|---|
 | web (Fargate, 0,5 vCPU / 1 GB, ARM) | ~US$ 0,02 |
 | worker + payments (Fargate **Spot**, 0,25 vCPU / 0,5 GB, ARM) | ~US$ 0,006 |
-| load balancer | ~US$ 0,03 |
-| IPv4 públicos (tarefas + load balancer) | ~US$ 0,025 |
-| **Total** | **~US$ 0,08/h** (≈ US$ 55/mês se ficar ligado direto) |
+| load balancer (interno: sem IP público) | ~US$ 0,03 |
+| IPv4 públicos (as 3 tarefas) | ~US$ 0,015 |
+| **Total** | **~US$ 0,07/h** (≈ US$ 50/mês se ficar ligado direto) |
 
 CloudFront, logs (7 dias), Parameter Store e o tráfego de uma demonstração
 ficam dentro das camadas gratuitas. O ECR cobra centavos pelas imagens
@@ -68,8 +71,11 @@ alerta mostra quanto dos créditos está indo embora.
   em outro projeto Neon.
 - **Fotos enviadas pelo painel:** ficam no disco da tarefa e somem no próximo
   deploy. As fotos do catálogo vêm da imagem e não somem.
-- **CloudFront → load balancer em HTTP:** quem acessa usa HTTPS, mas HTTPS até
-  a origem exige domínio próprio com certificado (veja "Próximos passos").
+- **Sem domínio próprio:** quem acessa usa HTTPS, mas com o certificado
+  padrão `*.cloudfront.net`, que a AWS fixa na política TLSv1 (aceita TLS
+  1.0/1.1). O trecho CloudFront → load balancer é HTTP, só que **dentro da
+  rede privada da AWS** (VPC origin), e não pela internet. Os dois se
+  resolvem com domínio próprio (veja "Próximos passos").
 - **A conta fecha** quando o plano Free termina (6 meses ou fim dos créditos).
   O ambiente some com ela; a Vercel continua.
 
@@ -168,33 +174,62 @@ endereço `https://….cloudfront.net` aparece no resumo do job.
 |---|---|---|
 | ECS Fargate | Containers sem servidor para administrar. Usa os mesmos Dockerfiles do docker-compose. | EC2 com docker compose: mais barato, mas é um servidor para manter. EKS: cobra o control plane. |
 | Híbrido (Neon + CloudAMQP) | Custo zero de verdade | RDS + Amazon MQ: gastam os créditos em poucas semanas |
-| Sub-redes públicas, sem NAT | NAT gateway cobra por hora (~US$ 33/mês). A entrada fica fechada pelos security groups. | Sub-redes privadas + NAT ou VPC endpoints, o desenho de quando houver orçamento |
-| Load balancer só aceita o CloudFront | Ninguém chega no app sem passar pelo CloudFront, então o `CloudFront-Viewer-Address` (IP do cliente para o limite de tentativas) não é forjável | Header secreto entre CloudFront e load balancer (dá para somar depois) |
+| Tarefas em sub-rede pública, sem NAT | Elas precisam **sair** para Neon, CloudAMQP, Stripe e ECR, e o NAT gateway cobra por hora (~US$ 33/mês). O IP público serve só para sair: nenhum security group delas aceita conexão de fora, e o web só aceita o load balancer. | Sub-redes privadas + NAT (o padrão de produção quando há orçamento). VPC endpoints não resolvem, porque Neon e CloudAMQP estão fora da AWS. |
+| Load balancer **interno** + CloudFront **VPC origin** | O load balancer fica em sub-rede privada, sem endereço na internet. O CloudFront chega nele pela rede da AWS, e só o security group do CloudFront entra. Ninguém forja o `CloudFront-Viewer-Address` (IP do cliente para o limite de tentativas) e senha ou cookie não passa em claro pela internet. Sem custo adicional. | Load balancer público liberado para a lista de IPs do CloudFront: o tráfego passaria pela internet em HTTP |
 | CloudFront na frente | HTTPS sem domínio próprio e cache dos estáticos | Domínio + certificado (ACM) direto no load balancer |
 | Workers em Fargate Spot | ~70% mais barato. Se a AWS interromper a tarefa, o broker reentrega o que ficou sem ack. | Fargate normal (é o que o web usa) |
 | ARM (Graviton) | ~20% mais barato | x86 |
 | Parameter Store (SecureString) | Gratuito. O valor não aparece na definição da tarefa. | Secrets Manager: cobra por segredo por mês |
 | Migração dentro do `pulumi up` (`command.local.Command`) | Código novo nunca sobe antes do schema dele | Migração num passo separado do workflow, que fica fácil de esquecer ou de rodar fora de ordem |
-| OIDC GitHub → AWS | Nenhuma chave da AWS guardada no GitHub. A role só aceita a `main`. | Access key em secret do GitHub |
+| OIDC GitHub → AWS | Nenhuma chave da AWS guardada no GitHub. A role só aceita a `main` deste repositório, por igualdade exata e pelos **ids imutáveis** do dono e do repo (formato do GitHub para repositórios criados depois de 15/07/2026): renomear ou recriar um repo com o mesmo nome não herda o acesso. | Access key em secret do GitHub. Condição com curinga (`StringLike`). |
+| Role de deploy com o mínimo | Só os serviços do ambiente; IAM, ECR e Parameter Store presos aos recursos `dystopia-*`. O deploy não sobe EC2, não cria banco nem usuário. | `PowerUserAccess` (era o rascunho; amplo demais) |
 | Segredos gerados na base | Sobrevivem ao "derrubar", como o banco. Se fossem gerados a cada "subir", o banco deixaria de abrir. | Gerar no ambiente |
+
+## Revisão de segurança
+
+O desenho foi conferido contra a documentação da AWS e do GitHub:
+
+- **Porta de entrada única.** O CloudFront é o único caminho até o app:
+  [VPC origins](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/private-content-vpc-origins.html)
+  com o load balancer em sub-rede privada, liberado só para o security group
+  que o CloudFront cria (a opção "mais restritiva" da documentação).
+- **OIDC.** Igualdade exata em `aud` e `sub`, no
+  [formato com ids imutáveis](https://github.blog/changelog/2026-04-23-immutable-subject-claims-for-github-actions-oidc-tokens/).
+  Esse formato é o que este repositório usa: com o antigo, a AWS recusaria o deploy.
+- **Menor privilégio:**
+  - role de deploy só com os serviços do ambiente;
+  - role de execução das tarefas lê só os parâmetros dela;
+  - role da tarefa sem permissão nenhuma, porque o app não chama a AWS;
+  - containers sem root (`USER node`);
+  - pagamentos sem o banco da loja;
+  - app no banco como `dystopia_app`, só leitura e escrita de linha.
+- **Segredos:** em SecureString, lidos pelo ECS na hora de subir a tarefa.
+  Nenhum vai na definição da tarefa nem no repositório; do GitHub para o
+  Pulumi, passam pela entrada padrão.
+- **Ficou de fora, de propósito:** NAT, WAF e domínio próprio, por custo.
+  Também alta disponibilidade (uma tarefa web): para uma demonstração que
+  sobe e desce, não compensa dobrar o custo.
 
 ## Verificação sem nuvem
 
-`infra/tests/app.test.ts` roda o programa do ambiente com os mocks do Pulumi.
-Nada vai para a AWS, e o teste confere o que seria criado:
+`infra/tests` roda os dois programas com os mocks do Pulumi. Nada vai para a
+AWS, e os testes conferem o que seria criado:
 
-- o load balancer só aceita o CloudFront;
+- load balancer interno, em sub-rede privada, só para o CloudFront;
 - nenhum segredo em texto na definição das tarefas;
 - pagamentos sem o banco da loja;
-- sem NAT gateway, workers em Spot, tudo em ARM.
+- sem NAT gateway, workers em Spot, tudo em ARM;
+- role de deploy só para a `main` deste repo, pelos ids imutáveis, e sem
+  política ampla.
 
 Roda na CI de todo PR (`cd infra && npm test`).
 
 ## Próximos passos
 
-- Domínio próprio: certificado ACM, HTTPS do CloudFront até o load balancer e
-  nome bonito no lugar do `cloudfront.net`.
-- Role de deploy com o mínimo de cada serviço, no lugar do PowerUser (a conta
-  é dedicada ao projeto, mas dá para fechar mais).
+- Domínio próprio (uns US$ 10/ano): certificado ACM, TLS 1.2+ no CloudFront,
+  HTTPS até o load balancer e um nome no lugar do `cloudfront.net`.
+- Ambiente `aws` no GitHub com aprovação manual antes do deploy (a role
+  passaria a aceitar só esse ambiente).
 - Fotos do painel no S3 (hoje vão para o disco da tarefa).
-- Autoscaling do web por CPU ou requests; hoje é uma tarefa.
+- Com orçamento: tarefas em sub-rede privada + NAT, WAF no CloudFront e duas
+  tarefas web em duas zonas.
