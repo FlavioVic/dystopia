@@ -216,7 +216,8 @@ sem saber se o cliente foi cobrado.
 por mensagem é o que permite separar o banco dele depois sem mexer na saga.
 
 **Preço.** Dois bancos para migrar e liberar, e uma migração de dados de uma
-vez (a tabela antiga para o banco novo, `npm run payments:copy-legacy`). Na
+vez: os pagamentos da tabela antiga, no banco da loja, foram copiados para o
+banco novo e, com as contagens conferidas, a tabela foi apagada. Na
 demo da Vercel, por custo, pagamentos roda no mesmo runtime (decisão 8) — mas
 cada um falando com o próprio banco. Exclusão de conta não apaga mais a
 cobrança: ela fica no banco de pagamentos como registro financeiro sem dado
@@ -437,7 +438,6 @@ lease da saga e o `SKIP LOCKED` do relay já foram feitos para isso.
 ## O que eu faria com mais tempo ou tráfego
 
 - Worker de pé em container e `INLINE_WORKER` desligado.
-- Apagar a tabela antiga de pagamentos do banco da loja (depois da migração conferida).
 - Cobrança real: webhooks do Stripe, 3D Secure e conciliação diária.
 - Rastreamento distribuído (OpenTelemetry) do request até cada passo da saga.
 - Passkeys (WebAuthn) no lugar do TOTP para o admin.

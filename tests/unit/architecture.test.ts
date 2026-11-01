@@ -177,21 +177,16 @@ describe("fronteiras da arquitetura", () => {
 
   it("os dados de pagamentos são só de pagamentos (banco próprio)", () => {
     // Fora do serviço (e de quem monta processo), ninguém conecta no banco
-    // dele nem lê o schema dele; e a tabela antiga do banco da loja não é
-    // lida por ninguém além da cópia de migração.
+    // dele nem lê o schema dele.
     const owner = path.join("src", "services", "payments");
     const assembly = [path.join("src", "scripts"), path.join("src", "composition")];
     for (const file of sourceFiles("src")) {
       if (file.startsWith(owner) || assembly.some((dir) => file.startsWith(dir))) continue;
-      const content = readFileSync(path.join(ROOT, file), "utf-8");
       for (const specifier of importsOf(file)) {
         assert.ok(
           !["@/services/payments/db", "@/services/payments/schema"].includes(specifier),
           `${file} importa ${specifier} — os dados de pagamentos são do serviço`,
         );
-      }
-      if (file !== path.join("src", "db", "schema.ts")) {
-        assert.doesNotMatch(content, /\blegacyPayments\b/, `${file} lê a tabela antiga de pagamentos`);
       }
     }
   });

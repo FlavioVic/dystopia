@@ -182,23 +182,17 @@ Antes de usar em produção: troque as senhas, o `APP_DB_PASSWORD` e a
 `*_LIMIT_*` (o compose aumenta todos para os testes) e desligue
 `ALLOW_CHECKOUT_SIMULATION` se houver cobrança real.
 
-## Migração: pagamentos para o banco próprio (uma vez, deploy já existente)
+## Migração: pagamentos para o banco próprio (feita)
 
-Para quem já tinha o deploy com os pagamentos no banco da loja. Antes do merge
-do PR que separa o banco; tudo pelas strings **diretas** do dono:
+O deploy da demo nasceu com os pagamentos no banco da loja. Em 2026-10-31 eles
+passaram para o banco próprio, antes do merge do PR que separou os bancos e
+pelas strings **diretas** do dono: banco `dystopia_payments` criado (passo
+1.3), `npm run db:migrate` nos dois bancos, `npm run db:app-role` sem
+`APP_DB_PASSWORD` (libera o banco novo sem trocar a senha que a Vercel usa),
+cópia única dos pagamentos da tabela antiga para o banco novo e
+`PAYMENTS_DATABASE_URL` na Vercel. Com as contagens conferidas, a migration
+`0015` apagou a tabela antiga (`payments` no banco da loja), e o script da
+cópia saiu junto.
 
-1. Crie o banco `dystopia_payments` (passo 1.3).
-2. `npm run db:migrate` com `DATABASE_URL` e `PAYMENTS_DATABASE_URL`: cria as
-   tabelas de pagamentos e o resumo do pagamento nos pedidos (preenchido a
-   partir da tabela antiga).
-3. `npm run db:app-role` **sem** `APP_DB_PASSWORD`: libera o banco novo para
-   o `dystopia_app` sem trocar a senha que a Vercel usa.
-4. `npm run payments:copy-legacy`: copia os pagamentos da tabela antiga para o
-   banco novo (idempotente — diz quantos copiou).
-5. Na Vercel, `PAYMENTS_DATABASE_URL` (Production, sensível) = a
-   `DATABASE_URL` do app com `/dystopia_payments` no nome do banco.
-6. Merge (deploy). Depois, `npm run payments:copy-legacy` de novo: pega o que o
-   código antigo gravou no meio do caminho.
-
-A tabela antiga (`payments` no banco da loja) fica até uma limpeza à parte,
-com as contagens conferidas.
+Deploy novo não passa por isso: `npm run db:migrate` já cria os dois bancos no
+formato atual.
