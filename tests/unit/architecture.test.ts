@@ -84,6 +84,24 @@ describe("fronteiras da arquitetura", () => {
     }
   });
 
+  it("telas (páginas e componentes) não falam com banco nem serviço — leem por src/lib/data", () => {
+    // Página e componente só montam a tela. Consulta mora em `lib/data`
+    // (leitura, com cache por request) e escrita em `lib/actions`; rota de
+    // API (.ts) é borda, como as actions, e fica de fora.
+    const screens = ["src/app", "src/components"].flatMap(sourceFiles).filter((file) => file.endsWith(".tsx"));
+    // "@/db" pega também "@/db/schema"; "drizzle-orm" pega "drizzle-orm/pg-core".
+    const reachesData = (specifier: string) =>
+      ["@/db", "drizzle-orm", "@/services"].some((root) => specifier === root || specifier.startsWith(`${root}/`));
+    for (const file of screens) {
+      for (const specifier of importsOf(file)) {
+        assert.ok(
+          !reachesData(specifier),
+          `${file} importa ${specifier} — a tela lê por src/lib/data (e escreve por src/lib/actions)`,
+        );
+      }
+    }
+  });
+
   it("serviços não conhecem a borda HTTP (actions/data/componentes)", () => {
     for (const file of sourceFiles("src/services")) {
       for (const specifier of importsOf(file)) {

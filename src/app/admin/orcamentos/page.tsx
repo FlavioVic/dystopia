@@ -1,15 +1,14 @@
 import type { Metadata } from "next";
 import { ServiceRequestStatus } from "@/components/admin/ServiceRequestStatus";
-import { db } from "@/db";
+import { getServiceRequests } from "@/lib/data/admin";
 import { requireAdmin } from "@/lib/data/auth";
 import { serviceName } from "@/lib/services-catalog";
-import { listServiceRequests } from "@/services/service-requests";
 
 export const metadata: Metadata = { title: "Orçamentos · Admin" };
 
 export default async function AdminServiceRequests() {
   await requireAdmin();
-  const requests = await listServiceRequests(db);
+  const requests = await getServiceRequests();
   const open = requests.filter((r) => r.status === "novo").length;
 
   return (

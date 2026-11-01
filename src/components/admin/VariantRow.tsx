@@ -3,6 +3,7 @@
 import { useActionState, useState, useTransition } from "react";
 import { removeVariant, type AdminFormState } from "@/lib/actions/admin";
 import { VariantFields, type VariantDefaults } from "@/components/admin/VariantFields";
+import { LOW_STOCK_MAX } from "@/lib/catalog-rules";
 import { formatPriceCents } from "@/lib/format";
 
 export function VariantRow({
@@ -30,7 +31,7 @@ export function VariantRow({
           <span className="tabular-nums">
             {variant.priceCents != null ? formatPriceCents(variant.priceCents) : "preço do produto"}
           </span>
-          <span className={`tabular-nums ${variant.stockQuantity <= 3 ? "text-foreground-muted" : ""}`}>
+          <span className={`tabular-nums ${variant.stockQuantity <= LOW_STOCK_MAX ? "text-foreground-muted" : ""}`}>
             estoque {variant.stockQuantity}
           </span>
           <button

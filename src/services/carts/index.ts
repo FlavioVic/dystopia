@@ -13,10 +13,10 @@
 import { and, asc, eq, sql } from "drizzle-orm";
 import type { Executor } from "@/db";
 import { cartItems, carts, products, productVariants } from "@/db/schema";
+import { MAX_PER_ITEM, unitPriceCents as priceOf } from "@/lib/catalog-rules";
 import { PermanentError } from "@/shared/errors";
 
-/** Teto por linha do carrinho (além do estoque). */
-export const MAX_PER_ITEM = 10;
+export { MAX_PER_ITEM };
 
 export type CartLineSnapshot = {
   productId: string;
@@ -28,15 +28,26 @@ export type CartLineSnapshot = {
 /** Linha do carrinho como o checkout grava no pedido: nome já com a variante. */
 export type CheckoutLine = CartLineSnapshot & { name: string };
 
-export async function getCheckoutLines(executor: Executor, cartId: string): Promise<CheckoutLine[]> {
+/** Linha lida para fechar a compra: o que vai para o pedido e se ainda está à venda. */
+export type CheckoutCartLine = CheckoutLine & { available: boolean };
+
+/**
+ * Linhas do carrinho com o preço ATUAL do catálogo — não o que o carrinho
+ * guardou ao adicionar: preço mudado no painel vale para o próximo checkout.
+ * `available` é falso para produto desativado depois de entrar no carrinho
+ * (quem decide o que fazer com ele é o caso de uso).
+ */
+export async function getCheckoutLines(executor: Executor, cartId: string): Promise<CheckoutCartLine[]> {
   const rows = await executor
     .select({
       productId: cartItems.productId,
       variantId: cartItems.variantId,
       quantity: cartItems.quantity,
-      unitPriceCents: cartItems.unitPriceCents,
+      productPriceCents: products.priceCents,
+      variantPriceCents: productVariants.priceCents,
       productName: products.name,
       variantName: productVariants.name,
+      isActive: products.isActive,
     })
     .from(cartItems)
     .innerJoin(products, eq(products.id, cartItems.productId))
@@ -48,8 +59,9 @@ export async function getCheckoutLines(executor: Executor, cartId: string): Prom
     productId: row.productId,
     variantId: row.variantId,
     quantity: row.quantity,
-    unitPriceCents: row.unitPriceCents,
+    unitPriceCents: priceOf(row.productPriceCents, row.variantPriceCents),
     name: row.variantName ? `${row.productName} — ${row.variantName}` : row.productName,
+    available: row.isActive,
   }));
 }
 
@@ -94,7 +106,7 @@ export async function addItem(
       columns: { priceCents: true, stockQuantity: true },
     });
     if (!variant) throw new PermanentError("variant_unavailable", "Variação indisponível.");
-    unitPriceCents = variant.priceCents ?? product.priceCents;
+    unitPriceCents = priceOf(product.priceCents, variant.priceCents);
     stock = variant.stockQuantity;
   }
   if (stock <= 0) throw new PermanentError("out_of_stock", "Produto esgotado.");

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useTransition } from "react";
 import type { CartLine } from "@/lib/data/cart";
 import { removeCartItem, updateCartItemQuantity } from "@/lib/actions/cart";
+import { MAX_PER_ITEM } from "@/lib/catalog-rules";
 import { formatPriceCents } from "@/lib/format";
 
 export function CartItemRow({ line }: { line: CartLine }) {
@@ -22,40 +23,40 @@ export function CartItemRow({ line }: { line: CartLine }) {
     });
   }
 
-  const atMax = line.quantity >= Math.min(line.stock, 10);
+  const atMax = !line.available || line.quantity >= Math.min(line.stock, MAX_PER_ITEM);
 
   return (
     <li
       className={`flex gap-4 py-5 transition-opacity ${isPending ? "opacity-50" : ""}`}
     >
-      <Link
-        href={`/produto/${line.slug}`}
-        aria-label={line.name}
-        className="relative aspect-square h-20 w-20 shrink-0 overflow-hidden rounded-md border border-border bg-background"
-      >
-        {line.imageUrl ? (
-          <Image
-            src={line.imageUrl}
-            alt={line.imageAlt ?? line.name}
-            fill
-            sizes="80px"
-            className="object-cover"
-          />
-        ) : null}
-      </Link>
+      {line.available ? (
+        <Link href={`/produto/${line.slug}`} aria-label={line.name} className={THUMB}>
+          <Thumb line={line} />
+        </Link>
+      ) : (
+        <div className={`${THUMB} opacity-60`}>
+          <Thumb line={line} />
+        </div>
+      )}
 
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <Link
-              href={`/produto/${line.slug}`}
-              className="line-clamp-2 text-sm font-medium hover:text-accent"
-            >
-              {line.name}
-            </Link>
+            {line.available ? (
+              <Link
+                href={`/produto/${line.slug}`}
+                className="line-clamp-2 text-sm font-medium hover:text-accent"
+              >
+                {line.name}
+              </Link>
+            ) : (
+              // A página do produto fora de venda não abre mais: sem link.
+              <span className="line-clamp-2 text-sm font-medium text-foreground-muted">{line.name}</span>
+            )}
             {line.variantName ? (
               <p className="mt-0.5 text-xs text-foreground-muted">{line.variantName}</p>
             ) : null}
+            {line.available ? null : <p className="mt-1 text-xs font-semibold">Saiu de venda — não entra na compra.</p>}
           </div>
           <button
             type="button"
@@ -104,4 +105,12 @@ export function CartItemRow({ line }: { line: CartLine }) {
       </div>
     </li>
   );
+}
+
+const THUMB = "relative aspect-square h-20 w-20 shrink-0 overflow-hidden rounded-md border border-border bg-background";
+
+function Thumb({ line }: { line: CartLine }) {
+  return line.imageUrl ? (
+    <Image src={line.imageUrl} alt={line.imageAlt ?? line.name} fill sizes="80px" className="object-cover" />
+  ) : null;
 }

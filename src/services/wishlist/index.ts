@@ -67,9 +67,13 @@ export async function wishlistProductIds(executor: Executor, userId: string): Pr
   return rows.map((row) => row.productId);
 }
 
-/** Lista completa (com produto e imagens) para a página de favoritos. */
+/**
+ * Lista completa (com produto e imagens) para a página de favoritos — só o
+ * que está à venda. Produto desativado some da lista mas o favorito fica:
+ * se ele voltar, volta para a lista também.
+ */
 export async function listWishlist(executor: Executor, userId: string) {
-  return executor.query.wishlistItems.findMany({
+  const items = await executor.query.wishlistItems.findMany({
     where: eq(wishlistItems.userId, userId),
     orderBy: [desc(wishlistItems.createdAt)],
     with: {
@@ -78,4 +82,5 @@ export async function listWishlist(executor: Executor, userId: string) {
       },
     },
   });
+  return items.filter((item) => item.product.isActive);
 }

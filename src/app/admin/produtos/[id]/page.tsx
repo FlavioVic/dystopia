@@ -8,7 +8,7 @@ import { VariantCreateForm } from "@/components/admin/VariantCreateForm";
 import { VariantRow } from "@/components/admin/VariantRow";
 import { createVariant, updateProduct, updateVariant, uploadProductImage } from "@/lib/actions/admin";
 import { mediaStorageFromEnv } from "@/lib/media-storage";
-import { MAX_PRODUCT_IMAGES } from "@/services/catalog";
+import { MAX_PRODUCT_IMAGES } from "@/lib/product-media";
 
 export const metadata: Metadata = { title: "Editar produto · Admin" };
 

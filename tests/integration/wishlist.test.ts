@@ -86,4 +86,16 @@ describe("favoritos", () => {
 
     assert.equal((await db.query.wishlistItems.findMany()).length, 0);
   });
+
+  it("produto desativado some da lista, mas o favorito fica para quando ele voltar", async () => {
+    const fixture = await seedCheckoutFixture();
+    await addToWishlist(db, fixture.userId, fixture.product.id);
+
+    await db.update(products).set({ isActive: false }).where(eq(products.id, fixture.product.id));
+    assert.deepEqual(await listWishlist(db, fixture.userId), []);
+    assert.deepEqual(await wishlistProductIds(db, fixture.userId), [fixture.product.id], "o favorito continua gravado");
+
+    await db.update(products).set({ isActive: true }).where(eq(products.id, fixture.product.id));
+    assert.equal((await listWishlist(db, fixture.userId)).length, 1);
+  });
 });
