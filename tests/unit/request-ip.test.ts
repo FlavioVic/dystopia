@@ -19,6 +19,24 @@ describe("IP do cliente (limite de tentativas)", () => {
     assert.equal(resolveClientIp(onlyForwarded, { TRUST_PROXY_HEADERS: "1", NODE_ENV: "production" }), "7.7.7.7");
   });
 
+  it("atrás do CloudFront, vale o endereço que o CloudFront escreveu, nunca o X-Forwarded-For", () => {
+    const env = { NODE_ENV: "production", TRUST_PROXY_HEADERS: "cloudfront" };
+    // O cliente forjou X-Real-IP e X-Forwarded-For; o CloudFront acrescentou o real.
+    const viaCloudFront = (name: string) =>
+      ({
+        "x-real-ip": "6.6.6.6",
+        "x-forwarded-for": "7.7.7.7, 203.0.113.9, 130.176.0.1",
+        "cloudfront-viewer-address": "203.0.113.9:51234",
+      })[name];
+    assert.equal(resolveClientIp(viaCloudFront, env), "203.0.113.9");
+
+    const ipv6 = (name: string) => (name === "cloudfront-viewer-address" ? "2001:db8::1:46532" : null);
+    assert.equal(resolveClientIp(ipv6, env), "2001:db8::1");
+
+    // Sem o header (request que não veio pelo CloudFront): falha fechado.
+    assert.equal(resolveClientIp(spoofed, env), UNTRUSTED_IP);
+  });
+
   it("dev e testes confiam (não há proxy na frente)", () => {
     assert.equal(resolveClientIp(spoofed, { NODE_ENV: "development" }), "6.6.6.6");
   });
