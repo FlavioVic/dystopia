@@ -7,6 +7,7 @@ import { after, beforeEach, describe, it } from "node:test";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { productImages, productVariants, products } from "@/db/schema";
+import { getProductBySlug } from "@/lib/data/products";
 import { PermanentError } from "@/shared/errors";
 import {
   createProduct,
@@ -181,5 +182,17 @@ describe("variantes", () => {
     assert.deepEqual(await deleteVariant(db, variantId), { deleted: true });
     assert.equal((await listVariants(db, fixture.product.id)).length, 0);
     assert.deepEqual(await deleteVariant(db, variantId), { deleted: false });
+  });
+});
+
+describe("página do produto", () => {
+  it("produto desativado no painel não abre pela URL (a página dá 404)", async () => {
+    const fixture = await seedCheckoutFixture();
+    const product = await db.query.products.findFirst({ where: eq(products.id, fixture.product.id) });
+    assert.ok(await getProductBySlug(product!.slug), "ativo abre");
+
+    await db.update(products).set({ isActive: false }).where(eq(products.id, fixture.product.id));
+    // `cache()` do React só memoriza dentro de um request; aqui cada chamada consulta.
+    assert.equal(await getProductBySlug(product!.slug), undefined);
   });
 });
