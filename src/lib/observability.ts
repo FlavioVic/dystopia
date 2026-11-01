@@ -18,6 +18,7 @@ export type Alert = {
     | "halted-sagas"
     | "remote-overdue"
     | "broker-down"
+    | "outbox-down"
     | "outbox-lag"
     | "stuck-sagas";
   level: AlertLevel;
@@ -54,7 +55,7 @@ export function formatDuration(ms: number | null): string {
 }
 
 export function computeAlerts(
-  queue: Pick<QueueMetrics, "dead" | "broker" | "outbox">,
+  queue: Pick<QueueMetrics, "dead" | "broker" | "outbox" | "outboxesDown">,
   sagas: Pick<SagaMetrics, "stuck" | "overdueRemote"> & { failed: number; halted: number },
   thresholds: AlertThresholds = DEFAULT_THRESHOLDS,
 ): Alert[] {
@@ -94,6 +95,17 @@ export function computeAlerts(
       level: "critical",
       title: "RabbitMQ inacessível",
       detail: "Nada se perde — as mensagens esperam na outbox —, mas nada anda até o broker voltar.",
+    });
+  }
+
+  if (queue.outboxesDown.length > 0) {
+    const names = queue.outboxesDown.map((down) => down.name).join(", ");
+    alerts.push({
+      id: "outbox-down",
+      level: "critical",
+      title: `${queue.outboxesDown.length === 1 ? "Banco da outbox" : "Bancos das outboxes"} ${names} sem resposta`,
+      detail:
+        "O que esse banco grava não chega ao broker, e o serviço dele não trabalha. As outras outboxes seguem publicando. Confira a URL de conexão dele e se está de pé.",
     });
   }
 

@@ -8,9 +8,9 @@
 import { db } from "@/db";
 import { createLogger } from "@/lib/logger";
 import { sagaHandlers } from "@/queue/handlers";
-import { pruneOutbox, relayAll, type OutboxDatabase } from "@/queue/relay";
+import { pruneOutbox, type NamedOutbox } from "@/queue/relay";
 import { drainQueues, type DrainReport, type Handlers } from "@/queue/worker";
-import { errorMessage } from "@/shared/errors";
+import { rootCauseMessage } from "@/shared/errors";
 import { SAGA_QUEUE } from "@/saga/messaging";
 import { reconcile, type ReconcileReport } from "@/saga/reconcile";
 import { createNotificationHandlers } from "@/services/notifications/delivery";
@@ -29,9 +29,12 @@ export const ALL_QUEUES = [SAGA_QUEUE, PAYMENTS_QUEUE, NOTIFICATIONS_QUEUE];
 /**
  * As duas caixas de saída: a da loja e a de pagamentos (cada uma no banco
  * dela). O worker embutido roda pagamentos no mesmo processo, então publica
- * as duas; em container, cada processo publica a sua.
+ * as duas; em container, cada processo publica a sua. O nome é o que o log e
+ * o painel mostram quando o banco de uma não responde.
  */
-export const ALL_OUTBOXES: OutboxDatabase[] = [db, paymentsDb];
+export const STORE_OUTBOX: NamedOutbox = { name: "loja", database: db };
+const PAYMENTS_OUTBOX: NamedOutbox = { name: "pagamentos", database: paymentsDb };
+export const ALL_OUTBOXES: NamedOutbox[] = [STORE_OUTBOX, PAYMENTS_OUTBOX];
 
 /** Mensagem publicada fica 7 dias na outbox (auditoria) e depois sai. */
 const OUTBOX_RETENTION_MS = 7 * 24 * 60 * 60_000;
@@ -40,15 +43,30 @@ export function workerHandlers(): Handlers {
   return { ...sagaHandlers, ...paymentHandlers, ...createNotificationHandlers() };
 }
 
-/** Faxina que só um executor periódico faz (worker de pé ou cron). */
+/**
+ * Faxina que só um executor periódico faz (worker de pé ou cron). Cada parte
+ * isolada: o banco de pagamentos fora não impede de limpar o da loja.
+ */
 export async function housekeeping(): Promise<void> {
-  const [rateLimits, sessions, ...outboxes] = await Promise.all([
-    pruneRateLimits(db, 24 * 60 * 60),
-    pruneExpiredSessions(db),
-    ...ALL_OUTBOXES.map((database) => pruneOutbox(database, OUTBOX_RETENTION_MS)),
-  ]);
-  const published = outboxes.reduce((sum, count) => sum + count, 0);
-  if (rateLimits + published + sessions > 0) logger.info("faxina", { rateLimits, outbox: published, sessions });
+  const jobs: Array<[string, () => Promise<number>]> = [
+    ["rateLimits", () => pruneRateLimits(db, 24 * 60 * 60)],
+    ["sessions", () => pruneExpiredSessions(db)],
+    ...ALL_OUTBOXES.map(({ name, database }): [string, () => Promise<number>] => [
+      `outbox:${name}`,
+      () => pruneOutbox(database, OUTBOX_RETENTION_MS),
+    ]),
+  ];
+  const results = await Promise.allSettled(jobs.map(([, run]) => run()));
+  const removed: Record<string, number> = {};
+  results.forEach((result, index) => {
+    const [name] = jobs[index];
+    if (result.status === "rejected") {
+      logger.warn("faxina falhou numa parte; as outras seguiram", { part: name, error: rootCauseMessage(result.reason) });
+    } else if (result.value > 0) {
+      removed[name] = result.value;
+    }
+  });
+  if (Object.keys(removed).length > 0) logger.info("faxina", removed);
 }
 
 export type InlineRunOptions = {
@@ -64,25 +82,36 @@ export type InlineRunOptions = {
 
 const emptyReport = (): DrainReport => ({ received: 0, acked: 0, retried: 0, dead: 0 });
 
-/** Uma rodada do worker embutido. Nunca lança: é chamado depois da resposta. */
+/**
+ * Uma rodada do worker embutido. Nunca lança: é chamado depois da resposta.
+ * Cada fase isolada — reconciliação ou faxina que falha não impede o dreno,
+ * que é o que leva o pedido do cliente adiante. (O dreno publica as outboxes
+ * a cada volta, então não há relay separado antes dele.)
+ */
 export async function runInlineWorker(
   options: InlineRunOptions,
 ): Promise<DrainReport & { reconciled?: ReconcileReport }> {
+  const reconciled = options.reconcile ? await isolated("reconciliação", () => reconcile()) : undefined;
+  if (options.housekeeping) await isolated("faxina", housekeeping);
+  const report =
+    (await isolated("dreno", () =>
+      drainQueues({
+        outboxes: ALL_OUTBOXES,
+        queues: ALL_QUEUES,
+        handlers: workerHandlers(),
+        budgetMs: options.budgetMs,
+        waitForScheduled: options.waitForScheduled,
+      }),
+    )) ?? emptyReport();
+  if (report.received > 0) logger.info("worker embutido drenou a fila", report);
+  return { ...report, ...(reconciled ? { reconciled } : {}) };
+}
+
+async function isolated<T>(phase: string, run: () => Promise<T>): Promise<T | undefined> {
   try {
-    const reconciled = options.reconcile ? await reconcile() : undefined;
-    if (options.housekeeping) await housekeeping();
-    await relayAll(ALL_OUTBOXES);
-    const report = await drainQueues({
-      outboxes: ALL_OUTBOXES,
-      queues: ALL_QUEUES,
-      handlers: workerHandlers(),
-      budgetMs: options.budgetMs,
-      waitForScheduled: options.waitForScheduled,
-    });
-    if (report.received > 0) logger.info("worker embutido drenou a fila", report);
-    return { ...report, ...(reconciled ? { reconciled } : {}) };
+    return await run();
   } catch (error) {
-    logger.error("worker embutido falhou", { error: errorMessage(error) });
-    return emptyReport();
+    logger.error(`worker embutido: ${phase} falhou`, { error: rootCauseMessage(error) });
+    return undefined;
   }
 }

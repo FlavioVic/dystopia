@@ -13,8 +13,8 @@
  */
 
 import "dotenv/config";
-import { ALL_OUTBOXES, housekeeping, workerHandlers } from "@/composition/worker";
-import { db, pgPool } from "@/db";
+import { ALL_OUTBOXES, housekeeping, STORE_OUTBOX, workerHandlers } from "@/composition/worker";
+import { pgPool } from "@/db";
 import { createLogger } from "@/lib/logger";
 import { closeBroker } from "@/queue/broker";
 import { startWorker } from "@/queue/worker";
@@ -41,7 +41,7 @@ async function main(): Promise<void> {
     handlers: workerHandlers(),
     // Consumindo `payments` aqui também (deploy com um container só), publica
     // a outbox de pagamentos — as respostas das cobranças nascem lá.
-    outboxes: queues.includes(PAYMENTS_QUEUE) ? ALL_OUTBOXES : [db],
+    outboxes: queues.includes(PAYMENTS_QUEUE) ? ALL_OUTBOXES : [STORE_OUTBOX],
     prefetch: Number(process.env.WORKER_PREFETCH ?? 5),
     relayEveryMs: Number(process.env.WORKER_RELAY_MS ?? 500),
     periodic: [

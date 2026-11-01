@@ -97,12 +97,17 @@ Variables*, Production), **Redeploy**, e só então invalidar o antigo.
 
 | Segredo | Como trocar | Efeito colateral |
 |---|---|---|
-| `DATABASE_URL` (usuário `dystopia_app`) | `APP_DB_PASSWORD="$(openssl rand -base64 24)" npm run db:app-role` (troca a senha do papel) e monte a URL nova | nenhum |
+| `DATABASE_URL` e `PAYMENTS_DATABASE_URL` (o mesmo usuário `dystopia_app` nos dois bancos) | `APP_DB_PASSWORD="$(openssl rand -hex 24)" npm run db:app-role` (troca a senha do papel) e monte as **duas** URLs novas — grave as duas antes do Redeploy | com uma só trocada, o banco da outra recusa a senha: o painel mostra o alerta da outbox sem resposta |
 | Senha do dono (`neondb_owner`) | Neon Console → *Roles* → *Reset password* | só scripts de operação usam |
 | `MFA_ENCRYPTION_KEY` | chave nova + **refazer o MFA do admin** (seção 5, sem celular) | o autenticador cadastrado para de abrir; o admin cadastra de novo |
 | `CRON_SECRET` | `openssl rand -base64 32` | nenhum (a Vercel manda o novo) |
 | `RABBITMQ_URL` | instância nova no CloudAMQP (seção 3) — o plano grátis leva 5 minutos e não tem o que migrar | nenhum |
 | `RESEND_API_KEY`, `CHAT_API_KEY`, chaves do Stripe | painel do provedor → chave nova → apagar a antiga | nenhum |
+
+Senha em hexadecimal porque vai dentro da URL (base64 tem `/`, `+` e `=`).
+Monte a URL do zero (`neon connection-string`); **não derive de uma puxada com
+`vercel env pull`**: variável marcada como *Sensitive* volta com valor falso,
+e a URL derivada aponta para lugar nenhum (foi o incidente de 2026-10-31).
 
 A chave do MFA sozinha não abre nada: precisa também de uma cópia do banco
 (o segredo cifrado) e da senha do admin.

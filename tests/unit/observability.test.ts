@@ -6,6 +6,7 @@ const healthyQueue = {
   dead: 0,
   broker: { status: "up" as const },
   outbox: { pending: 0, oldestPendingAgeMs: 0, failing: 0 },
+  outboxesDown: [],
 };
 const healthySagas = { stuck: 0, failed: 0, halted: 0, overdueRemote: 0 };
 
@@ -32,6 +33,27 @@ describe("alertas da operação", () => {
     assert.equal(alert.id, "broker-down");
     assert.equal(alert.level, "critical");
     assert.match(alert.detail, /outbox/);
+  });
+
+  it("banco de outbox sem resposta é crítico e diz qual", () => {
+    const one = computeAlerts(
+      { ...healthyQueue, outboxesDown: [{ name: "pagamentos", error: "getaddrinfo ENOTFOUND base" }] },
+      healthySagas,
+    );
+    assert.deepEqual(one.map((a) => [a.id, a.level]), [["outbox-down", "critical"]]);
+    assert.match(one[0].title, /^Banco da outbox pagamentos sem resposta$/);
+
+    const two = computeAlerts(
+      {
+        ...healthyQueue,
+        outboxesDown: [
+          { name: "loja", error: "x" },
+          { name: "pagamentos", error: "y" },
+        ],
+      },
+      healthySagas,
+    );
+    assert.match(two[0].title, /^Bancos das outboxes loja, pagamentos sem resposta$/);
   });
 
   it("outbox só é atrasada se a mensagem mais velha passou do limite", () => {

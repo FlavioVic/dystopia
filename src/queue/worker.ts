@@ -12,11 +12,11 @@
 import { randomUUID } from "node:crypto";
 import type { Channel, ConsumeMessage, GetMessage } from "amqplib";
 import { createLogger } from "@/lib/logger";
-import { errorMessage, isRetryable } from "@/shared/errors";
+import { errorMessage, isRetryable, rootCauseMessage } from "@/shared/errors";
 import { backoffMs } from "./backoff";
 import { declareQueue, getBroker, names, publishEnvelope, queueDepths, readEnvelope, type Envelope } from "./broker";
 import type { MessageHandler, QueueMessage } from "./index";
-import { relayAll, type OutboxDatabase } from "./relay";
+import { createRelay, type NamedOutbox } from "./relay";
 
 const logger = createLogger("queue:worker");
 
@@ -91,7 +91,10 @@ export async function handleDelivery(
     await route({ ...envelope, attempts }, "retry", result.retryInMs);
     return "retried";
   } catch (error) {
-    const reason = errorMessage(error);
+    // A causa, não o embrulho: erro de banco vem do Drizzle como "Failed
+    // query: <sql> params: <…>", que esconde o motivo (ENOTFOUND, senha) e
+    // levaria dado do cliente para o log e para o cabeçalho da DLQ.
+    const reason = rootCauseMessage(error);
     const fields = { messageId: envelope.id, type: envelope.type, attempt: message.attempt, error: reason };
 
     if (!isRetryable(error) || message.attempt >= envelope.maxAttempts) {
@@ -120,7 +123,7 @@ export type DrainOptions = {
   queues: string[];
   handlers: Handlers;
   /** Outboxes que este dreno publica (a da loja, a de pagamentos, ou as duas). */
-  outboxes: OutboxDatabase[];
+  outboxes: NamedOutbox[];
   /** Tempo máximo drenando. */
   budgetMs?: number;
   /** Teto de mensagens processadas numa chamada. */
@@ -151,6 +154,10 @@ export async function drainQueues(options: DrainOptions): Promise<DrainReport> {
   const elapsed = () => Date.now() - startedAt;
   let quietSince: number | null = null;
 
+  // Uma outbox fora do ar não para o dreno: o relay a isola e a pula pelo
+  // backoff dele; as filas seguem sendo consumidas.
+  const relay = createRelay(options.outboxes);
+
   const broker = await getBroker();
   const channel = await broker.connection.createChannel();
   try {
@@ -159,7 +166,7 @@ export async function drainQueues(options: DrainOptions): Promise<DrainReport> {
     while (elapsed() < budgetMs && report.received < maxMessages) {
       // Handler grava mensagem nova na outbox (resposta, próximo passo): o
       // relay roda a cada volta para ela entrar no mesmo dreno.
-      await relayAll(options.outboxes);
+      await relay();
 
       let got = 0;
       for (const queue of options.queues) {
@@ -231,7 +238,7 @@ export type WorkerOptions = {
   /** Intervalo do relay da outbox. */
   relayEveryMs?: number;
   /** Outboxes que este processo publica (a da loja, a de pagamentos, ou as duas). */
-  outboxes: OutboxDatabase[];
+  outboxes: NamedOutbox[];
   /** Tarefas periódicas extras (reconciliação, faxina). */
   periodic?: Array<{ name: string; everyMs: number; run: () => Promise<unknown> }>;
 };
@@ -244,6 +251,9 @@ export type WorkerHandle = {
 
 export function startWorker(options: WorkerOptions): WorkerHandle {
   const workerId = options.workerId ?? defaultWorkerId();
+  // Um relay pelo processo inteiro: a memória de qual outbox está fora
+  // sobrevive às reconexões com o broker.
+  const relay = createRelay(options.outboxes);
   let running = true;
   let wake: (() => void) | null = null;
 
@@ -288,7 +298,7 @@ export function startWorker(options: WorkerOptions): WorkerHandle {
     }
     logger.info("consumindo", { workerId, queues: options.queues, prefetch: options.prefetch ?? 5 });
 
-    const timers = startPeriodic(options, workerId);
+    const timers = startPeriodic(options, workerId, relay);
     await Promise.race([closed, new Promise<void>((resolve) => (wake = resolve))]);
     for (const timer of timers) clearInterval(timer);
 
@@ -318,9 +328,9 @@ export function startWorker(options: WorkerOptions): WorkerHandle {
   return { stop, done };
 }
 
-function startPeriodic(options: WorkerOptions, workerId: string): NodeJS.Timeout[] {
+function startPeriodic(options: WorkerOptions, workerId: string, relay: () => Promise<unknown>): NodeJS.Timeout[] {
   const tasks = [
-    { name: "relay", everyMs: options.relayEveryMs ?? 500, run: () => relayAll(options.outboxes) },
+    { name: "relay", everyMs: options.relayEveryMs ?? 500, run: relay },
     ...(options.periodic ?? []),
   ];
   return tasks.map((task) => {

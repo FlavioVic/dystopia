@@ -21,6 +21,10 @@ if (sameDatabase(url, process.env.DATABASE_URL)) {
 const pool = new Pool({
   connectionString: url,
   max: Number(process.env.PG_POOL_MAX ?? 10),
+  // Banco que não responde (host errado, rede fora) falha em 10 s em vez de
+  // segurar o request ou o dreno da fila até o timeout do TCP (minutos). Dá
+  // folga para o Neon acordar do scale-to-zero.
+  connectionTimeoutMillis: 10_000,
 });
 
 export const paymentsDb = drizzle(pool, { schema });

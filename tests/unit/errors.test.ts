@@ -7,6 +7,7 @@ import {
   PermanentError,
   RetryableError,
   AppError,
+  rootCauseMessage,
 } from "@/shared/errors";
 
 describe("taxonomia de erro", () => {
@@ -35,5 +36,25 @@ describe("taxonomia de erro", () => {
     assert.equal(errorMessage(new Error("falhou")), "falhou");
     assert.equal(errorMessage("texto"), "texto");
     assert.equal(errorMessage(undefined), "undefined");
+  });
+});
+
+describe("causa raiz", () => {
+  it("desembrulha o erro do driver que o Drizzle envolveu", () => {
+    const driver = Object.assign(new Error("getaddrinfo ENOTFOUND base"), { code: "ENOTFOUND" });
+    const wrapped = new Error("Failed query: select 1\nparams: ", { cause: driver });
+    assert.equal(rootCauseMessage(wrapped), "getaddrinfo ENOTFOUND base");
+  });
+
+  it("de um AggregateError (IPv4 e IPv6), vale a primeira tentativa", () => {
+    const attempts = [new Error("connect ECONNREFUSED ::1:5432"), new Error("connect ECONNREFUSED 127.0.0.1:5432")];
+    const aggregate = Object.assign(new AggregateError(attempts, ""), { code: "ECONNREFUSED" });
+    assert.equal(rootCauseMessage(new Error("Failed query", { cause: aggregate })), "connect ECONNREFUSED ::1:5432");
+  });
+
+  it("sem mensagem nenhuma, usa o código; sem causa, a própria mensagem", () => {
+    assert.equal(rootCauseMessage(Object.assign(new AggregateError([], ""), { code: "ECONNREFUSED" })), "ECONNREFUSED");
+    assert.equal(rootCauseMessage(new Error("simples")), "simples");
+    assert.equal(rootCauseMessage("texto"), "texto");
   });
 });

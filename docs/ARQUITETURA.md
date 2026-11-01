@@ -142,7 +142,13 @@ dead-letter-exchange de volta para a de trabalho) e a DLQ `<p>.<fila>.dlq`. `<p>
 - `ack` só DEPOIS de encaminhar com publisher confirm: crash = reentrega,
   nunca perda. Por isso **todo handler é idempotente**;
 - consumo por push (`startWorker`, processos de pé) ou pull (`drainQueues`,
-  worker embutido e testes) — o mesmo `handleDelivery`.
+  worker embutido e testes) — o mesmo `handleDelivery`;
+- cada banco tem a própria outbox (loja, pagamentos) e o relay isola uma da
+  outra (`createRelay` em `src/queue/relay.ts`): o banco de uma fora do ar não
+  para as outras nem o dreno. Ela fica de fora por um backoff (1 s → 30 s), o
+  log sai só na queda e na volta, e o painel aponta quem não responde (alerta
+  crítico `outbox-down`). O pool do `pg` tem `connectionTimeoutMillis` de
+  10 s: host que não responde falha rápido em vez de segurar o dreno.
 
 ## Invariantes (quebrar isso é bug, não escolha de estilo)
 

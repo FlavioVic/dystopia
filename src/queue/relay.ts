@@ -16,8 +16,8 @@ import { and, asc, eq, inArray, isNull, lt, lte, sql } from "drizzle-orm";
 import type { Database, Transaction } from "@/db";
 import { outbox } from "@/db/outbox";
 import { createLogger } from "@/lib/logger";
-import { errorMessage } from "@/shared/errors";
-import { nextRunAt } from "./backoff";
+import { errorMessage, rootCauseMessage } from "@/shared/errors";
+import { backoffMs, nextRunAt } from "./backoff";
 import { getBroker, publishEnvelope } from "./broker";
 
 const logger = createLogger("queue:relay");
@@ -104,21 +104,83 @@ export async function relayOutbox(
   return report;
 }
 
-/** Publica até não sobrar nada pronto (ou até o broker recusar), em cada outbox. */
-export async function relayAll(
-  outboxes: OutboxDatabase[],
-  options: { maxBatches?: number } = {},
-): Promise<RelayReport> {
-  const total: RelayReport = { published: 0, failed: 0 };
-  for (const database of outboxes) {
-    for (let batch = 0; batch < (options.maxBatches ?? 20); batch += 1) {
-      const report = await relayOutbox(database);
-      total.published += report.published;
-      total.failed += report.failed;
-      if (report.published === 0) break;
+/**
+ * Uma caixa de saída com nome. O nome é o que o log, o painel e o alerta
+ * mostram quando o banco dela some ("pagamentos" inacessível).
+ */
+export type NamedOutbox = { name: string; database: OutboxDatabase };
+
+export type RelayAllReport = RelayReport & {
+  /** Outboxes cujo banco não respondeu (agora ou na pausa depois de falhar). */
+  unreachable: string[];
+};
+
+/** Pausa de uma outbox fora do ar antes da próxima tentativa: 1 s, 2 s… até 30 s. */
+const UNREACHABLE_BACKOFF = { baseMs: 1_000, maxMs: 30_000 };
+
+/**
+ * Relay de várias outboxes, cada uma isolada (bulkhead): o banco de uma fora
+ * do ar não impede as outras de publicar, nem derruba quem chamou — o dreno,
+ * o worker. Incidente de 2026-10-31: a URL do banco de pagamentos quebrada
+ * fazia o relay lançar ANTES do dreno, e todo checkout ficava em
+ * "processando", inclusive o que não dependia de pagamentos.
+ *
+ * Erro do BROKER não chega aqui: `relayOutbox` já o trata (backoff por linha).
+ * O que escapa dele é o banco da outbox — por isso "inacessível".
+ *
+ * Guarda estado entre chamadas (crie um por dreno ou por worker): outbox que
+ * falhou fica de fora por um backoff, em vez de custar uma tentativa de
+ * conexão a cada volta do laço, e o log sai só na mudança — caiu (error) e
+ * voltou (info) —, não a cada 200 ms.
+ */
+export function createRelay(
+  outboxes: NamedOutbox[],
+  options: { maxBatches?: number; clock?: () => number } = {},
+): () => Promise<RelayAllReport> {
+  const clock = options.clock ?? Date.now;
+  const down = new Map<string, { failures: number; since: number; retryAt: number }>();
+
+  return async () => {
+    const total: RelayAllReport = { published: 0, failed: 0, unreachable: [] };
+    for (const { name, database } of outboxes) {
+      const state = down.get(name);
+      if (state && clock() < state.retryAt) {
+        total.unreachable.push(name);
+        continue;
+      }
+      try {
+        for (let batch = 0; batch < (options.maxBatches ?? 20); batch += 1) {
+          const report = await relayOutbox(database);
+          total.published += report.published;
+          total.failed += report.failed;
+          if (report.published === 0) break;
+        }
+        if (state) {
+          down.delete(name);
+          logger.info("outbox voltou a responder", { outbox: name, downForMs: clock() - state.since });
+        }
+      } catch (error) {
+        const failures = (state?.failures ?? 0) + 1;
+        down.set(name, {
+          failures,
+          since: state?.since ?? clock(),
+          retryAt: clock() + backoffMs(failures, UNREACHABLE_BACKOFF),
+        });
+        total.unreachable.push(name);
+        // Nível error de propósito (é a linha que um alerta de log filtra),
+        // mas uma vez só por queda.
+        if (!state) {
+          logger.error("outbox inacessível; as outras seguem publicando", { outbox: name, error: rootCauseMessage(error) });
+        }
+      }
     }
-  }
-  return total;
+    return total;
+  };
+}
+
+/** Uma passada só, sem memória entre chamadas (rodada avulsa, teste). */
+export function relayAll(outboxes: NamedOutbox[], options: { maxBatches?: number } = {}): Promise<RelayAllReport> {
+  return createRelay(outboxes, options)();
 }
 
 /** Faxina: o que já foi publicado há mais de `olderThanMs` sai da outbox. */
