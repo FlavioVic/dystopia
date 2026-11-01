@@ -7,6 +7,7 @@ import { requireAdmin } from "@/lib/data/auth";
 import { listProductsAdmin } from "@/lib/data/admin";
 import { ADMIN_PAGE_SIZE, isPastLastPage, parsePage } from "@/lib/pagination";
 import { ProductFlags } from "@/components/admin/ProductFlags";
+import { LOW_STOCK_MAX } from "@/lib/catalog-rules";
 import { formatPriceCents } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Produtos · Admin" };
@@ -58,7 +59,7 @@ export default async function AdminProducts(props: PageProps<"/admin/produtos">)
                   </td>
                   <td className="px-4 py-2.5 text-foreground-muted">{p.category?.name ?? "—"}</td>
                   <td className="px-4 py-2.5 text-right font-mono tabular-nums">{formatPriceCents(p.priceCents)}</td>
-                  <td className={`px-4 py-2.5 text-right font-mono tabular-nums ${p.stockQuantity <= 3 ? "text-foreground-muted" : ""}`}>
+                  <td className={`px-4 py-2.5 text-right font-mono tabular-nums ${p.stockQuantity <= LOW_STOCK_MAX ? "text-foreground-muted" : ""}`}>
                     {p.stockQuantity}
                   </td>
                   <td className="px-4 py-2.5">

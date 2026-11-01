@@ -3,11 +3,9 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { MfaSetup } from "@/components/MfaSetup";
 import { NewRecoveryCodesForm, ReplaceAuthenticatorForm, SignOutOthersForm } from "@/components/SecurityForms";
-import { db } from "@/db";
+import { getActiveSessionCount, getMfaStatusOf } from "@/lib/data/account";
 import { getCurrentUser } from "@/lib/data/auth";
 import { PRIVATE_PAGE } from "@/lib/seo";
-import { getMfaStatus } from "@/services/mfa";
-import { countActiveSessions } from "@/services/sessions";
 
 export const metadata: Metadata = { title: "Segurança da conta", robots: PRIVATE_PAGE };
 
@@ -17,8 +15,8 @@ export default async function SecurityPage({ searchParams }: PageProps<"/conta/s
 
   const isAdminAccount = user.role === "admin";
   const [sessionCount, mfa, params] = await Promise.all([
-    countActiveSessions(db, user.id),
-    isAdminAccount ? getMfaStatus(db, user.id) : null,
+    getActiveSessionCount(user.id),
+    isAdminAccount ? getMfaStatusOf(user.id) : null,
     searchParams,
   ]);
   const usedRecoveryCode = params.recuperacao === "1";

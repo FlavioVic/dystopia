@@ -4,6 +4,7 @@ import { AddToCartButton } from "@/components/AddToCartButton";
 import { StarRating } from "@/components/StarRating";
 import { gridCell } from "@/components/Kit";
 import { WishlistHeart } from "@/components/WishlistHeart";
+import { isLowStock } from "@/lib/catalog-rules";
 import { discountPercent, formatPriceCents, installmentText } from "@/lib/format";
 import { isTechnicalPlate } from "@/lib/product-media";
 
@@ -31,7 +32,7 @@ export function ProductCard({ product, priority = false }: { product: ProductCar
   const discount = discountPercent(product.priceCents, product.compareAtPriceCents);
   const image = product.images[0];
   const outOfStock = product.stockQuantity <= 0;
-  const lowStock = !outOfStock && product.stockQuantity <= 3;
+  const lowStock = isLowStock(product.stockQuantity);
   const installment = installmentText(product.priceCents);
 
   return (

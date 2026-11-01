@@ -5,6 +5,9 @@
  * texto que pode carregar script.
  */
 
+/** Fotos por produto: a galeria da loja mostra todas, com miniaturas. */
+export const MAX_PRODUCT_IMAGES = 10;
+
 /** Cabe no limite da Server Action (3,5 MB, ver next.config.ts) com folga para o multipart. */
 export const MAX_IMAGE_BYTES = 3 * 1024 * 1024;
 

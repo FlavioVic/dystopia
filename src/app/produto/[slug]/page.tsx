@@ -9,13 +9,12 @@ import { ProductGallery } from "@/components/ProductGallery";
 import { ReviewForm } from "@/components/ReviewForm";
 import { StarRating } from "@/components/StarRating";
 import { WishlistHeart } from "@/components/WishlistHeart";
-import { db } from "@/db";
+import { getOwnReview, getRatingBreakdown } from "@/lib/data/account";
 import { getCurrentUser } from "@/lib/data/auth";
 import { getActiveCoupons, getProductBySlug, getRelatedProducts } from "@/lib/data/products";
 import { publicName } from "@/lib/format";
 import { photoCreditByUrl } from "@/lib/photo-credits";
 import { JsonLd, absoluteUrl, breadcrumb, canonical } from "@/lib/seo";
-import { getUserReview, ratingBreakdown } from "@/services/reviews";
 
 export async function generateMetadata(props: PageProps<"/produto/[slug]">): Promise<Metadata> {
   const { slug } = await props.params;
@@ -40,9 +39,9 @@ export default async function ProductPage(props: PageProps<"/produto/[slug]">) {
     getRelatedProducts(product.categoryId, product.id, 4),
     getActiveCoupons(),
     getCurrentUser(),
-    ratingBreakdown(db, product.id),
+    getRatingBreakdown(product.id),
   ]);
-  const ownReview = user ? await getUserReview(db, user.id, product.id) : null;
+  const ownReview = user ? await getOwnReview(user.id, product.id) : null;
   const rating = Number(product.ratingAverage);
 
   return (
