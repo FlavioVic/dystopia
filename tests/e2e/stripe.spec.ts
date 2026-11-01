@@ -33,8 +33,38 @@ async function payWithStripe(page: Page, cardNumber: string) {
 
   // Sem falha injetada pelo modo demonstração: a resposta é a do Stripe.
   await page.locator('input[name="simulate"][value="approve"]').check();
-  await page.getByRole("button", { name: "Confirmar aquisição" }).click();
-  await expect(page).toHaveURL(/\/pedido\/DYS-/, { timeout: 30_000 });
+  await confirmPurchase(page);
+}
+
+/**
+ * Clica em "Confirmar aquisição" até a compra começar. Com o cartão completo,
+ * o Stripe roda um hCaptcha invisível e, ao terminar (~1 s depois), devolve o
+ * foco ao campo do cartão — a página rola até ele. Clique que cai nessa hora
+ * se perde (no celular, o botão sai de baixo do ponteiro), e o teste, como
+ * uma pessoa, clica de novo. Sem risco de compra dupla: começou o envio, o
+ * botão vira "Processando…" e fica desabilitado, e o laço termina.
+ */
+async function confirmPurchase(page: Page) {
+  const confirm = page.getByRole("button", { name: "Confirmar aquisição" });
+  await expect(async () => {
+    if (await confirm.isEnabled({ timeout: 1_000 }).catch(() => false)) await confirm.click({ timeout: 2_000 });
+    await expect(confirm).toBeHidden({ timeout: 3_000 });
+  }).toPass({ timeout: 20_000 });
+  await expectOrderPage(page);
+}
+
+/**
+ * Foi para a página do pedido. Se ficou no checkout, falha dizendo o que a
+ * tela mostra (erro do cartão no Stripe, do formulário) — "URL errada"
+ * sozinho não diz nada no log da CI.
+ */
+async function expectOrderPage(page: Page) {
+  try {
+    await expect(page).toHaveURL(/\/pedido\/DYS-/, { timeout: 30_000 });
+  } catch (error) {
+    const shown = (await page.getByRole("alert").allInnerTexts()).map((text) => text.trim()).filter(Boolean);
+    throw new Error(`continuou no checkout; na tela: ${shown.join(" | ") || "nenhuma mensagem de erro"}`, { cause: error });
+  }
 }
 
 test.describe("Stripe (modo de teste)", () => {
@@ -47,7 +77,8 @@ test.describe("Stripe (modo de teste)", () => {
   test("cartão recusado pelo Stripe: a saga desfaz tudo e o pedido aparece cancelado", async ({ page }) => {
     await payWithStripe(page, "4000 0000 0000 0002");
     await expect(page.getByRole("heading", { name: "Aquisição não concluída." })).toBeVisible({ timeout: 45_000 });
-    await expect(page.getByText("O pagamento foi recusado pela operadora.")).toBeVisible();
+    // O motivo aparece no aviso do topo e na linha do tempo do pedido.
+    await expect(page.getByText("O pagamento foi recusado pela operadora.").first()).toBeVisible();
     await expect(page.getByText(/foi desfeito/)).toBeVisible();
   });
 });

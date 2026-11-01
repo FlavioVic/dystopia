@@ -213,7 +213,11 @@ export function CheckoutForm({
               ))}
             </div>
             {stripeCard ? <StripeCardField ref={cardRef} publishableKey={stripePublishableKey} /> : null}
-            {cardError ? <p className="mt-2 text-xs text-foreground">{cardError}</p> : null}
+            {cardError ? (
+              <p role="alert" className="mt-2 text-xs text-foreground">
+                {cardError}
+              </p>
+            ) : null}
           </section>
 
           {simulationEnabled ? (
