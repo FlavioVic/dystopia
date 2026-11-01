@@ -51,7 +51,26 @@ async function expectOrderPage(page: Page) {
     await expect(page).toHaveURL(/\/pedido\/DYS-/, { timeout: 30_000 });
   } catch (error) {
     const shown = (await page.getByRole("alert").allInnerTexts()).map((text) => text.trim()).filter(Boolean);
-    throw new Error(`continuou no checkout; na tela: ${shown.join(" | ") || "nenhuma mensagem de erro"}`, { cause: error });
+    // Envio barrado pelo navegador não mostra nada na página: diz quais
+    // campos ele considera inválidos e onde está o foco.
+    const form = await page.evaluate(() => {
+      const element = document.querySelector("form:has(button[type=submit])") as HTMLFormElement | null;
+      const invalid = element
+        ? Array.from(element.elements)
+            .filter((field) => (field as HTMLInputElement).willValidate && !(field as HTMLInputElement).checkValidity())
+            .map((field) => {
+              const input = field as HTMLInputElement;
+              return `${input.tagName.toLowerCase()}[name=${input.name}|class=${input.className}] "${input.validationMessage}" (${input.value.length} caracteres)`;
+            })
+        : ["formulário não encontrado"];
+      const active = document.activeElement;
+      return { invalid, active: active ? `${active.tagName.toLowerCase()}.${active.className}`.slice(0, 120) : "nenhum" };
+    });
+    throw new Error(
+      `continuou no checkout; na tela: ${shown.join(" | ") || "nenhuma mensagem de erro"}; ` +
+        `campos inválidos: ${form.invalid.join(" ; ") || "nenhum"}; foco: ${form.active}`,
+      { cause: error },
+    );
   }
 }
 
