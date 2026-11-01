@@ -292,7 +292,7 @@ export const cartItems = pgTable("cart_items", {
     onDelete: "cascade",
   }),
   quantity: integer("quantity").notNull().default(1),
-  unitPriceCents: integer("unit_price_cents").notNull(), // snapshot do preço
+  unitPriceCents: integer("unit_price_cents").notNull(), // preço ao entrar no carrinho (referência; o checkout cobra o atual)
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

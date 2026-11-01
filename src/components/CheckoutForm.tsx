@@ -2,10 +2,10 @@
 
 import Image from "next/image";
 import { buttonPrimary } from "@/components/Kit";
-import { useActionState, useRef, useState, useTransition, type FormEvent } from "react";
+import { useActionState, useEffect, useRef, useState, useTransition, type FormEvent } from "react";
 import { StripeCardField, type StripeCardHandle } from "@/components/StripeCardField";
 import { placeOrder, validateCoupon } from "@/lib/actions/checkout";
-import { FLAT_SHIPPING_CENTS, FREE_SHIPPING_MIN_CENTS, type CouponResult } from "@/lib/shipping";
+import { shippingFor, type CouponResult } from "@/lib/shipping";
 import { formatPriceCents } from "@/lib/format";
 
 export type SavedAddress = {
@@ -92,9 +92,21 @@ export function CheckoutForm({
   const [coupon, setCoupon] = useState<CouponResult | null>(null);
   const [couponPending, startCoupon] = useTransition();
 
+  // Prévia: a mesma regra do servidor (`shippingFor`), que recalcula tudo e
+  // recusa a compra se o total dele não bater com o mostrado aqui.
   const discount = coupon?.ok ? (coupon.discountCents ?? 0) : 0;
-  const shipping = subtotalCents >= FREE_SHIPPING_MIN_CENTS ? 0 : FLAT_SHIPPING_CENTS;
+  const shipping = shippingFor(subtotalCents);
   const total = Math.max(0, subtotalCents - discount) + shipping;
+  const appliedCode = coupon?.ok ? coupon.code : undefined;
+
+  // Preço mudou e a página recarregou com outro subtotal: o desconto do cupom
+  // aplicado é recalculado no servidor, para o total da tela seguir certo.
+  const shownSubtotal = useRef(subtotalCents);
+  useEffect(() => {
+    if (shownSubtotal.current === subtotalCents) return;
+    shownSubtotal.current = subtotalCents;
+    if (appliedCode) startCoupon(async () => setCoupon(await validateCoupon(appliedCode, subtotalCents)));
+  }, [subtotalCents, appliedCode]);
 
   function applyCoupon() {
     if (!couponCode.trim()) return;
@@ -286,7 +298,7 @@ export function CheckoutForm({
               <div className="flex gap-2">
                 <input
                   type="text"
-                  name="couponCode"
+                  aria-label="Código de diretiva"
                   value={couponCode}
                   onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
                   placeholder="Código de diretiva (ex.: BEMVINDO10)"
@@ -304,6 +316,8 @@ export function CheckoutForm({
               {coupon ? (
                 <p className={`mt-1.5 text-xs ${coupon.ok ? "text-foreground" : "text-foreground"}`}>{coupon.message}</p>
               ) : null}
+              {/* Vai o cupom APLICADO (o do resumo), não o que está digitado. */}
+              <input type="hidden" name="couponCode" value={appliedCode ?? ""} />
             </div>
 
             {/* Totais */}
@@ -317,9 +331,11 @@ export function CheckoutForm({
               </div>
             </dl>
 
+            {/* Só para o servidor comparar com o total dele (nunca é cobrado). */}
+            <input type="hidden" name="expectedTotalCents" value={total} />
             <button
               type="submit"
-              disabled={pending || tokenizing}
+              disabled={pending || tokenizing || couponPending}
               className={`mt-5 w-full ${buttonPrimary}`}
             >
               {pending || tokenizing ? "Processando…" : "Confirmar aquisição"}

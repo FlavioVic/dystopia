@@ -16,7 +16,7 @@ async function buy(page: Page, outcome: Outcome, options: { coupon?: string } = 
   await fillCheckoutAddress(page);
   await page.locator('input[name="paymentMethod"][value="pix"]').check();
   if (options.coupon) {
-    await page.locator('input[name="couponCode"]').fill(options.coupon);
+    await page.getByRole("textbox", { name: "Código de diretiva" }).fill(options.coupon);
     await page.getByRole("button", { name: "Aplicar" }).click();
     await expect(page.getByText("Desconto", { exact: true })).toBeVisible();
   }

@@ -67,9 +67,15 @@ export default async function CartPage() {
               </div>
             </dl>
 
-            <Link href="/checkout" className={`mt-6 w-full ${buttonPrimary}`}>
-              Prosseguir para aquisição
-            </Link>
+            {cart.hasUnavailable ? (
+              <p role="status" className="mt-6 border border-border px-4 py-3 text-sm">
+                Um item saiu de venda. Tire do carrinho para prosseguir.
+              </p>
+            ) : (
+              <Link href="/checkout" className={`mt-6 w-full ${buttonPrimary}`}>
+                Prosseguir para aquisição
+              </Link>
+            )}
             <p className="mt-3 text-xs text-foreground-muted">
               Frete sem custo acima de {formatPriceCents(FREE_SHIPPING_MIN_CENTS)}. Pagamento simulado.
             </p>
