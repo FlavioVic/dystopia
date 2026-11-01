@@ -80,7 +80,7 @@ async function main() {
   await db.execute(sql`
     TRUNCATE TABLE
       service_requests, notifications, saga_steps, sagas, outbox,
-      wishlist_items, reviews, payments, order_items, orders,
+      wishlist_items, reviews, order_items, orders,
       cart_items, carts, coupons, product_variants, product_images,
       products, categories, addresses, users
     RESTART IDENTITY CASCADE

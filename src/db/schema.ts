@@ -418,36 +418,6 @@ export const orderEvents = pgTable("order_events", {
   index("order_events_order_id_idx").on(table.orderId, table.occurredAt),
 ]);
 
-/**
- * Tabela ANTIGA de pagamentos, de quando o banco era compartilhado. Hoje os
- * pagamentos moram no banco do serviço de pagamentos
- * (`services/payments/schema.ts`). Fica declarada só para a cópia dos dados
- * (`npm run payments:copy-legacy`) e para o drizzle-kit não gerar um DROP
- * antes da hora; sai na limpeza, depois da migração de produção conferida.
- * Nada do app lê isto (o teste de arquitetura cobra).
- */
-export const legacyPayments = pgTable("payments", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  orderId: uuid("order_id")
-    .notNull()
-    .references(() => orders.id, { onDelete: "cascade" }),
-  provider: text("provider").notNull(), // "stripe", "mercado_pago"...
-  method: paymentMethodEnum("method").notNull(),
-  status: paymentStatusEnum("status").notNull().default("pending"),
-  amountCents: integer("amount_cents").notNull(),
-  transactionId: text("transaction_id"),
-  // Chave de idempotência enviada ao provedor: reexecutar o passo de pagamento
-  // da saga não cria uma segunda cobrança (unique index abaixo).
-  idempotencyKey: text("idempotency_key"),
-  paidAt: timestamp("paid_at", { withTimezone: true }),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-}, (table) => [
-  index("payments_order_id_idx").on(table.orderId),
-  uniqueIndex("payments_idempotency_key_unique_idx").on(table.idempotencyKey),
-]);
-
 // ---------------------------------------------------------------------------
 // Reviews & Wishlist
 // ---------------------------------------------------------------------------
