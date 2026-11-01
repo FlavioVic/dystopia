@@ -2,14 +2,16 @@ import { cache } from "react";
 import { eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { categories, coupons, orders, products } from "@/db/schema";
+import { LOW_STOCK_MAX } from "@/lib/catalog-rules";
 import { REVENUE_STATUSES } from "@/lib/order-status";
 import type { Page } from "@/lib/pagination";
+import { listServiceRequests } from "@/services/service-requests";
 
 export const getAdminStats = cache(async () => {
   const [p] = await db
     .select({
       total: sql<number>`count(*)::int`,
-      low: sql<number>`(count(*) filter (where ${products.stockQuantity} <= 3))::int`,
+      low: sql<number>`(count(*) filter (where ${products.stockQuantity} <= ${LOW_STOCK_MAX}))::int`,
     })
     .from(products)
     .where(eq(products.isActive, true));
@@ -101,3 +103,6 @@ export const getCategoriesSimple = cache(async () => {
     .from(categories)
     .orderBy(categories.name);
 });
+
+/** Pedidos de orçamento, do mais novo para o mais antigo. */
+export const getServiceRequests = cache(async () => listServiceRequests(db));

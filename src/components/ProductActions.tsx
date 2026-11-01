@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { addToCart } from "@/lib/actions/cart";
+import { isLowStock, MAX_PER_ITEM, unitPriceCents } from "@/lib/catalog-rules";
 import {
   discountPercent,
   formatPriceCents,
@@ -42,11 +43,11 @@ export function ProductActions({
   const [isPending, startTransition] = useTransition();
 
   const selectedVariant = variants.find((v) => v.id === selectedVariantId) ?? null;
-  const priceCents = selectedVariant?.priceCents ?? basePriceCents;
+  const priceCents = unitPriceCents(basePriceCents, selectedVariant?.priceCents);
   const stock = variants.length > 0 ? (selectedVariant?.stockQuantity ?? 0) : baseStock;
   const outOfStock = stock <= 0;
-  const lowStock = !outOfStock && stock <= 3;
-  const maxQuantity = Math.min(stock, 10);
+  const lowStock = isLowStock(stock);
+  const maxQuantity = Math.min(stock, MAX_PER_ITEM);
 
   const discount = discountPercent(priceCents, compareAtPriceCents);
   const installment = installmentText(priceCents);

@@ -3,10 +3,9 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AddressForm } from "@/components/AddressForm";
 import { AddressRowActions } from "@/components/AddressRowActions";
-import { db } from "@/db";
+import { getAddresses } from "@/lib/data/account";
 import { getCurrentUser } from "@/lib/data/auth";
 import { formatAddress } from "@/lib/validation/address";
-import { listAddresses } from "@/services/addresses";
 import { PRIVATE_PAGE } from "@/lib/seo";
 
 export const metadata: Metadata = { title: "Endereços", robots: PRIVATE_PAGE };
@@ -15,7 +14,7 @@ export default async function AddressesPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/entrar");
 
-  const addresses = await listAddresses(db, user.id);
+  const addresses = await getAddresses(user.id);
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">

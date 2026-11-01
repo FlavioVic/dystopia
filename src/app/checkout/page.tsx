@@ -1,13 +1,12 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { CheckoutForm } from "@/components/CheckoutForm";
-import { db } from "@/db";
+import { getAddresses } from "@/lib/data/account";
 import { getCurrentUser } from "@/lib/data/auth";
 import { getCart } from "@/lib/data/cart";
 import { isCheckoutSimulationEnabled } from "@/lib/checkout-simulation";
 import { getStripePublishableKey } from "@/lib/stripe-public";
 import { formatAddress } from "@/lib/validation/address";
-import { listAddresses } from "@/services/addresses";
 import { PRIVATE_PAGE } from "@/lib/seo";
 
 export const metadata: Metadata = { title: "Finalizar compra", robots: PRIVATE_PAGE };
@@ -20,9 +19,10 @@ export default async function CheckoutPage() {
   if (!user) redirect("/entrar");
 
   const cart = await getCart();
-  if (!cart || cart.lines.length === 0) redirect("/carrinho");
+  // Item que saiu de venda: o carrinho mostra qual é e pede para tirar.
+  if (!cart || cart.lines.length === 0 || cart.hasUnavailable) redirect("/carrinho");
 
-  const addresses = await listAddresses(db, user.id);
+  const addresses = await getAddresses(user.id);
 
   return (
     <CheckoutForm

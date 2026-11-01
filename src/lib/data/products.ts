@@ -150,9 +150,10 @@ export const getActiveCoupons = cache(async () => {
   });
 });
 
+/** Produto à venda pelo slug. Desativado no painel = some da loja (a página dá 404). */
 export const getProductBySlug = cache(async (slug: string) => {
   return db.query.products.findFirst({
-    where: eq(products.slug, slug),
+    where: and(eq(products.slug, slug), activeProduct),
     with: {
       category: true,
       images: { orderBy: (i, { asc }) => [asc(i.position)] },

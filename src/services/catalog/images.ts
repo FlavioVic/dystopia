@@ -10,11 +10,12 @@
 import { asc, eq } from "drizzle-orm";
 import type { Executor } from "@/db";
 import { productImages, products } from "@/db/schema";
+import { MAX_PRODUCT_IMAGES } from "@/lib/product-media";
 import { PermanentError } from "@/shared/errors";
 
+export { MAX_PRODUCT_IMAGES };
+
 export const MAX_ALT_TEXT = 160;
-/** Fotos por produto: a galeria da loja mostra todas, com miniaturas. */
-export const MAX_PRODUCT_IMAGES = 10;
 
 export type ProductImage = { id: string; url: string; altText: string | null; position: number };
 

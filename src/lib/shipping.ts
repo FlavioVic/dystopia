@@ -8,10 +8,10 @@ export function shippingFor(subtotalCents: number): number {
   return subtotalCents >= FREE_SHIPPING_MIN_CENTS ? 0 : FLAT_SHIPPING_CENTS;
 }
 
+/** Prévia do cupom na tela do checkout (o pedido recalcula no servidor). */
 export type CouponResult = {
   ok: boolean;
   code?: string;
-  couponId?: string;
   discountCents?: number;
   message: string;
 };

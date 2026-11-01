@@ -7,6 +7,7 @@
  * não moram aqui.
  */
 
+import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/db";
 import { placeOrder as placeOrderUseCase } from "@/composition/web";
@@ -36,10 +37,10 @@ export async function validateCoupon(code: string, subtotalCents: number): Promi
   if (limited) return { ok: false, message: limited };
   const result = await resolveCoupon(db, code, subtotalCents);
   if (!result.ok) return { ok: false, message: result.message };
+  // Só o que a tela mostra: o id interno do cupom não sai do servidor.
   return {
     ok: true,
     code: result.code,
-    couponId: result.couponId,
     discountCents: result.discountCents,
     message: "Diretiva aplicada.",
   };
@@ -94,6 +95,8 @@ export async function placeOrder(_prev: CheckoutState, formData: FormData): Prom
   // simulado (como um cartão de teste do Stripe). "Aprovar" segue o meio real.
   const simulate = simulationFromForm(formData);
   const paymentToken = simulate && simulate !== "approve" ? TEST_PAYMENT_TOKENS[simulate] : cardPaymentMethodId;
+  // O total que a tela mostrou: o caso de uso só compara (nunca cobra isto).
+  const expectedTotalCents = Number(req(formData, "expectedTotalCents"));
   const result = await placeOrderUseCase({
     customer: { id: user.id, name: user.name, email: user.email },
     cartId,
@@ -101,8 +104,13 @@ export async function placeOrder(_prev: CheckoutState, formData: FormData): Prom
     paymentMethod: method,
     couponCode: req(formData, "couponCode"),
     ...(paymentToken ? { paymentToken } : {}),
+    ...(Number.isSafeInteger(expectedTotalCents) && expectedTotalCents >= 0 ? { expectedTotalCents } : {}),
   });
-  if (!result.ok) return { message: result.message };
+  if (!result.ok) {
+    // Preço mudou: a página recarrega os dados para mostrar o total novo.
+    if (result.stale) refresh();
+    return { message: result.message };
+  }
 
   redirect(`/pedido/${result.orderNumber}`);
 }
