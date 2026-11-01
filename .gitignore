@@ -51,5 +51,8 @@ AGENTS.md
 /playwright-report/
 /playwright/.auth/
 
+# capturas e snapshots do Playwright MCP (navegador usado pelo agente de IA)
+/.playwright-mcp/
+
 # fotos enviadas pelo painel em dev/teste (em produção ficam no Vercel Blob)
 /.uploads/
