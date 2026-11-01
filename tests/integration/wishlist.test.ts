@@ -93,9 +93,11 @@ describe("favoritos", () => {
 
     await db.update(products).set({ isActive: false }).where(eq(products.id, fixture.product.id));
     assert.deepEqual(await listWishlist(db, fixture.userId), []);
-    assert.deepEqual(await wishlistProductIds(db, fixture.userId), [fixture.product.id], "o favorito continua gravado");
+    assert.deepEqual(await wishlistProductIds(db, fixture.userId), [], "o contador do cabeçalho bate com a lista");
+    assert.equal((await db.query.wishlistItems.findMany()).length, 1, "o favorito continua gravado");
 
     await db.update(products).set({ isActive: true }).where(eq(products.id, fixture.product.id));
     assert.equal((await listWishlist(db, fixture.userId)).length, 1);
+    assert.deepEqual(await wishlistProductIds(db, fixture.userId), [fixture.product.id]);
   });
 });

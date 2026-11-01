@@ -8,7 +8,7 @@
 
 import { and, desc, eq } from "drizzle-orm";
 import type { Executor } from "@/db";
-import { wishlistItems } from "@/db/schema";
+import { products, wishlistItems } from "@/db/schema";
 
 export async function addToWishlist(
   executor: Executor,
@@ -58,12 +58,17 @@ export async function isInWishlist(
   return row != null;
 }
 
-/** Ids favoritados — uma query só, para marcar o coração na vitrine. */
+/**
+ * Ids favoritados à venda — uma query só, para marcar o coração na vitrine e
+ * contar no cabeçalho. Mesmo critério da lista (`listWishlist`): o número do
+ * cabeçalho bate com o que a página de favoritos mostra.
+ */
 export async function wishlistProductIds(executor: Executor, userId: string): Promise<string[]> {
   const rows = await executor
     .select({ productId: wishlistItems.productId })
     .from(wishlistItems)
-    .where(eq(wishlistItems.userId, userId));
+    .innerJoin(products, eq(products.id, wishlistItems.productId))
+    .where(and(eq(wishlistItems.userId, userId), eq(products.isActive, true)));
   return rows.map((row) => row.productId);
 }
 
