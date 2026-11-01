@@ -16,15 +16,35 @@ type Env = { VERCEL?: string; TRUST_PROXY_HEADERS?: string; NODE_ENV?: string };
  * - na Vercel (a borda sobrescreve os headers);
  * - com `TRUST_PROXY_HEADERS=1` (proxy reverso próprio que sobrescreve, como
  *   o Caddy do docker-compose);
+ * - com `TRUST_PROXY_HEADERS=cloudfront` (AWS: CloudFront → load balancer):
+ *   aí o `X-Forwarded-For` não serve — o CloudFront ACRESCENTA o IP ao que o
+ *   cliente mandou, então o primeiro da lista é forjável. Vale o
+ *   `CloudFront-Viewer-Address`, que só o CloudFront escreve (e o load
+ *   balancer só aceita conexão vinda do CloudFront — ver infra/app);
  * - fora de produção (dev e testes).
  * Em produção sem nenhum dos dois, falha fechado: todos dividem um contador.
  */
 export function resolveClientIp(header: (name: string) => string | null | undefined, env: Env): string {
+  if (env.TRUST_PROXY_HEADERS === "cloudfront") {
+    return viewerIp(header("cloudfront-viewer-address")) ?? UNTRUSTED_IP;
+  }
   const trusted = env.VERCEL === "1" || env.TRUST_PROXY_HEADERS === "1" || env.NODE_ENV !== "production";
   if (!trusted) return UNTRUSTED_IP;
   const realIp = header("x-real-ip")?.trim();
   if (realIp) return realIp;
   return header("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+}
+
+/**
+ * `CloudFront-Viewer-Address` é "IP:porta" — no IPv6 sem colchetes
+ * ("2001:db8::1:46532"), então a porta é o que vem depois do ÚLTIMO ":".
+ */
+function viewerIp(value: string | null | undefined): string | null {
+  const raw = value?.trim();
+  if (!raw) return null;
+  const separator = raw.lastIndexOf(":");
+  const ip = separator > 0 ? raw.slice(0, separator) : raw;
+  return ip || null;
 }
 
 let warned = false;

@@ -386,6 +386,36 @@ atual, e o motivo do cancelamento tirado da saga).
 
 ---
 
+## 17. Segundo ambiente na AWS, em Pulumi
+
+**Problema.** A Vercel é ótima para o Next, mas esconde a infraestrutura. Por
+isso faltava mostrar a mesma aplicação numa arquitetura de containers
+descrita em código, sem gastar nada.
+
+**Decisão.** Um segundo ambiente na AWS, em Pulumi (TypeScript, `infra/`), que
+sobe e desce pelo GitHub Actions com OIDC (nenhuma chave da AWS no GitHub):
+
+- web, worker e payments como serviços do ECS Fargate (os workers em Spot),
+  atrás de CloudFront e de um load balancer **interno**, que o CloudFront
+  alcança pela rede da AWS (VPC origin) e ninguém alcança pela internet;
+- banco no Neon e fila no CloudAMQP: o modelo híbrido, porque RDS e Amazon MQ
+  gastariam os créditos sozinhos;
+- a migração roda dentro do `pulumi up`, antes dos serviços.
+
+Detalhes, custo e passo a passo em [`AWS.md`](AWS.md).
+
+**Alternativas.**
+- *EC2 com docker compose*: mais barato, mas é um servidor para manter.
+- *Tudo gerenciado* (RDS + Amazon MQ + NAT): é o desenho de quando houver
+  orçamento.
+- *Terraform*: equivalente. O Pulumi deixa a infra na mesma linguagem do app
+  e permite testar o programa com mocks.
+
+**Preço.** Só é de graça numa conta no plano Free (créditos, 6 meses). O normal
+é subir para mostrar e derrubar depois. Fotos do painel ficam no disco da
+tarefa, e o trecho do CloudFront até o load balancer é HTTP até haver domínio
+próprio.
+
 ## Perguntas prováveis
 
 **"Isso não é complexo demais para uma loja?"**

@@ -1,0 +1,140 @@
+# Ambiente AWS (Pulumi): sobe ou derruba o 2º ambiente — a produção é a
+# Vercel. Disparo manual: Actions → AWS → Run workflow. Ver docs/AWS.md.
+#
+# Nenhuma chave da AWS fica guardada no GitHub: o job pede um token OIDC ao
+# GitHub e assume a role criada pela base (infra/bootstrap), que só aceita a
+# `main` deste repositório.
+
+name: AWS
+
+on:
+  workflow_dispatch:
+    inputs:
+      acao:
+        description: "subir ou derrubar o ambiente"
+        type: choice
+        options: [subir, derrubar]
+        default: subir
+      popular:
+        description: "popular o banco (APAGA e recria os dados do ambiente AWS) — só no primeiro subir"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  id-token: write
+
+# Um de cada vez: subir e derrubar juntos brigariam pelo mesmo estado.
+concurrency:
+  group: aws
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: us-east-1
+  PULUMI_STACK: aws
+
+jobs:
+  imagens:
+    name: imagem ${{ matrix.imagem }} (ARM)
+    if: inputs.acao == 'subir'
+    # Runner ARM nativo (de graça em repositório público): as tarefas rodam
+    # em Graviton, e buildar sem emulação é bem mais rápido.
+    runs-on: ubuntu-24.04-arm
+    strategy:
+      matrix:
+        imagem: [web, worker]
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - uses: docker/setup-buildx-action@v4
+
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: Dockerfile.${{ matrix.imagem }}
+          platforms: linux/arm64
+          push: true
+          tags: ${{ steps.ecr.outputs.registry }}/dystopia-${{ matrix.imagem }}:${{ github.sha }}
+          cache-from: type=gha,scope=${{ matrix.imagem }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.imagem }}
+
+  ambiente:
+    name: ${{ inputs.acao }} o ambiente
+    needs: imagens
+    # Derrubar não constrói imagem: o job de cima fica "skipped".
+    if: ${{ !cancelled() && (needs.imagens.result == 'success' || inputs.acao == 'derrubar') }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: infra/app
+    env:
+      PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: infra/package-lock.json
+
+      - name: Dependências do Pulumi
+        working-directory: infra
+        run: npm ci
+
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Pulumi CLI
+        uses: pulumi/actions@v7
+
+      - name: Subir
+        if: inputs.acao == 'subir'
+        env:
+          NEON_OWNER_URL: ${{ secrets.AWS_NEON_OWNER_URL }}
+          RABBITMQ_URL: ${{ secrets.AWS_RABBITMQ_URL }}
+          STRIPE_PUBLISHABLE_KEY: ${{ secrets.STRIPE_PUBLISHABLE_KEY }}
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          POPULAR: ${{ inputs.popular }}
+        run: |
+          for name in NEON_OWNER_URL RABBITMQ_URL PULUMI_ACCESS_TOKEN; do
+            if [ -z "${!name}" ]; then echo "::error::falta o secret do $name (ver docs/AWS.md)"; exit 1; fi
+          done
+          registry="$(aws sts get-caller-identity --query Account --output text).dkr.ecr.${AWS_REGION}.amazonaws.com"
+
+          pulumi stack select "$PULUMI_STACK" --create
+          pulumi config set webImage "$registry/dystopia-web:$GITHUB_SHA"
+          pulumi config set workerImage "$registry/dystopia-worker:$GITHUB_SHA"
+          # Segredo pela entrada padrão, nunca como argumento de linha de comando.
+          printf %s "$NEON_OWNER_URL" | pulumi config set --secret neonOwnerUrl
+          printf %s "$RABBITMQ_URL" | pulumi config set --secret rabbitmqUrl
+          if [ -n "$STRIPE_PUBLISHABLE_KEY" ]; then pulumi config set stripePublishableKey "$STRIPE_PUBLISHABLE_KEY"; fi
+          if [ -n "$STRIPE_SECRET_KEY" ]; then printf %s "$STRIPE_SECRET_KEY" | pulumi config set --secret stripeSecretKey; fi
+          pulumi config set seed "$POPULAR"
+
+          pulumi up --yes --diff
+
+          {
+            echo "### Ambiente AWS no ar"
+            echo
+            echo "$(pulumi stack output url)"
+            echo
+            echo "Derrube quando terminar: Actions → AWS → Run workflow → derrubar."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Derrubar
+        if: inputs.acao == 'derrubar'
+        run: |
+          pulumi stack select "$PULUMI_STACK"
+          pulumi destroy --yes
+          echo "### Ambiente AWS derrubado (a base e as imagens ficam)" >> "$GITHUB_STEP_SUMMARY"

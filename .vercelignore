@@ -17,3 +17,4 @@ Dockerfile.worker
 docker-compose.yml
 
 .uploads
+infra
