@@ -75,11 +75,6 @@ export function StripeCardField({ publishableKey, ref }: { publishableKey: strin
         const token = (name: string) => css.getPropertyValue(name).trim();
         card = stripe.elements().create("card", {
           hidePostalCode: true,
-          // Sem o botão do Link (a carteira do Stripe) dentro do campo: numa
-          // loja em modo de teste ele não serve, e ao perder o foco ele puxa
-          // o foco de volta e muda a altura do campo — no celular, o toque em
-          // "Confirmar aquisição" escorregava para fora do botão.
-          disableLink: true,
           style: {
             base: {
               fontSize: "14px",

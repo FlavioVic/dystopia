@@ -32,12 +32,24 @@ async function payWithStripe(page: Page, cardNumber: string) {
   await card.locator('input[name="cvc"]').fill("123");
 
   // Sem falha injetada pelo modo demonstração: a resposta é a do Stripe.
-  const approve = page.locator('input[name="simulate"][value="approve"]');
-  await approve.check();
-  // Tira o foco do iframe do Stripe ANTES de clicar: o campo reage ao blur
-  // (layout), e isso não pode acontecer entre o "apertar" e o "soltar" do clique.
-  await approve.focus();
-  await page.getByRole("button", { name: "Confirmar aquisição" }).click();
+  await page.locator('input[name="simulate"][value="approve"]').check();
+  await confirmPurchase(page);
+}
+
+/**
+ * Clica em "Confirmar aquisição" até a compra começar. Com o cartão completo,
+ * o Stripe roda um hCaptcha invisível e, ao terminar (~1 s depois), devolve o
+ * foco ao campo do cartão — a página rola até ele. Clique que cai nessa hora
+ * se perde (no celular, o botão sai de baixo do ponteiro), e o teste, como
+ * uma pessoa, clica de novo. Sem risco de compra dupla: começou o envio, o
+ * botão vira "Processando…" e fica desabilitado, e o laço termina.
+ */
+async function confirmPurchase(page: Page) {
+  const confirm = page.getByRole("button", { name: "Confirmar aquisição" });
+  await expect(async () => {
+    if (await confirm.isEnabled({ timeout: 1_000 }).catch(() => false)) await confirm.click({ timeout: 2_000 });
+    await expect(confirm).toBeHidden({ timeout: 3_000 });
+  }).toPass({ timeout: 20_000 });
   await expectOrderPage(page);
 }
 
@@ -51,26 +63,7 @@ async function expectOrderPage(page: Page) {
     await expect(page).toHaveURL(/\/pedido\/DYS-/, { timeout: 30_000 });
   } catch (error) {
     const shown = (await page.getByRole("alert").allInnerTexts()).map((text) => text.trim()).filter(Boolean);
-    // Envio barrado pelo navegador não mostra nada na página: diz quais
-    // campos ele considera inválidos e onde está o foco.
-    const form = await page.evaluate(() => {
-      const element = document.querySelector("form:has(button[type=submit])") as HTMLFormElement | null;
-      const invalid = element
-        ? Array.from(element.elements)
-            .filter((field) => (field as HTMLInputElement).willValidate && !(field as HTMLInputElement).checkValidity())
-            .map((field) => {
-              const input = field as HTMLInputElement;
-              return `${input.tagName.toLowerCase()}[name=${input.name}|class=${input.className}] "${input.validationMessage}" (${input.value.length} caracteres)`;
-            })
-        : ["formulário não encontrado"];
-      const active = document.activeElement;
-      return { invalid, active: active ? `${active.tagName.toLowerCase()}.${active.className}`.slice(0, 120) : "nenhum" };
-    });
-    throw new Error(
-      `continuou no checkout; na tela: ${shown.join(" | ") || "nenhuma mensagem de erro"}; ` +
-        `campos inválidos: ${form.invalid.join(" ; ") || "nenhum"}; foco: ${form.active}`,
-      { cause: error },
-    );
+    throw new Error(`continuou no checkout; na tela: ${shown.join(" | ") || "nenhuma mensagem de erro"}`, { cause: error });
   }
 }
 
