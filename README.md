@@ -216,5 +216,6 @@ mensagem útil, e o limite de 5 por hora torna a varredura impraticável.
 - [`docs/ARQUITETURA.md`](docs/ARQUITETURA.md) — camadas, invariantes, convenções e como estender
 - [`docs/DECISOES.md`](docs/DECISOES.md) — por que cada escolha (saga, RabbitMQ, outbox, sessão no banco, MFA...), o que ficou de fora e o preço pago
 - [`docs/DEPLOY.md`](docs/DEPLOY.md) — Vercel + Neon + CloudAMQP, custo zero
+- [`docs/AWS.md`](docs/AWS.md) — 2º ambiente na AWS em Pulumi (ECS Fargate, CloudFront, OIDC), custo zero com créditos, sobe e desce pelo Actions
 - [`docs/RECUPERACAO.md`](docs/RECUPERACAO.md) — o que fazer quando dá errado: deploy, dado apagado, fila, segredo vazado, admin sem celular
 - [`docs/FUNCIONALIDADES.md`](docs/FUNCIONALIDADES.md) — identidade visual, conta, painel admin e modelagem do banco
