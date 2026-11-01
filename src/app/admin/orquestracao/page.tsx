@@ -204,6 +204,15 @@ export default async function OrchestrationPage(props: PageProps<"/admin/orquest
             : `${queueMetrics.outbox.pending} esperando publicação (mais antiga há ${formatDuration(queueMetrics.outbox.oldestPendingAgeMs)}${queueMetrics.outbox.failing > 0 ? `, ${queueMetrics.outbox.failing} com falha de publicação` : ""})`}
           .
         </p>
+        {queueMetrics.outboxesDown.length > 0 ? (
+          <ul className="mt-2 border border-border bg-background-elevated px-4 py-3 text-sm">
+            {queueMetrics.outboxesDown.map((down) => (
+              <li key={down.name}>
+                Banco da outbox <span className="font-mono text-xs">{down.name}</span> sem resposta: {down.error}
+              </li>
+            ))}
+          </ul>
+        ) : null}
 
         {deadLetters.length > 0 ? (
           <div tabIndex={0} role="region" aria-label="Mensagens na DLQ" className="mt-4 overflow-x-auto rounded-xl border border-border">

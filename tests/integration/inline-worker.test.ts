@@ -20,6 +20,9 @@ import { closeDatabase, resetDatabase, seedCheckoutFixture } from "../helpers/db
 import { startCheckout } from "../helpers/checkout";
 import { IDLE, pendingWork } from "../helpers/saga";
 
+/** A outbox da loja, pelo nome que o relay e o painel usam. */
+const storeOutbox = { name: "loja", database: db };
+
 // Entrega de e-mail simulada mesmo que o .env tenha a chave do Resend.
 delete process.env.RESEND_API_KEY;
 
@@ -88,7 +91,7 @@ describe("worker embutido", () => {
 
     let handled = 0;
     const drain = drainQueues({
-      outboxes: [db],
+      outboxes: [storeOutbox],
       queues: [Q],
       budgetMs: 5_000,
       waitForScheduled: true,
@@ -108,7 +111,7 @@ describe("worker embutido", () => {
     await relayOutbox(db);
 
     const startedAt = Date.now();
-    await drainQueues({ outboxes: [db], queues: [Q], budgetMs: 200, waitForScheduled: true, handlers: {} });
+    await drainQueues({ outboxes: [storeOutbox], queues: [Q], budgetMs: 200, waitForScheduled: true, handlers: {} });
     assert.ok(Date.now() - startedAt < 350, "saiu em vez de dormir até o retry");
   });
 });

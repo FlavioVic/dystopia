@@ -25,7 +25,7 @@ async function main(): Promise<void> {
   const worker = startWorker({
     queues: [PAYMENTS_QUEUE],
     handlers: paymentHandlers,
-    outboxes: [paymentsDb],
+    outboxes: [{ name: "pagamentos", database: paymentsDb }],
     prefetch: Number(process.env.WORKER_PREFETCH ?? 5),
     relayEveryMs: Number(process.env.WORKER_RELAY_MS ?? 500),
   });

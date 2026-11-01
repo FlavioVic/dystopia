@@ -124,6 +124,15 @@ tenta de novo com backoff.
 **Preço.** Pode haver **duplicata** (broker confirmou, o commit do
 `published_at` falhou) — aceita de propósito, ver a decisão 5. Perda, não.
 
+**Uma outbox por banco, isoladas.** Com pagamentos em banco próprio (decisão
+6), são duas outboxes, e o relay publica cada uma num compartimento separado
+(*bulkhead*): se o banco de uma não responde, ela fica de fora por um backoff e
+a outra segue publicando, e o dreno da fila segue consumindo. Veio de um
+incidente: uma URL errada do banco de pagamentos fazia o relay lançar antes do
+dreno, e **todo** checkout ficava em "processando", inclusive o que não
+dependia de pagamentos. Hoje o mesmo erro vira um alerta crítico no painel
+("Banco da outbox pagamentos sem resposta") e o resto da fila anda.
+
 ## 4. Retry por filas de espera e DLQ
 
 **Problema.** Falha passageira (provedor fora, deadlock) merece nova tentativa,

@@ -26,6 +26,9 @@ import { drainQueues, startWorker, type Handlers } from "@/queue/worker";
 import { PermanentError, RetryableError } from "@/shared/errors";
 import { closeDatabase, resetDatabase } from "../helpers/db";
 
+/** A outbox da loja, pelo nome que o relay e o painel usam. */
+const storeOutbox = { name: "loja", database: db };
+
 const Q = "teste";
 
 beforeEach(async () => {
@@ -53,7 +56,7 @@ function recorder(behave: (message: QueueMessage) => Promise<unknown> | unknown 
 }
 
 const drain = (handlers: Handlers, waitForScheduled = false) =>
-  drainQueues({ outboxes: [db], queues: [Q], handlers, budgetMs: 5_000, waitForScheduled });
+  drainQueues({ outboxes: [storeOutbox], queues: [Q], handlers, budgetMs: 5_000, waitForScheduled });
 
 describe("outbox", () => {
   it("grava a mensagem com os padrões e não publica nada sozinha", async () => {
@@ -192,6 +195,19 @@ describe("política de retentativa", () => {
     assert.ok(letter.failedAt);
   });
 
+  it("erro de banco embrulhado pelo Drizzle: a DLQ guarda a causa, não o SQL com os parâmetros", async () => {
+    await enqueue(db, { type: "teste.job", queue: Q, maxAttempts: 1 });
+    const { handlers } = recorder(() => {
+      const driver = new Error("getaddrinfo ENOTFOUND base");
+      throw new Error("Failed query: insert into \"notifications\" values ($1)\nparams: cliente@exemplo.com", { cause: driver });
+    });
+
+    await drain(handlers);
+
+    const [letter] = await peekDeadLetters(Q);
+    assert.equal(letter.error, "getaddrinfo ENOTFOUND base");
+  });
+
   it("erro permanente: DLQ na hora, sem gastar retry com o que não vai mudar", async () => {
     await enqueue(db, { type: "teste.job", queue: Q, maxAttempts: 5 });
     const { seen, handlers } = recorder(() => {
@@ -309,7 +325,7 @@ describe("DLQ: inspeção e reprocessamento", () => {
 describe("worker de longa duração (push)", () => {
   it("conexão com o broker cai no meio: o worker reconecta sozinho e volta a consumir", async () => {
     const { seen, handlers } = recorder();
-    const worker = startWorker({ outboxes: [db], workerId: "teste-reconexao", queues: [Q], handlers, relayEveryMs: 50 });
+    const worker = startWorker({ outboxes: [storeOutbox], workerId: "teste-reconexao", queues: [Q], handlers, relayEveryMs: 50 });
     const until = async (cond: () => boolean) => {
       const deadline = Date.now() + 8_000;
       while (!cond() && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 25));
@@ -335,7 +351,7 @@ describe("worker de longa duração (push)", () => {
     const { seen, handlers } = recorder(async () => {
       await new Promise((resolve) => setTimeout(resolve, 100));
     });
-    const worker = startWorker({ outboxes: [db], workerId: "teste", queues: [Q], handlers, relayEveryMs: 50 });
+    const worker = startWorker({ outboxes: [storeOutbox], workerId: "teste", queues: [Q], handlers, relayEveryMs: 50 });
 
     await enqueue(db, { type: "teste.job", queue: Q, payload: { n: 1 } });
     await enqueue(db, { type: "teste.job", queue: Q, payload: { n: 2 } });

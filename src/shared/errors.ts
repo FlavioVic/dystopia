@@ -59,3 +59,21 @@ export function errorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
   return String(error);
 }
+
+/**
+ * Mensagem da causa mais funda. O Drizzle embrulha o erro do driver em
+ * "Failed query: <sql> params: <…>", e o que diz POR QUE o banco não
+ * respondeu (ECONNREFUSED, ENOTFOUND, senha) está no `cause`. Conexão que
+ * tentou IPv4 e IPv6 falha com um AggregateError de mensagem vazia: vale a
+ * primeira tentativa.
+ */
+export function rootCauseMessage(error: unknown): string {
+  let current = error;
+  for (let depth = 0; depth < 10; depth += 1) {
+    if (current instanceof AggregateError && current.errors.length > 0) current = current.errors[0];
+    else if (current instanceof Error && current.cause !== undefined) current = current.cause;
+    else break;
+  }
+  const code = (current as { code?: unknown } | null)?.code;
+  return errorMessage(current) || (typeof code === "string" ? code : "erro sem mensagem");
+}

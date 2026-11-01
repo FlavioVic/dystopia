@@ -5,7 +5,8 @@
  * Duas fontes:
  * - **outbox** (Postgres, uma por banco — loja e pagamentos — somadas): o
  *   que ainda não chegou no broker. Crescendo sem parar = relay parado ou
- *   broker fora;
+ *   broker fora. Banco de uma outbox inacessível não derruba o painel: ela
+ *   sai da soma e aparece em `outboxesDown`;
  * - **broker** (RabbitMQ): por fila, quanto está pronto, esperando retry e na
  *   DLQ. Broker inacessível não derruba o painel: vira `broker: "down"`.
  */
@@ -13,7 +14,7 @@
 import { sql } from "drizzle-orm";
 import type { Executor } from "@/db";
 import { outbox } from "@/db/outbox";
-import { errorMessage } from "@/shared/errors";
+import { errorMessage, rootCauseMessage } from "@/shared/errors";
 import { queueDepths, type QueueDepth } from "./broker";
 
 export type OutboxMetrics = {
@@ -26,7 +27,10 @@ export type OutboxMetrics = {
 };
 
 export type QueueMetrics = {
+  /** Soma das outboxes que responderam. */
   outbox: OutboxMetrics;
+  /** Outboxes cujo banco não respondeu — fora da soma acima. */
+  outboxesDown: Array<{ name: string; error: string }>;
   broker: { status: "up" } | { status: "down"; error: string };
   queues: QueueDepth[];
   ready: number;
@@ -55,12 +59,23 @@ export async function getOutboxMetrics(
   };
 }
 
+/** Uma outbox para medir: o nome que o painel mostra e o banco dela. */
+export type MeasuredOutbox = { name: string; database: Pick<Executor, "select"> };
+
 export async function getQueueMetrics(
   executor: Pick<Executor, "select">,
-  options: { queues: string[]; now?: Date; outboxes?: Pick<Executor, "select">[] },
+  options: { queues: string[]; now?: Date; outboxes?: MeasuredOutbox[] },
 ): Promise<QueueMetrics> {
-  const perOutbox = await Promise.all(
-    (options.outboxes ?? [executor]).map((database) => getOutboxMetrics(database, options)),
+  const perOutbox: OutboxMetrics[] = [];
+  const outboxesDown: QueueMetrics["outboxesDown"] = [];
+  await Promise.all(
+    (options.outboxes ?? [{ name: "outbox", database: executor }]).map(async ({ name, database }) => {
+      try {
+        perOutbox.push(await getOutboxMetrics(database, options));
+      } catch (error) {
+        outboxesDown.push({ name, error: rootCauseMessage(error) });
+      }
+    }),
   );
   const outboxMetrics: OutboxMetrics = {
     pending: perOutbox.reduce((sum, metrics) => sum + metrics.pending, 0),
@@ -72,6 +87,7 @@ export async function getQueueMetrics(
     const sum = (key: "ready" | "retrying" | "dead") => queues.reduce((total, depth) => total + depth[key], 0);
     return {
       outbox: outboxMetrics,
+      outboxesDown,
       broker: { status: "up" },
       queues,
       ready: sum("ready"),
@@ -81,6 +97,7 @@ export async function getQueueMetrics(
   } catch (error) {
     return {
       outbox: outboxMetrics,
+      outboxesDown,
       broker: { status: "down", error: errorMessage(error) },
       queues: [],
       ready: 0,
