@@ -10,7 +10,10 @@ usam a string **direta** do dono (`neondb_owner`), nunca a do app:
 ```bash
 # WSL sem IPv6: sem estas opções o Node desiste do Neon antes de conectar.
 export NODE_OPTIONS="--no-network-family-autoselection --dns-result-order=ipv4first"
-export DATABASE_URL="$(neon connection-string --project-id calm-snow-13721571 --pooled false)"
+# O projeto tem dois bancos (loja e pagamentos): o nome vai sempre explícito,
+# senão o CLI recusa com "Multiple databases found".
+export DATABASE_URL="$(neon connection-string --project-id calm-snow-13721571 --database-name neondb --pooled false)"
+export PAYMENTS_DATABASE_URL="$(neon connection-string --project-id calm-snow-13721571 --database-name dystopia_payments --pooled false)"
 ```
 
 ## Limites honestos (plano grátis)
@@ -53,7 +56,9 @@ Primeiro olhe sem mexer em produção — um branch no ponto antes do estrago:
 # Sem nome de branch no --parent, o instante é do branch padrão (production).
 neon branches create --project-id calm-snow-13721571 \
   --name recuperacao --parent 2026-10-29T12:00:00Z
-neon connection-string recuperacao --project-id calm-snow-13721571 --pooled false
+# O branch traz os dois bancos; peça a string de cada um.
+neon connection-string recuperacao --project-id calm-snow-13721571 --database-name neondb --pooled false
+neon connection-string recuperacao --project-id calm-snow-13721571 --database-name dystopia_payments --pooled false
 ```
 
 Daí, duas saídas:
@@ -69,7 +74,7 @@ Daí, duas saídas:
     --project-id calm-snow-13721571 --preserve-under-name production-antes-do-restore
   ```
 
-  Depois: `npm run reconcile` (com a `DATABASE_URL` do dono) para as sagas
+  Depois: `npm run reconcile` (com as URLs do dono, do topo) para as sagas
   que estavam no meio voltarem a andar, e confira `/admin/orquestracao`.
 
 Mais de 6 horas: só com o último `pg_dump` (`pg_restore` num branch novo e
