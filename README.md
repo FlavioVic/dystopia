@@ -164,9 +164,6 @@ pedido está cancelado".
 
 O CI (`.github/workflows/ci.yml`) roda tipos, lint, migrations em banco limpo,
 testes e build, e depois os testes de navegador contra a stack do compose.
-Cada PR também passa pela revisão automática da
-[Bella Reviewer](https://github.com/Natan-Lucena/bella-review-action)
-(`.github/workflows/bella-review.yml`), que comenta direto no PR.
 
 ## Decisões técnicas
 
