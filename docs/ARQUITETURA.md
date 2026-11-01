@@ -181,7 +181,11 @@ dead-letter-exchange de volta para a de trabalho) e a DLQ `<p>.<fila>.dlq`. `<p>
    atualizou linha, não tem estoque — erro permanente. Nunca `GREATEST(0, ...)`,
    que esconde venda sem estoque.
 8. **Dinheiro em centavos** (`integer`), sempre. Nada de float.
-9. **Totais são recalculados no servidor.** Valor que vem do cliente é palpite.
+9. **Totais são recalculados no servidor**, com o preço ATUAL do catálogo (não
+   o que o carrinho guardou ao adicionar) e só com produto à venda. Valor que
+   vem do cliente é palpite: o total que a tela mostrou só serve para o
+   checkout recusar, com o valor novo, se o recalculado for outro — o cliente
+   nunca paga um total que não viu.
 10. **Status de pedido passa pela máquina de estados** e **toda mudança de
     status grava um evento** (`order_events`) na mesma transação — é o
     histórico que o cliente vê; o motivo do cancelamento vai em código
@@ -356,7 +360,12 @@ revise o SQL → `npm run db:migrate`. Nunca edite migration já aplicada.
 - Animação: `Reveal`/`CountUp` (`components/Motion.tsx`) e classes em
   `globals.css`; respeite `prefers-reduced-motion`.
 - Data layer em `src/lib/data/*` com `cache()` do React; mutação em
-  `src/lib/actions/*`.
+  `src/lib/actions/*`. Página e componente (`.tsx`) não importam banco,
+  Drizzle nem serviço — o teste de arquitetura cobra.
+- Regra que a tela também precisa mostrar (teto por item, estoque baixo,
+  preço da variante, frete) mora num módulo puro (`lib/catalog-rules.ts`,
+  `lib/shipping.ts`) que servidor e navegador importam — nunca uma cópia no
+  componente.
 
 ## Pegadinhas conhecidas
 
