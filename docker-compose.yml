@@ -91,7 +91,9 @@ services:
       CHAT_API_URL: ${CHAT_API_URL:-}
       CHAT_MODEL: ${CHAT_MODEL:-}
       # Cartão pelo Stripe em modo de teste (pk_test_…). Sem ela, cartão simulado.
-      # A secreta vai só para o serviço `payments`, que é quem fala com o Stripe.
+      # Está no bloco comum, então chega a todos os serviços — sem problema, a
+      # chave publicável é pública. A secreta vai só para o serviço `payments`,
+      # que é quem fala com o Stripe.
       STRIPE_PUBLISHABLE_KEY: ${STRIPE_PUBLISHABLE_KEY:-}
       # Fotos enviadas pelo painel: pasta local no container (o usuário `node`
       # escreve em /tmp). Em produção ficam no Vercel Blob.

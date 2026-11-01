@@ -12,6 +12,12 @@ on:
   pull_request:
   workflow_dispatch:
 
+# O workflow só lê o repositório. Explícito em vez de depender do padrão da
+# conta: um passo novo que precise escrever (comentar em PR, publicar) tem que
+# pedir a permissão aqui, à vista de quem revisa.
+permissions:
+  contents: read
+
 jobs:
   verificar:
     name: tipos, lint, testes e build
