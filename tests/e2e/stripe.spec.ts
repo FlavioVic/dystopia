@@ -32,7 +32,11 @@ async function payWithStripe(page: Page, cardNumber: string) {
   await card.locator('input[name="cvc"]').fill("123");
 
   // Sem falha injetada pelo modo demonstração: a resposta é a do Stripe.
-  await page.locator('input[name="simulate"][value="approve"]').check();
+  const approve = page.locator('input[name="simulate"][value="approve"]');
+  await approve.check();
+  // Tira o foco do iframe do Stripe ANTES de clicar: o campo reage ao blur
+  // (layout), e isso não pode acontecer entre o "apertar" e o "soltar" do clique.
+  await approve.focus();
   await page.getByRole("button", { name: "Confirmar aquisição" }).click();
   await expectOrderPage(page);
 }
