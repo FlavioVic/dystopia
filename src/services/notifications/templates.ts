@@ -194,3 +194,39 @@ export function serviceRequestAlertEmail(input: ServiceRequestAlertEmailInput, s
 
   return { subject, text, html };
 }
+
+export type PasswordResetEmailInput = {
+  name: string;
+  /** Link com o token — credencial: este e-mail não é gravado em lugar nenhum. */
+  link: string;
+  minutes: number;
+};
+
+export function passwordResetEmail(input: PasswordResetEmailInput, siteUrl: string = SITE_URL): EmailContent {
+  const subject = "Redefinição de senha";
+
+  const text = [
+    `${input.name}.`,
+    "",
+    "Recebemos um pedido para redefinir a senha da sua conta.",
+    `Para escolher uma senha nova, abra o link abaixo. Ele vale ${input.minutes} minutos e funciona uma vez só.`,
+    "",
+    input.link,
+    "",
+    "Se não foi você, ignore este e-mail: sua senha continua a mesma.",
+  ].join("\n");
+
+  const html = layout({
+    preheader: `O link vale ${input.minutes} minutos e funciona uma vez só.`,
+    serial: "Acesso",
+    eyebrow: "Acesso / Redefinição",
+    title: "Redefinição de senha.",
+    lead: `${input.name}. Recebemos um pedido para redefinir a senha da sua conta. O link vale ${input.minutes} minutos e funciona uma vez só.`,
+    contentHtml: `<table role="presentation" cellpadding="0" cellspacing="0"><tr><td>${button("Escolher senha nova", input.link)}</td></tr></table>
+<p style="margin:24px 0 0;font-family:${SANS};font-size:13px;line-height:20px;color:${COLOR.muted}">O botão não abre? Copie o endereço:<br><a href="${escapeHtml(input.link)}" style="font-family:${MONO};font-size:12px;color:${COLOR.bone};word-break:break-all">${escapeHtml(input.link)}</a></p>
+<p style="margin:20px 0 0;font-family:${SANS};font-size:13px;line-height:20px;color:${COLOR.muted}">Se não foi você, ignore este e-mail: sua senha continua a mesma.</p>`,
+    siteUrl,
+  });
+
+  return { subject, text, html };
+}

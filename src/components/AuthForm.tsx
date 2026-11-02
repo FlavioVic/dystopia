@@ -5,7 +5,8 @@ import { useActionState } from "react";
 import { FieldError, FormAlert, buttonPrimary, fieldLabelClass, inputClass } from "@/components/Kit";
 import { login, signup, type AuthState } from "@/lib/actions/auth";
 
-export function AuthForm({ mode }: { mode: "login" | "signup" }) {
+/** `notice`: aviso neutro acima do formulário (ex.: senha acabou de ser redefinida). */
+export function AuthForm({ mode, notice }: { mode: "login" | "signup"; notice?: string }) {
   const action = mode === "signup" ? signup : login;
   const [state, formAction, pending] = useActionState<AuthState, FormData>(action, undefined);
 
@@ -26,6 +27,10 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
       <form action={formAction} className="mt-7 flex flex-col gap-4" noValidate>
         {state?.message ? (
           <FormAlert>{state.message}</FormAlert>
+        ) : notice ? (
+          <p role="status" className="border border-foreground px-4 py-3 text-sm text-foreground">
+            {notice}
+          </p>
         ) : null}
 
         {isSignup ? (
@@ -75,6 +80,11 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
             placeholder={isSignup ? "Mín. 8 caracteres" : "Sua senha"}
           />
           <FieldError message={state?.errors?.password} />
+          {isSignup ? null : (
+            <Link href="/entrar/esqueci" className="self-end text-xs text-foreground-muted underline underline-offset-4 hover:text-foreground">
+              Esqueci minha senha
+            </Link>
+          )}
         </div>
 
         <button

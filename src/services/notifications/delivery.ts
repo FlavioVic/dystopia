@@ -19,7 +19,7 @@ import { createLogger } from "@/lib/logger";
 import type { QueueMessage } from "@/queue";
 import { errorMessage, isRetryable, PermanentError } from "@/shared/errors";
 import { NOTIFICATION_DELIVER } from "./index";
-import { emailConfigFromEnv, RESEND_PROVIDER, resendSend, type EmailConfig, type FetchLike } from "./resend";
+import { addressFor, emailConfigFromEnv, RESEND_PROVIDER, resendSend, type EmailConfig, type FetchLike } from "./resend";
 
 const logger = createLogger("notifications");
 export const SIMULATED_PROVIDER = "simulado";
@@ -51,9 +51,7 @@ export async function deliverNotification(
     return "sent";
   }
 
-  // Sandbox: tudo vai para o dono do projeto, e o assunto diz para quem seria.
-  const to = deps.email.redirectTo ?? row.recipient;
-  const subject = deps.email.redirectTo ? `[demo → ${row.recipient}] ${row.subject}` : row.subject;
+  const { to, subject } = addressFor(deps.email, row.recipient, row.subject);
 
   try {
     const messageId = await resendSend(

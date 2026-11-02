@@ -1,6 +1,7 @@
 import { cache } from "react";
 import { redirect } from "next/navigation";
 import { and, eq, gt } from "drizzle-orm";
+import { isPasswordResetLinkValid } from "@/application/password-reset";
 import { db, type Executor } from "@/db";
 import { mfaCredentials, sessions, users } from "@/db/schema";
 import { readSessionToken } from "@/lib/session";
@@ -77,3 +78,9 @@ export async function requireAdmin(): Promise<CurrentUser> {
   if (!user.mfaEnabled) redirect("/conta/seguranca");
   return user;
 }
+
+/** Página do link de "esqueci minha senha": ele ainda vale? Sem token, não. */
+export const getPasswordResetLinkValidity = cache(async (token: string | undefined): Promise<boolean> =>
+  token ? isPasswordResetLinkValid(token) : false,
+);
+

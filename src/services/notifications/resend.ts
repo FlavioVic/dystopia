@@ -50,6 +50,12 @@ export function emailConfigFromEnv(env: Record<string, string | undefined> = pro
   return { apiKey, from: env.EMAIL_FROM?.trim() || DEFAULT_FROM, redirectTo };
 }
 
+/** Sandbox: tudo vai para o dono do projeto, e o assunto diz para quem seria. */
+export function addressFor(config: EmailConfig, recipient: string, subject: string): { to: string; subject: string } {
+  if (!config.redirectTo) return { to: recipient, subject };
+  return { to: config.redirectTo, subject: `[demo → ${recipient}] ${subject}` };
+}
+
 export type OutgoingEmail = {
   to: string;
   subject: string;

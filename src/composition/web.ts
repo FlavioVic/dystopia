@@ -16,8 +16,13 @@
 import { after } from "next/server";
 import * as checkout from "@/application/checkout";
 import * as orders from "@/application/orders";
+import * as passwordReset from "@/application/password-reset";
 import * as serviceRequests from "@/application/service-requests";
+import { createLogger } from "@/lib/logger";
+import { rootCauseMessage } from "@/shared/errors";
 import { runInlineWorker, type InlineRunOptions } from "./worker";
+
+const logger = createLogger("web");
 
 /** Pagamento, resposta e e-mail — esperando retry em backoff se precisar. */
 const CHECKOUT_DRAIN: InlineRunOptions = { budgetMs: 45_000, waitForScheduled: true };
@@ -58,3 +63,20 @@ export function submitServiceRequest(
 export function runOperationsAfterResponse(): void {
   drainAfterResponse(ADMIN_PANEL_DRAIN);
 }
+
+/**
+ * "Esqueci minha senha": procurar a conta e mandar o e-mail ficam para depois
+ * da resposta. Assim a tela responde igual — e no mesmo tempo — exista a conta
+ * ou não. Falha aqui só vai para o log: a pessoa pede outro link.
+ */
+export function sendPasswordResetAfterResponse(email: string): void {
+  after(async () => {
+    try {
+      const outcome = await passwordReset.sendPasswordResetLink(email);
+      if (outcome === "limited") logger.warn("redefinição de senha: limite por e-mail atingido");
+    } catch (error) {
+      logger.error("redefinição de senha: e-mail não saiu", { error: rootCauseMessage(error) });
+    }
+  });
+}
+

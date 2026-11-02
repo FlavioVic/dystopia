@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { CONTACT_EMAIL } from "@/lib/site";
-import { escapeHtml, orderConfirmationEmail, serviceRequestAlertEmail } from "@/services/notifications/templates";
+import { escapeHtml, orderConfirmationEmail, passwordResetEmail, serviceRequestAlertEmail } from "@/services/notifications/templates";
 
 const SITE = "https://loja.dev";
 
@@ -74,6 +74,26 @@ describe("e-mail de orçamento", () => {
     assert.ok(!email.html.includes("<img src=x"));
     assert.ok(!email.html.includes('" onclick="'));
     assert.match(email.html, /&lt;script&gt;roubar\(\)&lt;\/script&gt;/);
+  });
+});
+
+describe("e-mail de redefinição de senha", () => {
+  const link = "https://loja.dev/entrar/redefinir?token=abc_123-XYZ";
+
+  it("leva o link (botão e endereço copiável), a validade e o que fazer se não foi você", () => {
+    const email = passwordResetEmail({ name: "Ana", link, minutes: 30 }, "https://loja.dev");
+
+    assert.equal(email.subject, "Redefinição de senha");
+    assert.match(email.text, /^Ana\./);
+    assert.ok(email.text.includes(link));
+    assert.match(email.text, /30 minutos e funciona uma vez só/);
+    assert.match(email.text, /Se não foi você, ignore/);
+    assert.equal(email.html.split(`href="${link}"`).length - 1, 2, "botão e link copiável");
+  });
+
+  it("nome vem do cadastro (público): não vira marcação", () => {
+    const email = passwordResetEmail({ name: "<b>Ana</b>", link, minutes: 30 }, "https://loja.dev");
+    assert.ok(!email.html.includes("<b>Ana</b>"));
   });
 });
 

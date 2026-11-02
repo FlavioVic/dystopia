@@ -24,7 +24,7 @@ import { createHash } from "node:crypto";
 import { db } from "@/db";
 import { limitFromEnv } from "@/lib/rate-limit-config";
 import { DEMO_ACCOUNT_EMAIL } from "@/lib/site";
-import { findAccountIdByEmail, verifyCredentials, type Account } from "@/services/accounts";
+import { findAccountByEmail, verifyCredentials, type Account } from "@/services/accounts";
 import { findKnownDevice } from "@/services/known-devices";
 import { consumeRateLimit, refundRateLimits, type RateLimitRule } from "@/services/rate-limit";
 
@@ -57,7 +57,7 @@ async function accountCounters(email: string, deviceToken: string | undefined): 
   if (email === DEMO_ACCOUNT_EMAIL) return [];
 
   const device = deviceToken ? await findKnownDevice(db, deviceToken) : null;
-  if (device && device.userId === (await findAccountIdByEmail(db, email))) {
+  if (device && device.userId === (await findAccountByEmail(db, email))?.id) {
     return [{ key: `login:device:${device.id}`, rule: LOGIN_LIMITS.device }];
   }
   const hashed = emailKey(email);

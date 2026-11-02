@@ -29,4 +29,4 @@ export const DEMO_ACCOUNT_EMAIL = "cliente@dystopia.dev";
  * `tests/unit/test-count.test.ts` conta os casos de verdade e falha se este
  * número ficar desatualizado.
  */
-export const TEST_COUNT = 564;
+export const TEST_COUNT = 583;

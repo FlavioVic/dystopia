@@ -40,10 +40,19 @@ export async function registerAccount(
   return created;
 }
 
-/** Id da conta do e-mail, ou `null`. Não serve para responder a quem tenta entrar. */
-export async function findAccountIdByEmail(executor: Executor, email: string): Promise<string | null> {
-  const user = await executor.query.users.findFirst({ where: eq(users.email, email), columns: { id: true } });
-  return user?.id ?? null;
+/**
+ * Conta do e-mail, ou `null`. Uso interno (limite de login, redefinição de
+ * senha) — a resposta a quem pediu nunca pode depender disto.
+ */
+export async function findAccountByEmail(executor: Executor, email: string): Promise<{ id: string; name: string } | null> {
+  const user = await executor.query.users.findFirst({ where: eq(users.email, email), columns: { id: true, name: true } });
+  return user ?? null;
+}
+
+/** Troca a senha (redefinição por e-mail). Quem chama já conferiu o direito de trocar. */
+export async function setPassword(executor: Executor, userId: string, password: string): Promise<void> {
+  const passwordHash = await bcrypt.hash(password, BCRYPT_COST);
+  await executor.update(users).set({ passwordHash, updatedAt: new Date() }).where(eq(users.id, userId));
 }
 
 /** Conta dona do e-mail e da senha, ou `null` — sem dizer qual dos dois errou. */
