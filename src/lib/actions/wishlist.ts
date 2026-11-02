@@ -11,6 +11,7 @@ import { db } from "@/db";
 import { products } from "@/db/schema";
 import { limitAction } from "@/lib/action-limits";
 import { getCurrentUser } from "@/lib/data/auth";
+import { isUuid } from "@/lib/validation/action-input";
 import { toggleWishlist } from "@/services/wishlist";
 
 export type WishlistResult = {
@@ -26,6 +27,7 @@ export async function toggleWishlistItem(productId: string): Promise<WishlistRes
 
   const limited = await limitAction("wishlist", `user:${user.id}`);
   if (limited) return { ok: false, error: limited };
+  if (!isUuid(productId)) return { ok: false, error: "Produto não encontrado." };
 
   const product = await db.query.products.findFirst({
     where: eq(products.id, productId),

@@ -8,6 +8,15 @@ test.describe("vitrine", () => {
     await expect(page.getByRole("main").getByRole("link", { name: "Solicitar orçamento" }).first()).toBeVisible();
   });
 
+  test("cabeçalhos de segurança, sem anunciar o framework", async ({ request }) => {
+    const headers = (await request.get("/")).headers();
+    expect(headers["x-powered-by"]).toBeUndefined();
+    expect(headers["content-security-policy"]).toMatch(/nonce-/);
+    expect(headers["x-frame-options"]).toBe("DENY");
+    expect(headers["x-content-type-options"]).toBe("nosniff");
+    expect(headers["strict-transport-security"]).toMatch(/max-age=\d+/);
+  });
+
   test("busca sem acento acha o produto com acento", async ({ page }) => {
     await page.goto("/produtos?q=memoria");
     await expect(page.getByRole("heading", { name: "Resultado da consulta" })).toBeVisible();

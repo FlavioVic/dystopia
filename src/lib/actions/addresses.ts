@@ -8,6 +8,7 @@
 import { refresh } from "next/cache";
 import { db } from "@/db";
 import { getCurrentUser } from "@/lib/data/auth";
+import { isUuid } from "@/lib/validation/action-input";
 import { parseAddressForm } from "@/lib/validation/address";
 import { PermanentError } from "@/shared/errors";
 import { createAddress, deleteAddress, setDefaultAddress } from "@/services/addresses";
@@ -37,6 +38,7 @@ export async function saveAddress(_prev: AddressState, formData: FormData): Prom
 export async function makeDefaultAddress(addressId: string): Promise<AddressActionResult> {
   const user = await getCurrentUser();
   if (!user) return { ok: false, error: "Não autorizado." };
+  if (!isUuid(addressId)) return { ok: false, error: "Endereço não encontrado." };
 
   try {
     await setDefaultAddress(db, user.id, addressId);
@@ -52,6 +54,7 @@ export async function makeDefaultAddress(addressId: string): Promise<AddressActi
 export async function removeAddress(addressId: string): Promise<AddressActionResult> {
   const user = await getCurrentUser();
   if (!user) return { ok: false, error: "Não autorizado." };
+  if (!isUuid(addressId)) return { ok: false, error: "Endereço não encontrado." };
 
   try {
     const { deleted } = await deleteAddress(db, user.id, addressId);

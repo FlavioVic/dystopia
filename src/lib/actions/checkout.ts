@@ -14,6 +14,7 @@ import { placeOrder as placeOrderUseCase } from "@/composition/web";
 import { getCurrentUser } from "@/lib/data/auth";
 import { getCartToken } from "@/lib/data/cart";
 import type { CouponResult } from "@/lib/shipping";
+import { isUuid } from "@/lib/validation/action-input";
 import { parseAddressForm, type AddressFormValues } from "@/lib/validation/address";
 import { findCartIdByToken } from "@/services/carts";
 import { resolveCoupon } from "@/services/coupons";
@@ -70,6 +71,7 @@ export async function placeOrder(_prev: CheckoutState, formData: FormData): Prom
   let address: { savedId: string } | { values: AddressFormValues };
   const savedAddressId = req(formData, "addressId");
   if (savedAddressId) {
+    if (!isUuid(savedAddressId)) return { message: "Endereço não encontrado na sua conta." };
     address = { savedId: savedAddressId };
   } else {
     const parsedAddress = parseAddressForm(formData);

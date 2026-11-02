@@ -11,7 +11,13 @@ import { z } from "zod";
 export const MAX_MESSAGE_CHARS = 1_000;
 /** Turnos enviados ao modelo: o começo de uma conversa longa sai primeiro. */
 export const MAX_HISTORY_TURNS = 12;
-const MAX_TURNS_ACCEPTED = 40;
+export const MAX_TURNS_ACCEPTED = 40;
+/**
+ * Teto do corpo em bytes, lido ANTES do JSON. O maior pedido válido: 40
+ * turnos × 1.000 caracteres × 6 bytes (o pior caso, caractere escapado como
+ * `\uXXXX`) ≈ 240 KB. Acima disso não há pedido válido, só memória gasta.
+ */
+export const MAX_BODY_BYTES = 256 * 1024;
 
 const turn = z.object({
   role: z.enum(["user", "assistant"]),

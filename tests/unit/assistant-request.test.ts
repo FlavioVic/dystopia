@@ -1,7 +1,13 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { isSameOrigin } from "@/lib/assistant/handler";
-import { MAX_HISTORY_TURNS, MAX_MESSAGE_CHARS, parseAssistantRequest } from "@/lib/validation/assistant";
+import {
+  MAX_BODY_BYTES,
+  MAX_HISTORY_TURNS,
+  MAX_MESSAGE_CHARS,
+  MAX_TURNS_ACCEPTED,
+  parseAssistantRequest,
+} from "@/lib/validation/assistant";
 
 const user = (content: string) => ({ role: "user", content });
 const bot = (content: string) => ({ role: "assistant", content });
@@ -24,6 +30,14 @@ describe("pedido ao assistente", () => {
     assert.equal(parseAssistantRequest({ messages: [user("oi"), bot("olá")] }).ok, false);
     assert.equal(parseAssistantRequest({ messages: [] }).ok, false);
     assert.equal(parseAssistantRequest("texto solto").ok, false);
+  });
+
+  it("o maior pedido válido cabe no teto do corpo (o teto não corta conversa legítima)", () => {
+    // Pior caso de bytes: caractere de controle vira `\uXXXX` (6 bytes) no JSON.
+    const messages = Array.from({ length: MAX_TURNS_ACCEPTED }, () => user("\u0001".repeat(MAX_MESSAGE_CHARS)));
+    const body = JSON.stringify({ messages });
+    assert.ok(Buffer.byteLength(body) <= MAX_BODY_BYTES, `${Buffer.byteLength(body)} bytes`);
+    assert.equal(parseAssistantRequest(JSON.parse(body)).ok, true);
   });
 
   it("conversa longa manda só o final, começando por uma fala da pessoa", () => {
