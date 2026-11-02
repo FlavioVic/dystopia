@@ -75,11 +75,54 @@ describe("base da conta: o que o deploy pode", () => {
     assert.equal(bySid("RolesDoAmbiente").Resource, "arn:aws:iam::123456789012:role/dystopia-*");
     assert.equal(bySid("Imagens").Resource, "arn:aws:ecr:us-east-1:123456789012:repository/dystopia-*");
     assert.equal(bySid("Segredos").Resource, "arn:aws:ssm:us-east-1:123456789012:parameter/dystopia/*");
-    for (const statement of statements) {
+    for (const statement of statements.filter((statement: any) => statement.Effect === "Allow")) {
       const actions = [statement.Action].flat();
       assert.ok(!actions.includes("*") && !actions.some((action: string) => action.startsWith("iam:*")), statement.Sid);
       assert.ok(!actions.some((action: string) => /^(ec2:RunInstances|rds:|iam:CreateUser|iam:CreateAccessKey)/.test(action)), statement.Sid);
     }
+  });
+
+  it("criar role ou dar permissão a ela só com o teto; entregar role só ao ECS", () => {
+    const statements = JSON.parse(named("aws:iam/rolePolicy:RolePolicy", "deploy").inputs.policy).Statement;
+    const boundary = "arn:aws:mock:aws:iam/policy:Policy:workload-boundary";
+    const grantsPower = ["iam:CreateRole", "iam:PutRolePolicy", "iam:AttachRolePolicy", "iam:PutRolePermissionsBoundary"];
+
+    for (const statement of statements.filter((statement: any) => statement.Effect === "Allow")) {
+      const actions: string[] = [statement.Action].flat();
+      if (actions.some((action) => grantsPower.includes(action))) {
+        assert.deepEqual(statement.Condition, { StringEquals: { "iam:PermissionsBoundary": boundary } }, statement.Sid);
+      }
+      if (actions.includes("iam:PassRole")) {
+        assert.deepEqual(statement.Condition, { StringEquals: { "iam:PassedToService": "ecs-tasks.amazonaws.com" } }, statement.Sid);
+      }
+    }
+  });
+
+  it("a role de deploy não mexe em si mesma nem no teto, e o teto não sai de role nenhuma", () => {
+    const statements = JSON.parse(named("aws:iam/rolePolicy:RolePolicy", "deploy").inputs.policy).Statement;
+    const denied = statements.filter((statement: any) => statement.Effect === "Deny");
+    const self = denied.find((statement: any) => statement.Action === "iam:*");
+    assert.deepEqual(self.Resource, ["arn:aws:mock:aws:iam/role:Role:deploy", "arn:aws:mock:aws:iam/policy:Policy:workload-boundary"]);
+    assert.ok(denied.some((statement: any) => statement.Action === "iam:DeleteRolePermissionsBoundary" && statement.Resource === "*"));
+  });
+
+  it("o teto só deixa o que uma tarefa do ECS faz: puxar imagem, escrever log e ler os parâmetros do projeto", () => {
+    const boundary = named("aws:iam/policy:Policy", "workload-boundary").inputs;
+    assert.equal(boundary.name, "dystopia-workload-boundary");
+    const statements = JSON.parse(boundary.policy).Statement;
+    const actions = statements.flatMap((statement: any) => [statement.Action].flat()).sort();
+    assert.deepEqual(actions, [
+      "ecr:BatchCheckLayerAvailability",
+      "ecr:BatchGetImage",
+      "ecr:GetAuthorizationToken",
+      "ecr:GetDownloadUrlForLayer",
+      "logs:CreateLogStream",
+      "logs:PutLogEvents",
+      "ssm:GetParameters",
+    ]);
+    const bySid = (sid: string) => statements.find((statement: any) => statement.Sid === sid);
+    assert.equal(bySid("LerSegredos").Resource, "arn:aws:ssm:us-east-1:123456789012:parameter/dystopia/*");
+    assert.equal(bySid("PuxarImagem").Resource, "arn:aws:ecr:us-east-1:123456789012:repository/dystopia-*");
   });
 
   it("alerta de gasto sobre o custo bruto (no plano Free o líquido é sempre zero)", () => {

@@ -183,6 +183,8 @@ endereço `https://….cloudfront.net` aparece no resumo do job.
 | Migração dentro do `pulumi up` (`command.local.Command`) | Código novo nunca sobe antes do schema dele | Migração num passo separado do workflow, que fica fácil de esquecer ou de rodar fora de ordem |
 | OIDC GitHub → AWS | Nenhuma chave da AWS guardada no GitHub. A role só aceita a `main` deste repositório, por igualdade exata e pelos **ids imutáveis** do dono e do repo (formato do GitHub para repositórios criados depois de 15/07/2026): renomear ou recriar um repo com o mesmo nome não herda o acesso. | Access key em secret do GitHub. Condição com curinga (`StringLike`). |
 | Role de deploy com o mínimo | Só os serviços do ambiente; IAM, ECR e Parameter Store presos aos recursos `dystopia-*`. O deploy não sobe EC2, não cria banco nem usuário. | `PowerUserAccess` (era o rascunho; amplo demais) |
+| Teto de permissão (permissions boundary) nas roles que o deploy cria | O deploy precisa criar role para as tarefas. Sem teto, criar role e escrever política nela é poder se dar qualquer permissão (inclusive anexar `AdministratorAccess` na própria role de deploy, que também se chama `dystopia-*`). Com o teto `dystopia-workload-boundary`, a role mais forte que ele consegue montar só puxa imagem, escreve log e lê `/dystopia/*`. A role de deploy não mexe em si mesma nem no teto. | Lista fixa de roles que o deploy pode tocar: quebra a cada role nova e não impede escrever política ampla nelas |
+| Actions de terceiros presas pelo hash do commit | Elas rodam com a credencial da AWS; uma tag (`v6`) pode ser movida para outro código, o hash não | Tag de versão: atualiza sozinha, mas confia em quem controla a tag |
 | Segredos gerados na base | Sobrevivem ao "derrubar", como o banco. Se fossem gerados a cada "subir", o banco deixaria de abrir. | Gerar no ambiente |
 
 ## Revisão de segurança
@@ -197,7 +199,11 @@ O desenho foi conferido contra a documentação da AWS e do GitHub:
   [formato com ids imutáveis](https://github.blog/changelog/2026-04-23-immutable-subject-claims-for-github-actions-oidc-tokens/).
   Esse formato é o que este repositório usa: com o antigo, a AWS recusaria o deploy.
 - **Menor privilégio:**
-  - role de deploy só com os serviços do ambiente;
+  - role de deploy só com os serviços do ambiente, sem poder mexer em si
+    mesma;
+  - teto de permissão em toda role que o deploy cria (o padrão da AWS para
+    [delegar IAM](https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_boundaries.html)):
+    quem tomar o workflow não vira administrador da conta;
   - role de execução das tarefas lê só os parâmetros dela;
   - role da tarefa sem permissão nenhuma, porque o app não chama a AWS;
   - containers sem root (`USER node`);
@@ -220,7 +226,9 @@ AWS, e os testes conferem o que seria criado:
 - pagamentos sem o banco da loja;
 - sem NAT gateway, workers em Spot, tudo em ARM;
 - role de deploy só para a `main` deste repo, pelos ids imutáveis, e sem
-  política ampla.
+  política ampla;
+- criar role ou dar permissão a ela só com o teto; a role de deploy não mexe
+  em si mesma, e toda role do ambiente nasce com o teto.
 
 Roda na CI de todo PR (`cd infra && npm test`).
 

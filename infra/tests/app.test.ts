@@ -34,7 +34,12 @@ pulumi.runtime.setMocks(
         return {
           id: args.name,
           state: {
-            outputs: { appDbPassword: "senha-do-app", mfaEncryptionKey: "chave-mfa", seedAdminPassword: "senha-admin" },
+            outputs: {
+              appDbPassword: "senha-do-app",
+              mfaEncryptionKey: "chave-mfa",
+              seedAdminPassword: "senha-admin",
+              workloadBoundaryArn: "arn:aws:iam::123456789012:policy/dystopia-workload-boundary",
+            },
           },
         };
       }
@@ -165,6 +170,14 @@ describe("ambiente AWS: segurança", () => {
   it("o web lê o IP do cliente do CloudFront e usa filas próprias no CloudAMQP compartilhado", () => {
     assert.equal(envOf("web").TRUST_PROXY_HEADERS, "cloudfront");
     for (const task of ["web", "worker", "payments"]) assert.equal(envOf(task).RABBITMQ_PREFIX, "dystopia_aws", task);
+  });
+
+  it("toda role do ambiente nasce com o teto de permissão da base", () => {
+    const roles = ofType("aws:iam/role:Role");
+    assert.deepEqual(roles.map((role) => role.name).sort(), ["execution", "task"]);
+    for (const role of roles) {
+      assert.equal(role.inputs.permissionsBoundary, "arn:aws:iam::123456789012:policy/dystopia-workload-boundary", role.name);
+    }
   });
 
   it("o CloudFront força HTTPS para quem acessa", () => {
