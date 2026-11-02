@@ -18,8 +18,15 @@ export const SITE_URL = (
 export const CONTACT_EMAIL = "contato.dystopia23@gmail.com";
 
 /**
+ * Conta demo do seed. E-mail e senha estão publicados em /sobre para quem
+ * visita testar uma compra — por isso o limite de login por conta não vale
+ * para ela (ver `application/login.ts`).
+ */
+export const DEMO_ACCOUNT_EMAIL = "cliente@dystopia.dev";
+
+/**
  * Quantos testes a suíte tem — aparece no projeto DYSTOPIA do portfólio. Escrito à mão, mas
  * `tests/unit/test-count.test.ts` conta os casos de verdade e falha se este
  * número ficar desatualizado.
  */
-export const TEST_COUNT = 546;
+export const TEST_COUNT = 564;

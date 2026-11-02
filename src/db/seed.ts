@@ -25,6 +25,7 @@ import {
 } from "./schema";
 import { sql } from "drizzle-orm";
 import { PRODUCT_PHOTOS } from "@/lib/photo-credits";
+import { DEMO_ACCOUNT_EMAIL } from "@/lib/site";
 import { recalculateProductRating } from "@/services/reviews";
 import { SEED_CATEGORIES, SEED_PRODUCTS } from "./seed-catalog";
 
@@ -171,7 +172,7 @@ async function main() {
   const [customer] = await db
     .insert(users)
     .values({
-      email: "cliente@dystopia.dev",
+      email: DEMO_ACCOUNT_EMAIL,
       passwordHash: customerPasswordHash,
       name: "Cidadão Registrado",
       role: "customer",
@@ -223,7 +224,7 @@ async function main() {
   // Em banco remoto a senha de admin não vai para o log (log de CI/terminal vaza).
   const adminShown = credentials.remote ? "(SEED_ADMIN_PASSWORD)" : credentials.adminPassword;
   console.log(`   Login admin: admin@dystopia.dev / ${adminShown}`);
-  console.log(`   Login cliente: cliente@dystopia.dev / ${credentials.customerPassword}`);
+  console.log(`   Login cliente: ${DEMO_ACCOUNT_EMAIL} / ${credentials.customerPassword}`);
 }
 
 main()

@@ -26,6 +26,7 @@ import {
 /** Ordem importa menos aqui porque é CASCADE, mas manter explícito documenta o grafo. */
 const TABLES = [
   "rate_limits",
+  "known_devices",
   "sessions",
   "mfa_recovery_codes",
   "mfa_credentials",

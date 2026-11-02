@@ -18,12 +18,12 @@ export const metadata: Metadata = {
  * bater com o código: se mudar o que o site coleta, guarda ou com quem
  * compartilha, esta página muda junto. Data da última revisão em UPDATED_AT.
  */
-const UPDATED_AT = "29 de outubro de 2026";
+const UPDATED_AT = "2 de novembro de 2026";
 
 const DATA = [
   {
     what: "Conta",
-    data: "Nome, e-mail e senha. A senha é guardada só como hash bcrypt: nem a loja consegue lê-la. Cada login aberto vira um registro com a data de entrada e a validade (sem IP e sem identificar o aparelho).",
+    data: "Nome, e-mail e senha. A senha é guardada só como hash bcrypt: nem a loja consegue lê-la. Cada login aberto vira um registro com a data de entrada e a validade (sem IP e sem identificar o aparelho). O navegador onde você entrou ganha um registro só com as datas de criação e de último uso, para o limite de tentativas não bloquear você nele.",
     why: "Criar a conta, entrar e mostrar seus pedidos.",
     basis: "Execução de contrato (art. 7º, V)",
   },
@@ -58,8 +58,8 @@ const DATA = [
     basis: "Atender ao que você pede (art. 7º, V)",
   },
   {
-    what: "Endereço IP",
-    data: "Usado como chave do limite de tentativas (login, cadastro, orçamento, chat, carrinho, cupom).",
+    what: "Endereço IP e e-mail digitado no login",
+    data: "O IP é a chave do limite de tentativas (login, cadastro, orçamento, chat, carrinho, cupom). No login, o e-mail digitado também conta tentativas, guardado só como hash (não dá para ler o e-mail de volta).",
     why: "Segurança: barrar força bruta e abuso. Apagado em até 48 horas.",
     basis: "Legítimo interesse em proteger o site e as contas (art. 7º, IX)",
   },
@@ -151,6 +151,11 @@ export default function PrivacyPage() {
             aleatório, inacessível a scripts da página; ao sair, o código deixa de valer na hora, em qualquer lugar.
           </li>
           <li>
+            <span className="text-foreground">known_device</span>: lembra que você já entrou neste navegador, por até
+            180 dias sem uso. Não mantém ninguém logado: serve para que, se alguém tentar adivinhar sua senha de outro
+            lugar, o bloqueio por excesso de tentativas não atinja você aqui.
+          </li>
+          <li>
             <span className="text-foreground">cart_session</span>: guarda o carrinho de quem ainda não entrou, por até 30
             dias.
           </li>
@@ -197,7 +202,8 @@ export default function PrivacyPage() {
             existe mais em lugar nenhum.
           </li>
           <li>Pedido de orçamento sem conta: até o atendimento terminar ou até você pedir a exclusão.</li>
-          <li>Endereço IP do limite de tentativas: até 48 horas.</li>
+          <li>Endereço IP e hash do e-mail no limite de tentativas: até 48 horas.</li>
+          <li>Registro do navegador onde você entrou: até 180 dias sem uso, ou até você excluir a conta.</li>
           <li>Registro de login: até você sair ou ele vencer (7 dias); os vencidos são apagados.</li>
           <li>Registros técnicos de acesso da hospedagem: pelo prazo da política da Vercel.</li>
         </ul>

@@ -6,12 +6,14 @@ import { db } from "@/db";
 import { completeMfaSession, endSession, startSession } from "@/lib/session";
 import { CART_COOKIE } from "@/lib/data/cart";
 import { getPendingMfaUser } from "@/lib/data/auth";
+import { attemptLogin } from "@/application/login";
 import { limitAction, retryMessage } from "@/lib/action-limits";
+import { readKnownDeviceToken, rememberThisDevice } from "@/lib/known-device";
 import { limitFromEnv } from "@/lib/rate-limit-config";
 import { getRequestIp } from "@/lib/request-ip";
 import { parseLoginForm, parseSignupForm } from "@/lib/validation/account";
 import { PermanentError } from "@/shared/errors";
-import { registerAccount, verifyCredentials, type Account } from "@/services/accounts";
+import { registerAccount, type Account } from "@/services/accounts";
 import { claimGuestCart } from "@/services/carts";
 import { hasConfirmedMfa, verifySecondFactor } from "@/services/mfa";
 import { consumeRateLimit, type RateLimitRule } from "@/services/rate-limit";
@@ -22,11 +24,9 @@ export type AuthState = {
   values?: { name?: string; email?: string };
 } | undefined;
 
-// Por IP, não por e-mail: limite por e-mail deixaria qualquer um trancar a
-// conta demo (cujo e-mail é público) errando a senha de propósito. O número
-// muda por variável só para a stack de teste (vários cadastros do mesmo IP); o
-// padrão é o de produção.
-const LOGIN_RULE: RateLimitRule = { limit: limitFromEnv("LOGIN_LIMIT_PER_15MIN", 10), windowSeconds: 15 * 60 };
+// Cadastro: por IP. O número muda por variável só para a stack de teste
+// (vários cadastros do mesmo IP); o padrão é o de produção. O limite do login
+// (por IP e por conta) mora no caso de uso, `application/login.ts`.
 const SIGNUP_RULE: RateLimitRule = { limit: limitFromEnv("SIGNUP_LIMIT_PER_HOUR", 5), windowSeconds: 60 * 60 };
 
 async function rateLimited(action: string, rule: RateLimitRule): Promise<string | null> {
@@ -43,6 +43,7 @@ async function signIn(account: Account): Promise<never> {
   const mfa = await hasConfirmedMfa(db, account.id);
   await startSession({ userId: account.id, mfaPending: mfa });
   if (mfa) redirect("/entrar/verificacao");
+  await rememberThisDevice(account.id);
   await claimCart(account.id);
   redirect(account.role === "admin" ? "/conta/seguranca" : "/conta");
 }
@@ -81,12 +82,21 @@ export async function login(_prev: AuthState, formData: FormData): Promise<AuthS
   if (!parsed.ok) return { message: "E-mail ou senha inválidos.", values: echo };
   const { email, password } = parsed.values;
 
-  const limited = await rateLimited("login", LOGIN_RULE);
-  if (limited) return { message: limited, values: echo };
-
-  const account = await verifyCredentials(db, { email, password });
-  if (!account) return { message: "E-mail ou senha inválidos.", values: echo };
-  return signIn(account);
+  const result = await attemptLogin({
+    email,
+    password,
+    ip: await getRequestIp(),
+    deviceToken: await readKnownDeviceToken(),
+  });
+  if (result.status === "limited") {
+    const message =
+      result.scope === "account"
+        ? `${retryMessage(result.retryAfterSeconds)} No aparelho onde você já costuma entrar, o login segue liberado.`
+        : retryMessage(result.retryAfterSeconds);
+    return { message, values: echo };
+  }
+  if (result.status === "invalid") return { message: "E-mail ou senha inválidos.", values: echo };
+  return signIn(result.account);
 }
 
 export type MfaLoginState = { message?: string } | undefined;
@@ -105,6 +115,7 @@ export async function verifyLoginCode(_prev: MfaLoginState, formData: FormData):
   if (!result) return { message: "Código inválido ou já usado." };
   if (!(await completeMfaSession())) redirect("/entrar");
 
+  await rememberThisDevice(pending.id);
   await claimCart(pending.id);
   redirect(result.method === "recovery" ? "/conta/seguranca?recuperacao=1" : "/admin");
 }

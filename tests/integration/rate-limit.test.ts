@@ -8,8 +8,8 @@ import { after, beforeEach, describe, it } from "node:test";
 import { eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { rateLimits } from "@/db/schema";
-import { ACTION_LIMITS, limitAction } from "@/lib/action-limits";
-import { consumeRateLimit, pruneRateLimits } from "@/services/rate-limit";
+import { ACTION_LIMITS, limitAction, retryMessage } from "@/lib/action-limits";
+import { consumeRateLimit, pruneRateLimits, refundRateLimits } from "@/services/rate-limit";
 import { closeDatabase, resetDatabase } from "../helpers/db";
 
 const RULE = { limit: 3, windowSeconds: 60 };
@@ -63,6 +63,23 @@ describe("limite de tentativas", () => {
     assert.equal(results.filter((r) => r.allowed).length, RULE.limit);
     const [row] = await db.select().from(rateLimits).where(eq(rateLimits.key, "login:ip:9.9.9.9"));
     assert.equal(row.hits, 10);
+  });
+
+  it("devolver a vaga desconta uma tentativa, sem passar de zero", async () => {
+    for (let i = 0; i < 3; i++) await consumeRateLimit(db, "a", RULE);
+    await refundRateLimits(db, ["a", "nao-existe"]);
+    assert.equal((await db.select().from(rateLimits).where(eq(rateLimits.key, "a")))[0].hits, 2);
+
+    await consumeRateLimit(db, "b", RULE);
+    await refundRateLimits(db, ["b"]);
+    await refundRateLimits(db, ["b"]);
+    assert.equal((await db.select().from(rateLimits).where(eq(rateLimits.key, "b")))[0].hits, 0);
+  });
+
+  it("mensagem de espera: minutos na janela curta, horas na de um dia", () => {
+    assert.equal(retryMessage(60), "Muitas tentativas. Tente de novo em 1 minuto.");
+    assert.equal(retryMessage(14 * 60 + 1), "Muitas tentativas. Tente de novo em 15 minutos.");
+    assert.equal(retryMessage(23 * 60 * 60 + 5), "Muitas tentativas. Tente de novo em 24 horas.");
   });
 
   it("a faxina apaga só janelas velhas", async () => {

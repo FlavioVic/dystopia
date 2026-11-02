@@ -103,6 +103,20 @@ export const sessions = pgTable("sessions", {
   index("sessions_expires_at_idx").on(table.expiresAt),
 ]);
 
+// Navegador onde a pessoa já entrou (cookie `known_device`). Não autentica
+// nada: só escolhe qual contador do limite de login vale (ver services/known-devices).
+export const knownDevices = pgTable("known_devices", {
+  id: text("id").primaryKey(), // SHA-256 (hex) do token do cookie
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  lastUsedAt: timestamp("last_used_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  index("known_devices_user_id_idx").on(table.userId),
+  index("known_devices_last_used_at_idx").on(table.lastUsedAt),
+]);
+
 // Segundo fator (TOTP, RFC 6238). Obrigatório para admin.
 export const mfaCredentials = pgTable("mfa_credentials", {
   userId: uuid("user_id")
