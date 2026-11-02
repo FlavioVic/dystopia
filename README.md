@@ -196,6 +196,7 @@ O que protege a loja exposta na internet, e onde cada coisa mora:
 |---|---|
 | Força bruta de senha | Dois limites no login (`application/login.ts`), contados no Postgres com UPSERT atômico (`services/rate-limit`) — em serverless um contador em memória seria dividido entre instâncias. **Por IP** (10 / 15 min; cadastro 5 / h): o IP só vem de header escrito pela borda da Vercel ou pelo proxy (`TRUST_PROXY_HEADERS`), então o cliente não forja um contador novo. **Por conta** (10 falhas / 15 min e 50 / dia), contra o ataque distribuído em que cada IP tenta poucas vezes: no navegador onde o dono já entrou (cookie `known_device`, padrão "device cookies" da OWASP), as falhas contam à parte, e o ataque não tranca o dono |
 | Descobrir quais e-mails têm conta | Login responde a mesma mensagem e no mesmo tempo: e-mail inexistente compara contra um hash bcrypt real |
+| Senha esquecida (e o link como alvo) | "Esqueci minha senha" no desenho da OWASP (`application/password-reset.ts`): a tela responde igual exista a conta ou não, e o trabalho acontece depois da resposta (nem o tempo entrega); o link vale 30 min e uma vez só (`DELETE ... RETURNING`), o banco guarda só o hash, e o e-mail sai sem ser gravado na tabela de notificações (o link é credencial). Trocar a senha derruba todos os logins abertos. Limite por IP e por e-mail |
 | CSRF | Server Actions só aceitam POST e o Next compara `Origin` com `Host`; cookie `SameSite=lax` |
 | Sessão roubada ou esquecida aberta | Sessão é linha no banco (`services/sessions`): o cookie `httpOnly`/`secure` leva 32 bytes aleatórios e o banco guarda só o SHA-256 deles. Sair apaga a linha — o cookie copiado morre na hora; "sair dos outros aparelhos" em `/conta/seguranca`. Validade de 7 dias, sem renovação |
 | Senha do admin vazada | **MFA obrigatório no painel** (`services/mfa`): TOTP (RFC 6238, testado com os vetores do RFC), segredo cifrado no banco (AES-256-GCM, ligado ao id da conta), código que não vale duas vezes nem em dois logins simultâneos (UPDATE condicional), 10 códigos de recuperação de uso único, limite de 5 tentativas / 15 min e 20 / dia por conta |
@@ -208,8 +209,9 @@ O que protege a loja exposta na internet, e onde cada coisa mora:
 Limite por conta tem um risco conhecido: quem sabe o e-mail de alguém erra a
 senha de propósito e tranca a conta. Por isso o bloqueio vale só para
 aparelhos desconhecidos — no navegador onde o dono já entrou, o login segue
-liberado. E-mail sem conta é contado igual, para a resposta não revelar quais
-existem. A conta demo fica fora do limite por conta: a senha dela está
+liberado (e quem redefine a senha pelo link de e-mail passa a ter o
+navegador conhecido). E-mail sem conta é contado igual, para a resposta não
+revelar quais existem. A conta demo fica fora do limite por conta: a senha dela está
 publicada em `/sobre`. O cadastro ainda diz "já existe uma conta com esse
 e-mail" — é a troca usual por uma mensagem útil, e o limite de 5 por hora
 torna a varredura impraticável.

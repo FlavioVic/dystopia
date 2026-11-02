@@ -25,6 +25,7 @@ conta sozinho. Os detalhes de funcionamento estão em
 | 16 | [O cliente lê eventos do pedido, não a saga](#16-o-cliente-lê-eventos-do-pedido-não-a-saga) | Saga é detalhe de operação; o pedido conta a própria história |
 | 17 | [Segundo ambiente na AWS, em Pulumi](#17-segundo-ambiente-na-aws-em-pulumi) | Containers descritos em código, sobem e descem pelo Actions |
 | 18 | [Limite de login por conta, com aparelho conhecido](#18-limite-de-login-por-conta-com-aparelho-conhecido) | O ataque distribuído esbarra; o dono não fica trancado |
+| 19 | [Recuperação de senha sem guardar o link](#19-recuperação-de-senha-sem-guardar-o-link) | O link é credencial: hash no banco e e-mail fora da outbox |
 
 ---
 
@@ -458,8 +459,47 @@ Detalhes que fecham os buracos:
   (decisão 9).
 
 **Preço.** Quem entra de um aparelho novo durante um ataque à própria conta
-espera a janela vencer (ou entra pelo aparelho de sempre). Não há
-"esqueci a senha" ainda, que seria a outra saída.
+espera a janela vencer, entra pelo aparelho de sempre ou redefine a senha
+pelo e-mail (decisão 19), o que torna aquele navegador conhecido.
+
+## 19. Recuperação de senha sem guardar o link
+
+**Problema.** Sem "esqueci minha senha", quem esquecia perdia a conta. Mas o
+link de redefinição é uma credencial: quem o tiver troca a senha. O caminho
+normal de e-mail do projeto (decisão 3) grava o corpo da mensagem na tabela
+`notifications` antes de enviar — com o link dentro, quem lesse o banco ou
+o painel tomaria a conta.
+
+**Decisão.** O desenho da OWASP (Forgot Password Cheat Sheet), em
+`application/password-reset.ts`:
+
+- a tela responde a mesma coisa exista a conta ou não, e procurar a conta e
+  mandar o e-mail acontece depois da resposta (`after()`), então nem o tempo
+  de resposta revela quais e-mails existem;
+- o link leva 32 bytes aleatórios e o banco guarda só o SHA-256; vale 30
+  minutos e uma vez só (gastar é `DELETE ... RETURNING`: dois envios
+  simultâneos não trocam a senha duas vezes); pedir de novo invalida o
+  anterior;
+- **este e-mail não passa pela outbox**: sai direto pelo provedor
+  (`notifications/direct.ts`), sem ser gravado;
+- trocar a senha derruba todos os logins abertos e torna o navegador
+  conhecido (decisão 18). Não entra sozinho: a pessoa faz login, com o código
+  do autenticador se tiver;
+- limite por IP e por e-mail (ninguém lota a caixa de alguém), e a página do
+  link manda `Referrer-Policy: no-referrer`;
+- a conta demo não troca de senha: ela está publicada.
+
+**Alternativas.**
+- *Pela outbox, como os outros e-mails*: ganharia retry, mas gravaria o
+  link. Sem retry, se o provedor falhar, a pessoa pede outro.
+- *Código de 6 dígitos em vez de link*: mais fácil de digitar no celular, mas
+  é adivinhável e exigiria outro limite de tentativas.
+- *Entrar sozinho depois de trocar*: pularia o segundo fator do admin.
+
+**Preço.** Sem domínio próprio, o Resend fica no modo sandbox e todo e-mail
+vai para a caixa da loja: em produção o link chega lá, não ao cliente. Serve
+para demonstrar; para valer, é registrar um domínio e ligar
+`EMAIL_DELIVER_TO_RECIPIENTS=1`.
 
 ## Perguntas prováveis
 
