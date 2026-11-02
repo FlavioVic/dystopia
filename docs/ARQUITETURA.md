@@ -33,13 +33,14 @@ lib/assistant/*           borda conversacional: o chatbot chama dado e serviço
 composition/web.ts        raiz da borda web: liga os casos de uso ao que só o
                           Next tem (o `after()` do worker embutido)
 application/*             casos de uso: o que cruza mais de um serviço ou abre
-                          transação (checkout, orçamento, LGPD, ligar o MFA)
+                          transação (checkout, orçamento, LGPD, ligar o MFA,
+                          login com limite por IP e por conta)
 saga/                     orquestração: ordem dos passos, retry, compensação
 services/*                regra de negócio, uma responsabilidade cada
                           (inventory, payments, orders, coupons, carts,
-                           accounts, sessions, mfa, notifications, catalog,
-                           reviews, wishlist, addresses, rate-limit,
-                           service-requests)
+                           accounts, sessions, known-devices, mfa,
+                           notifications, catalog, reviews, wishlist,
+                           addresses, rate-limit, service-requests)
 queue/                    fila genérica: outbox + relay, RabbitMQ, política
                           de retry (filas de espera com TTL), DLQ
 shared/errors.ts          taxonomia de erro (PermanentError x RetryableError),
@@ -206,7 +207,8 @@ dead-letter-exchange de volta para a de trabalho) e a DLQ `<p>.<fila>.dlq`. `<p>
     pessoa é sai de `getCurrentUser()` (sessão + usuário + MFA numa query,
     relida a cada request). Nunca guarde papel ou permissão no cookie. Sessão
     `mfaPending` (senha certa, código não) não é login para nada além de
-    `/entrar/verificacao`.
+    `/entrar/verificacao`. O cookie `known_device` (aparelho onde a conta já
+    entrou) também não autentica: só escolhe o contador do limite de login.
 14. **Código de uso único sai com UPDATE condicional**, como o estoque: o
     passo TOTP aceito só avança (`last_used_step < passo`), código de
     recuperação só marca se `used_at is null`. "Lê, confere e grava" deixaria

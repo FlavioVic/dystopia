@@ -23,6 +23,8 @@ conta sozinho. Os detalhes de funcionamento estão em
 | 14 | [Busca com full-text do Postgres](#14-busca-com-o-full-text-do-postgres) | Sem serviço de busca à parte |
 | 15 | [Testes contra infraestrutura real](#15-testes-contra-infraestrutura-real) | Postgres, RabbitMQ e Stripe de verdade, não mocks |
 | 16 | [O cliente lê eventos do pedido, não a saga](#16-o-cliente-lê-eventos-do-pedido-não-a-saga) | Saga é detalhe de operação; o pedido conta a própria história |
+| 17 | [Segundo ambiente na AWS, em Pulumi](#17-segundo-ambiente-na-aws-em-pulumi) | Containers descritos em código, sobem e descem pelo Actions |
+| 18 | [Limite de login por conta, com aparelho conhecido](#18-limite-de-login-por-conta-com-aparelho-conhecido) | O ataque distribuído esbarra; o dono não fica trancado |
 
 ---
 
@@ -336,8 +338,9 @@ em memória seria dividido entre instâncias, e o limite não valeria.
 
 **Decisão.** Contador no Postgres com `UPSERT` atômico
 (`services/rate-limit`): login (10 / 15 min por IP), cadastro (5 / h por IP),
-MFA (por conta), checkout, cupom, carrinho. O IP só vem de header escrito pela
-borda da Vercel ou pelo proxy próprio — o cliente não forja um contador novo.
+MFA (por conta), checkout, cupom, carrinho. O login também tem limite por
+conta (decisão 18). O IP só vem de header escrito pela borda da Vercel ou pelo
+proxy próprio — o cliente não forja um contador novo.
 
 **Alternativa.** Redis (Upstash): mais rápido, mas mais um serviço para um
 volume que o Postgres atende.
@@ -415,6 +418,48 @@ Detalhes, custo e passo a passo em [`AWS.md`](AWS.md).
 é subir para mostrar e derrubar depois. Fotos do painel ficam no disco da
 tarefa, e o trecho do CloudFront até o load balancer é HTTP até haver domínio
 próprio.
+
+## 18. Limite de login por conta, com aparelho conhecido
+
+**Problema.** O limite por IP (decisão 13) não segura um ataque distribuído:
+com muitos IPs, cada um tenta poucas vezes a mesma conta. Limitar por conta
+resolve, mas abre o problema oposto: quem sabe o e-mail de alguém erra a senha
+de propósito e tranca a conta do dono.
+
+**Decisão.** Os dois limites (`application/login.ts`), com o padrão "device
+cookies" da OWASP para o segundo:
+
+- por IP, como antes (10 / 15 min);
+- por conta, em aparelho desconhecido: 10 falhas / 15 min e 50 / dia. A janela
+  diária é a que faz um ataque distribuído levar anos;
+- no navegador onde o dono já entrou (cookie `known_device`, registro em
+  `services/known-devices`), as falhas contam num contador do aparelho. O
+  ataque tranca os aparelhos desconhecidos, não o do dono.
+
+Detalhes que fecham os buracos:
+- cada tentativa reserva a vaga antes de conferir a senha, e o login certo
+  devolve a dele. Assim só falha conta, e tentativas simultâneas não passam do
+  limite;
+- e-mail sem conta é contado igual, para a resposta não revelar quais existem;
+- a chave do contador leva o hash do e-mail, não o e-mail;
+- o cookie não autentica nada: só escolhe o contador. Ele tem o mesmo desenho
+  da sessão (32 bytes aleatórios no cookie, SHA-256 no banco), dura 180 dias
+  sem uso e some com a conta;
+- a conta demo fica fora do limite por conta: a senha dela está publicada, não
+  há o que proteger, e trancá-la só atrapalharia quem visita.
+
+**Alternativas.**
+- *CAPTCHA depois de N falhas*: segura robô sem trancar ninguém, mas é mais um
+  serviço externo (e script de terceiro na CSP) para uma loja de demonstração.
+- *Atraso crescente por conta*: em serverless, segurar a resposta custa tempo
+  de função, e o atacante escolhe quanto.
+- *Cookie assinado (HMAC) em vez de tabela*: dispensa a tabela, mas exige um
+  segredo novo e não dá para revogar. A tabela segue o mesmo caminho da sessão
+  (decisão 9).
+
+**Preço.** Quem entra de um aparelho novo durante um ataque à própria conta
+espera a janela vencer (ou entra pelo aparelho de sempre). Não há
+"esqueci a senha" ainda, que seria a outra saída.
 
 ## Perguntas prováveis
 

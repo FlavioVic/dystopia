@@ -194,7 +194,7 @@ O que protege a loja exposta na internet, e onde cada coisa mora:
 
 | Ameaça | Defesa |
 |---|---|
-| Força bruta de senha | Limite por IP no login (10 / 15 min) e no cadastro (5 / h), contado no Postgres com UPSERT atômico (`services/rate-limit`) — em serverless um contador em memória seria dividido entre instâncias. O IP só vem de header escrito pela borda da Vercel ou pelo proxy do compose (`TRUST_PROXY_HEADERS`): o cliente não forja um contador novo |
+| Força bruta de senha | Dois limites no login (`application/login.ts`), contados no Postgres com UPSERT atômico (`services/rate-limit`) — em serverless um contador em memória seria dividido entre instâncias. **Por IP** (10 / 15 min; cadastro 5 / h): o IP só vem de header escrito pela borda da Vercel ou pelo proxy (`TRUST_PROXY_HEADERS`), então o cliente não forja um contador novo. **Por conta** (10 falhas / 15 min e 50 / dia), contra o ataque distribuído em que cada IP tenta poucas vezes: no navegador onde o dono já entrou (cookie `known_device`, padrão "device cookies" da OWASP), as falhas contam à parte, e o ataque não tranca o dono |
 | Descobrir quais e-mails têm conta | Login responde a mesma mensagem e no mesmo tempo: e-mail inexistente compara contra um hash bcrypt real |
 | CSRF | Server Actions só aceitam POST e o Next compara `Origin` com `Host`; cookie `SameSite=lax` |
 | Sessão roubada ou esquecida aberta | Sessão é linha no banco (`services/sessions`): o cookie `httpOnly`/`secure` leva 32 bytes aleatórios e o banco guarda só o SHA-256 deles. Sair apaga a linha — o cookie copiado morre na hora; "sair dos outros aparelhos" em `/conta/seguranca`. Validade de 7 dias, sem renovação |
@@ -205,10 +205,14 @@ O que protege a loja exposta na internet, e onde cada coisa mora:
 | Clickjacking e afins | `frame-ancestors 'none'`, `X-Frame-Options`, `nosniff`, HSTS, `Referrer-Policy` (`next.config.ts`) |
 | Senha de demo em produção | O seed recusa banco remoto sem `SEED_ALLOW_REMOTE=1` e uma `SEED_ADMIN_PASSWORD` forte |
 
-O limite é por IP e não por e-mail de propósito: por e-mail, qualquer um
-trancaria a conta demo (cujo e-mail é público) errando a senha. O cadastro
-ainda diz "já existe uma conta com esse e-mail" — é a troca usual por uma
-mensagem útil, e o limite de 5 por hora torna a varredura impraticável.
+Limite por conta tem um risco conhecido: quem sabe o e-mail de alguém erra a
+senha de propósito e tranca a conta. Por isso o bloqueio vale só para
+aparelhos desconhecidos — no navegador onde o dono já entrou, o login segue
+liberado. E-mail sem conta é contado igual, para a resposta não revelar quais
+existem. A conta demo fica fora do limite por conta: a senha dela está
+publicada em `/sobre`. O cadastro ainda diz "já existe uma conta com esse
+e-mail" — é a troca usual por uma mensagem útil, e o limite de 5 por hora
+torna a varredura impraticável.
 
 ## Documentação
 
