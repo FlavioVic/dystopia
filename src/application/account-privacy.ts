@@ -17,6 +17,7 @@ import { eq, inArray, like, or } from "drizzle-orm";
 import { db, type Executor } from "@/db";
 import {
   addresses,
+  knownDevices,
   notifications,
   orders,
   rateLimits,
@@ -37,7 +38,7 @@ export async function exportAccountData(userId: string) {
   });
   if (!user) return null;
 
-  const [userAddresses, userOrders, userReviews, wishlist, requests, logins] = await Promise.all([
+  const [userAddresses, userOrders, userReviews, wishlist, requests, logins, devices] = await Promise.all([
     db.query.addresses.findMany({
       where: eq(addresses.userId, userId),
       columns: { id: false, userId: false },
@@ -81,6 +82,11 @@ export async function exportAccountData(userId: string) {
       where: eq(sessions.userId, userId),
       columns: { createdAt: true, expiresAt: true },
     }),
+    // Navegadores onde a conta entrou (limite de login): só as datas, pelo mesmo motivo.
+    db.query.knownDevices.findMany({
+      where: eq(knownDevices.userId, userId),
+      columns: { createdAt: true, lastUsedAt: true },
+    }),
   ]);
 
   return {
@@ -92,6 +98,7 @@ export async function exportAccountData(userId: string) {
     favoritos: wishlist,
     orcamentos: requests,
     sessoes: logins,
+    aparelhosConhecidos: devices,
   };
 }
 

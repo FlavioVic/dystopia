@@ -9,7 +9,7 @@
  * do banco (`now()`), não o de cada instância.
  */
 
-import { lt, sql } from "drizzle-orm";
+import { inArray, lt, sql } from "drizzle-orm";
 import type { Executor } from "@/db";
 import { rateLimits } from "@/db/schema";
 
@@ -47,6 +47,20 @@ export async function consumeRateLimit(
   const row = result.rows[0];
   const allowed = row.hits <= rule.limit;
   return { allowed, retryAfterSeconds: allowed ? 0 : Math.max(1, row.retry_after) };
+}
+
+/**
+ * Devolve a vaga de uma tentativa que não deve contar (ex.: login certo,
+ * quando o limite é de falhas). Contar antes e devolver depois — em vez de
+ * contar só depois da falha — mantém o limite firme com tentativas
+ * simultâneas: cada uma reserva a própria vaga no UPSERT.
+ */
+export async function refundRateLimits(executor: Executor, keys: string[]): Promise<void> {
+  if (keys.length === 0) return;
+  await executor
+    .update(rateLimits)
+    .set({ hits: sql`greatest(${rateLimits.hits} - 1, 0)` })
+    .where(inArray(rateLimits.key, keys));
 }
 
 /** Apaga janelas que venceram há mais de `olderThanSeconds` (faxina periódica). */

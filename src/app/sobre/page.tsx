@@ -8,7 +8,7 @@ import { PROFILE } from "@/lib/portfolio";
 import { canonical } from "@/lib/seo";
 import { PROCESS, SERVICES } from "@/lib/services-catalog";
 import { FLAT_SHIPPING_CENTS, FREE_SHIPPING_MIN_CENTS } from "@/lib/shipping";
-import { CONTACT_EMAIL } from "@/lib/site";
+import { CONTACT_EMAIL, DEMO_ACCOUNT_EMAIL } from "@/lib/site";
 import { getStripePublishableKey } from "@/lib/stripe-public";
 
 export const metadata: Metadata = {
@@ -169,7 +169,7 @@ export default async function AboutPage() {
                 Entre
               </Link>{" "}
               com a conta demo{" "}
-              <code className="bg-background-elevated px-1.5 py-0.5 font-mono text-xs text-foreground">cliente@dystopia.dev</code> /{" "}
+              <code className="bg-background-elevated px-1.5 py-0.5 font-mono text-xs text-foreground">{DEMO_ACCOUNT_EMAIL}</code> /{" "}
               <code className="bg-background-elevated px-1.5 py-0.5 font-mono text-xs text-foreground">cliente123</code> (ou crie a sua).
             </li>
             <li>

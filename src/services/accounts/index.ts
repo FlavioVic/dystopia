@@ -40,6 +40,12 @@ export async function registerAccount(
   return created;
 }
 
+/** Id da conta do e-mail, ou `null`. Não serve para responder a quem tenta entrar. */
+export async function findAccountIdByEmail(executor: Executor, email: string): Promise<string | null> {
+  const user = await executor.query.users.findFirst({ where: eq(users.email, email), columns: { id: true } });
+  return user?.id ?? null;
+}
+
 /** Conta dona do e-mail e da senha, ou `null` — sem dizer qual dos dois errou. */
 export async function verifyCredentials(
   executor: Executor,

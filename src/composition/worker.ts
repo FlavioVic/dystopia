@@ -18,6 +18,7 @@ import { NOTIFICATIONS_QUEUE } from "@/services/notifications";
 import { paymentHandlers } from "@/services/payments/consumer";
 import { paymentsDb } from "@/services/payments/db";
 import { PAYMENTS_QUEUE } from "@/services/payments/contract";
+import { pruneStaleDevices } from "@/services/known-devices";
 import { pruneRateLimits } from "@/services/rate-limit";
 import { pruneExpiredSessions } from "@/services/sessions";
 
@@ -51,6 +52,7 @@ export async function housekeeping(): Promise<void> {
   const jobs: Array<[string, () => Promise<number>]> = [
     ["rateLimits", () => pruneRateLimits(db, 24 * 60 * 60)],
     ["sessions", () => pruneExpiredSessions(db)],
+    ["knownDevices", () => pruneStaleDevices(db)],
     ...ALL_OUTBOXES.map(({ name, database }): [string, () => Promise<number>] => [
       `outbox:${name}`,
       () => pruneOutbox(database, OUTBOX_RETENTION_MS),

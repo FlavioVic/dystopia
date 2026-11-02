@@ -31,6 +31,11 @@ export type LimitedAction = keyof typeof ACTION_LIMITS;
 
 export function retryMessage(retryAfterSeconds: number): string {
   const minutes = Math.ceil(retryAfterSeconds / 60);
+  // Janela de um dia (código do autenticador, login por conta): "1380 minutos" não se lê.
+  if (minutes > 90) {
+    const hours = Math.ceil(minutes / 60);
+    return `Muitas tentativas. Tente de novo em ${hours} horas.`;
+  }
   return `Muitas tentativas. Tente de novo em ${minutes} ${minutes === 1 ? "minuto" : "minutos"}.`;
 }
 
