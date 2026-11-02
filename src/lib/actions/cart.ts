@@ -6,6 +6,7 @@ import { db } from "@/db";
 import { limitAction } from "@/lib/action-limits";
 import { CART_COOKIE } from "@/lib/data/cart";
 import { getRequestIp } from "@/lib/request-ip";
+import { isQuantity, isUuid } from "@/lib/validation/action-input";
 import { PermanentError } from "@/shared/errors";
 import * as cartsService from "@/services/carts";
 
@@ -40,6 +41,11 @@ export async function addToCart(input: {
   variantId?: string | null;
   quantity?: number;
 }): Promise<CartActionResult> {
+  if (!isUuid(input?.productId) || (input.variantId != null && !isUuid(input.variantId))) {
+    return { ok: false, error: "Produto indisponível." };
+  }
+  if (input.quantity != null && !isQuantity(input.quantity)) return { ok: false, error: "Quantidade inválida." };
+
   // Por IP: sem cookie, cada chamada criaria um carrinho novo no banco.
   const limited = await limitAction("cart", `ip:${await getRequestIp()}`);
   if (limited) return { ok: false, error: limited };
@@ -61,6 +67,8 @@ export async function addToCart(input: {
 }
 
 export async function updateCartItemQuantity(itemId: string, quantity: number): Promise<CartActionResult> {
+  if (!isQuantity(quantity)) return { ok: false, error: "Quantidade inválida." };
+  if (!isUuid(itemId)) return { ok: false, error: "Item não encontrado." };
   const cartId = await currentCartId();
   if (!cartId || !(await cartsService.setItemQuantity(db, { cartId, itemId, quantity }))) {
     return { ok: false, error: "Item não encontrado." };
@@ -70,6 +78,7 @@ export async function updateCartItemQuantity(itemId: string, quantity: number): 
 }
 
 export async function removeCartItem(itemId: string): Promise<CartActionResult> {
+  if (!isUuid(itemId)) return { ok: false, error: "Item não encontrado." };
   const cartId = await currentCartId();
   if (!cartId || !(await cartsService.removeItem(db, { cartId, itemId }))) {
     return { ok: false, error: "Item não encontrado." };

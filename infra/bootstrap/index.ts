@@ -9,6 +9,7 @@ import * as random from "@pulumi/random";
  *
  * - acesso do GitHub Actions por OIDC: o workflow assume uma role com um
  *   token de curta duração; nenhuma chave da AWS fica guardada no GitHub;
+ * - o teto de permissão das roles que esse deploy cria;
  * - registros de imagem (ECR) — as imagens sobrevivem ao "derrubar";
  * - segredos gerados (senha do papel do app no banco, chave do MFA, senha do
  *   admin do seed): se morassem no ambiente, cada "subir" geraria outros e o
@@ -67,6 +68,40 @@ const account = aws.getCallerIdentityOutput().accountId;
 const region = aws.config.requireRegion();
 const arn = (service: string, resource: pulumi.Input<string>, scope: string = region) =>
   pulumi.interpolate`arn:aws:${service}:${scope}:${account}:${resource}`;
+
+/**
+ * Teto (permissions boundary) de toda role que o deploy cria. O deploy
+ * precisa criar role (a de execução e a da tarefa do ECS) e dar permissão a
+ * ela, mas sem teto isso é dar QUALQUER permissão: criar `dystopia-x` com
+ * AdministratorAccess e subir uma tarefa com ela — ou anexar a política na
+ * própria role de deploy. Com o teto, a role mais forte que o deploy
+ * consegue montar só faz o que uma tarefa do app faz: puxar a imagem, ler os
+ * parâmetros /dystopia/* e escrever log. Padrão da AWS para delegar IAM:
+ * https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_boundaries.html
+ */
+const workloadBoundary = new aws.iam.Policy("workload-boundary", {
+  name: "dystopia-workload-boundary",
+  description: "Teto das roles que o deploy cria: so o que uma tarefa do ECS precisa",
+  policy: pulumi.jsonStringify({
+    Version: "2012-10-17",
+    Statement: [
+      { Sid: "LoginNoEcr", Effect: "Allow", Action: "ecr:GetAuthorizationToken", Resource: "*" },
+      {
+        Sid: "PuxarImagem",
+        Effect: "Allow",
+        Action: ["ecr:BatchCheckLayerAvailability", "ecr:GetDownloadUrlForLayer", "ecr:BatchGetImage"],
+        Resource: arn("ecr", "repository/dystopia-*"),
+      },
+      {
+        Sid: "EscreverLog",
+        Effect: "Allow",
+        Action: ["logs:CreateLogStream", "logs:PutLogEvents"],
+        Resource: arn("logs", "log-group:/dystopia/*"),
+      },
+      { Sid: "LerSegredos", Effect: "Allow", Action: "ssm:GetParameters", Resource: arn("ssm", "parameter/dystopia/*") },
+    ],
+  }),
+});
 
 new aws.iam.RolePolicy("deploy", {
   role: deployRole.id,
@@ -143,21 +178,19 @@ new aws.iam.RolePolicy("deploy", {
       },
       { Sid: "ListarSegredos", Effect: "Allow", Action: "ssm:DescribeParameters", Resource: "*" },
       {
+        // Ler, apagar e tirar permissão de role do ambiente: nada disso dá
+        // poder a ninguém.
         Sid: "RolesDoAmbiente",
         Effect: "Allow",
         Action: [
-          "iam:CreateRole",
           "iam:DeleteRole",
           "iam:GetRole",
           "iam:TagRole",
           "iam:UntagRole",
           "iam:UpdateRole",
           "iam:UpdateAssumeRolePolicy",
-          "iam:PassRole",
-          "iam:PutRolePolicy",
           "iam:GetRolePolicy",
           "iam:DeleteRolePolicy",
-          "iam:AttachRolePolicy",
           "iam:DetachRolePolicy",
           "iam:ListRolePolicies",
           "iam:ListAttachedRolePolicies",
@@ -165,6 +198,31 @@ new aws.iam.RolePolicy("deploy", {
         ],
         Resource: arn("iam", "role/dystopia-*", ""),
       },
+      {
+        // Criar role ou dar permissão a ela: só se ela tiver o teto.
+        Sid: "RolesSoComTeto",
+        Effect: "Allow",
+        Action: ["iam:CreateRole", "iam:PutRolePolicy", "iam:AttachRolePolicy", "iam:PutRolePermissionsBoundary"],
+        Resource: arn("iam", "role/dystopia-*", ""),
+        Condition: { StringEquals: { "iam:PermissionsBoundary": workloadBoundary.arn } },
+      },
+      {
+        // Entregar role só para tarefa do ECS (não para Lambda, EC2…).
+        Sid: "PassarRoleSoParaOEcs",
+        Effect: "Allow",
+        Action: "iam:PassRole",
+        Resource: arn("iam", "role/dystopia-*", ""),
+        Condition: { StringEquals: { "iam:PassedToService": "ecs-tasks.amazonaws.com" } },
+      },
+      {
+        // A role de deploy também se chama dystopia-*: sem isto, ela mexeria
+        // em si mesma. E o teto não sai nem muda.
+        Sid: "NadaNaPropriaRoleNemNoTeto",
+        Effect: "Deny",
+        Action: "iam:*",
+        Resource: [deployRole.arn, workloadBoundary.arn],
+      },
+      { Sid: "TetoNaoSai", Effect: "Deny", Action: "iam:DeleteRolePermissionsBoundary", Resource: "*" },
       {
         // ECS, load balancer e a VPC origin do CloudFront criam a própria
         // role de serviço no primeiro uso.
@@ -248,6 +306,7 @@ if (budgetEmail) {
 }
 
 export const deployRoleArn = deployRole.arn;
+export const workloadBoundaryArn = workloadBoundary.arn;
 export const webRepositoryUrl = webRepository.repositoryUrl;
 export const workerRepositoryUrl = workerRepository.repositoryUrl;
 export const appDbPassword = pulumi.secret(appPassword.result);

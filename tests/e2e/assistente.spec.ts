@@ -104,3 +104,13 @@ test("acessibilidade do painel aberto, com conversa", async ({ page }) => {
   const blocking = violations.filter((v) => v.impact === "serious" || v.impact === "critical").map((v) => `${v.id}: ${v.nodes.length}×`);
   expect(blocking).toEqual([]);
 });
+
+test("API: outra origem e corpo gigante são recusados antes de chegar ao modelo", async ({ request, baseURL }) => {
+  // 2 MB: um pedido válido não passa de ~240 KB (MAX_BODY_BYTES).
+  const data = JSON.stringify({ messages: [{ role: "user", content: "a".repeat(2 * 1024 * 1024) }] });
+  const post = (origin: string) =>
+    request.post("/api/assistente", { headers: { origin, "content-type": "application/json" }, data });
+
+  expect((await post("https://outro-site.example")).status()).toBe(403);
+  expect((await post(new URL(baseURL!).origin)).status()).toBe(413);
+});

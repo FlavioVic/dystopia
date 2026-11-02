@@ -40,6 +40,8 @@ const base = new pulumi.StackReference(
 const appDbPassword = base.requireOutput("appDbPassword") as pulumi.Output<string>;
 const mfaEncryptionKey = base.requireOutput("mfaEncryptionKey") as pulumi.Output<string>;
 const seedAdminPassword = base.requireOutput("seedAdminPassword") as pulumi.Output<string>;
+// Teto de permissão: o deploy só consegue criar role que o carregue.
+const workloadBoundary = base.requireOutput("workloadBoundaryArn") as pulumi.Output<string>;
 
 // ---------------------------------------------------------------- bancos
 
@@ -175,7 +177,11 @@ const ecsTasks = JSON.stringify({
 });
 
 // Quem SOBE a tarefa (puxa a imagem, lê os segredos, escreve o log)…
-const executionRole = new aws.iam.Role("execution", { namePrefix: "dystopia-exec-", assumeRolePolicy: ecsTasks });
+const executionRole = new aws.iam.Role("execution", {
+  namePrefix: "dystopia-exec-",
+  assumeRolePolicy: ecsTasks,
+  permissionsBoundary: workloadBoundary,
+});
 new aws.iam.RolePolicyAttachment("execution-ecs", {
   role: executionRole.name,
   policyArn: "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy",
@@ -194,7 +200,11 @@ const executionSecrets = new aws.iam.RolePolicy("execution-secrets", {
   }),
 });
 // …e quem RODA dentro dela: o app não chama API da AWS, então nenhuma permissão.
-const taskRole = new aws.iam.Role("task", { namePrefix: "dystopia-task-", assumeRolePolicy: ecsTasks });
+const taskRole = new aws.iam.Role("task", {
+  namePrefix: "dystopia-task-",
+  assumeRolePolicy: ecsTasks,
+  permissionsBoundary: workloadBoundary,
+});
 
 type Container = {
   name: string;

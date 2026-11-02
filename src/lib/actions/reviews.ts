@@ -12,6 +12,7 @@ import { db } from "@/db";
 import { products } from "@/db/schema";
 import { limitAction } from "@/lib/action-limits";
 import { getCurrentUser } from "@/lib/data/auth";
+import { isUuid } from "@/lib/validation/action-input";
 import { parseReviewForm } from "@/lib/validation/review";
 import { deleteReview as removeReview, upsertReview } from "@/services/reviews";
 
@@ -29,6 +30,7 @@ export async function submitReview(_prev: ReviewState, formData: FormData): Prom
   if (!user) return { requiresAuth: true, message: "Entre na sua conta para avaliar." };
 
   const productId = String(formData.get("productId") ?? "");
+  if (!isUuid(productId)) return { message: "Produto não encontrado." };
   const product = await db.query.products.findFirst({
     where: eq(products.id, productId),
     columns: { id: true },
@@ -57,6 +59,7 @@ export async function submitReview(_prev: ReviewState, formData: FormData): Prom
 export async function deleteOwnReview(productId: string): Promise<{ ok: boolean; error?: string }> {
   const user = await getCurrentUser();
   if (!user) return { ok: false, error: "Não autorizado." };
+  if (!isUuid(productId)) return { ok: false, error: "Você ainda não avaliou este produto." };
 
   const { deleted } = await removeReview(db, user.id, productId);
   if (!deleted) return { ok: false, error: "Você ainda não avaliou este produto." };

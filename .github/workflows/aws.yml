@@ -4,6 +4,10 @@
 # Nenhuma chave da AWS fica guardada no GitHub: o job pede um token OIDC ao
 # GitHub e assume a role criada pela base (infra/bootstrap), que só aceita a
 # `main` deste repositório.
+#
+# Actions de terceiros presas pelo hash do commit (com a versão no
+# comentário): elas rodam com a credencial da AWS, e uma tag pode ser movida
+# para outro código. As do próprio GitHub (actions/*) seguem pela tag.
 
 name: AWS
 
@@ -46,17 +50,17 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - uses: aws-actions/configure-aws-credentials@v6
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
           role-to-assume: ${{ vars.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
       - id: ecr
-        uses: aws-actions/amazon-ecr-login@v2
+        uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd # v2.1.7
 
-      - uses: docker/setup-buildx-action@v4
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
-      - uses: docker/build-push-action@v7
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
           file: Dockerfile.${{ matrix.imagem }}
@@ -90,13 +94,13 @@ jobs:
         working-directory: infra
         run: npm ci
 
-      - uses: aws-actions/configure-aws-credentials@v6
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
           role-to-assume: ${{ vars.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Pulumi CLI
-        uses: pulumi/actions@v7
+        uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
 
       - name: Subir
         if: inputs.acao == 'subir'
