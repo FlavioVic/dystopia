@@ -1,0 +1,21 @@
+# Atualização das GitHub Actions. As de terceiros ficam presas pelo hash do
+# commit (`@<sha> # vX.Y.Z`): imutável, então uma tag movida por quem invadiu
+# o repositório da action não muda o que roda aqui. O preço é não atualizar
+# sozinho — o Dependabot abre um PR com o hash novo, e a CI roda nele antes
+# do merge, como em qualquer outro.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: America/Sao_Paulo
+    # Um PR por semana com todas as actions, em vez de um por action.
+    groups:
+      actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: "chore(ci)"
+    open-pull-requests-limit: 5
