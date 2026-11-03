@@ -31,10 +31,23 @@ describe("IP do cliente (limite de tentativas)", () => {
     assert.equal(resolveClientIp(viaCloudFront, env), "203.0.113.9");
 
     const ipv6 = (name: string) => (name === "cloudfront-viewer-address" ? "2001:db8::1:46532" : null);
-    assert.equal(resolveClientIp(ipv6, env), "2001:db8::1");
+    assert.equal(resolveClientIp(ipv6, env), "2001:db8:0:0::/64", "IPv6 vira o bloco /64");
 
     // Sem o header (request que não veio pelo CloudFront): falha fechado.
     assert.equal(resolveClientIp(spoofed, env), UNTRUSTED_IP);
+  });
+
+  it("IPv6 conta pelo bloco /64: trocar de endereço dentro dele não ganha contador novo", () => {
+    const env = { NODE_ENV: "production", VERCEL: "1" };
+    const from = (ip: string) => resolveClientIp((name) => (name === "x-real-ip" ? ip : null), env);
+    assert.equal(from("2001:db8:abcd:12:1:2:3:4"), "2001:db8:abcd:12::/64");
+    assert.equal(from("2001:db8:abcd:12:ffff:ffff:ffff:ffff"), from("2001:db8:abcd:12:1:2:3:4"));
+    assert.notEqual(from("2001:db8:abcd:13::1"), from("2001:db8:abcd:12::1"), "outro /64, outro contador");
+    assert.equal(from("2001:0db8:0000:0012:0000:0000:0000:0001"), "2001:db8:0:12::/64", "forma longa e curta dão a mesma chave");
+    assert.equal(from("::ffff:198.51.100.9"), "198.51.100.9", "IPv4 escrito como IPv6 volta a ser IPv4");
+    assert.equal(from("fe80::1%eth0"), "fe80:0:0:0::/64");
+    assert.equal(from("64:ff9b::192.0.2.33"), "64:ff9b:0:0::/64");
+    assert.equal(from("203.0.113.7"), "203.0.113.7", "IPv4 fica como está");
   });
 
   it("dev e testes confiam (não há proxy na frente)", () => {

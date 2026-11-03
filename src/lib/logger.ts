@@ -14,8 +14,21 @@ function threshold(): number {
   return LEVELS[configured] ?? LEVELS.info;
 }
 
-function emit(level: LogLevel, scope: string, message: string, fields?: LogFields): void {
+/**
+ * Campo com nome de segredo não chega ao log, nem por engano (log fica na
+ * Vercel, em texto, e mais gente lê do que o banco). Só o primeiro nível: quem
+ * loga um objeto inteiro escolhe os campos antes.
+ */
+const SENSITIVE_FIELD = /pass(word)?|senha|secret|token|authorization|cookie|api[-_]?key/i;
+
+function redact(fields?: LogFields): LogFields | undefined {
+  if (!fields) return fields;
+  return Object.fromEntries(Object.entries(fields).map(([key, value]) => [key, SENSITIVE_FIELD.test(key) ? "[omitido]" : value]));
+}
+
+function emit(level: LogLevel, scope: string, message: string, rawFields?: LogFields): void {
   if (LEVELS[level] < threshold()) return;
+  const fields = redact(rawFields);
   const payload = { level, scope, message, time: new Date().toISOString(), ...fields };
 
   if (process.env.LOG_FORMAT === "json") {
