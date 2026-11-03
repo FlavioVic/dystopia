@@ -8,7 +8,7 @@
 #   docker build -f Dockerfile.worker -t dystopia-worker .
 #   docker run --env-file .env dystopia-worker
 
-FROM node:22-alpine
+FROM node:26-alpine
 
 WORKDIR /app
 
