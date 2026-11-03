@@ -111,6 +111,15 @@ Ficaram de fora de propósito, com o porquê:
 - **Argumento das actions do painel sem checagem de tipo.** O TypeScript não
   vale em tempo de execução, mas só um admin com autenticador chega lá, e o
   efeito de um valor estranho é inofensivo (o serviço só grava o que conhece).
+- **4 alertas moderados do Dependabot em ferramenta, não no site.**
+  `minimatch` (DoS por padrão de glob) e `esbuild` (servidor de
+  desenvolvimento dele) vêm do eslint e do drizzle-kit; `minimatch` e `glob`
+  no `infra/` rodam só na CI do deploy da AWS. A correção do `minimatch` é a
+  versão 11, e o eslint usa a 3, com outra API: forçar quebraria o lint.
+  Nenhum é alcançável aqui (os padrões de glob são nossos, e o
+  `esbuild serve` não é usado). Ficam abertos de propósito, para o
+  Dependabot avisar quando o eslint e o drizzle-kit trouxerem a versão
+  corrigida.
 - **Padrões genéricos e checagem de validade do secret scanning.** São do
   plano pago do GitHub. Os padrões dos provedores (Stripe, Resend, AWS...)
   e a push protection estão ligados.
