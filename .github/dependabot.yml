@@ -1,5 +1,7 @@
-# Atualização das GitHub Actions. As de terceiros ficam presas pelo hash do
-# commit (`@<sha> # vX.Y.Z`): imutável, então uma tag movida por quem invadiu
+# Atualização das GitHub Actions, dos pacotes npm e da imagem Docker.
+#
+# Nas actions, as de terceiros ficam presas pelo hash do commit
+# (`@<sha> # vX.Y.Z`): imutável, então uma tag movida por quem invadiu
 # o repositório da action não muda o que roda aqui. O preço é não atualizar
 # sozinho — o Dependabot abre um PR com o hash novo, e a CI roda nele antes
 # do merge, como em qualquer outro.
@@ -19,3 +21,37 @@ updates:
     commit-message:
       prefix: "chore(ci)"
     open-pull-requests-limit: 5
+
+  # Pacotes npm do app e da infra (Pulumi). Correção de falha conhecida NÃO
+  # espera esta agenda: o "Dependabot security updates" (ligado no repositório)
+  # abre o PR na hora em que o alerta sai. Esta agenda é a atualização comum,
+  # agrupada para virar um PR por semana, e não um por pacote.
+  - package-ecosystem: npm
+    directories: ["/", "/infra"]
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: America/Sao_Paulo
+    groups:
+      producao:
+        dependency-type: production
+        update-types: [minor, patch]
+      desenvolvimento:
+        dependency-type: development
+        update-types: [minor, patch]
+    commit-message:
+      prefix: "chore(deps)"
+    open-pull-requests-limit: 5
+
+  # Imagem base dos containers (Dockerfile.web e Dockerfile.worker).
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: America/Sao_Paulo
+    commit-message:
+      prefix: "chore(docker)"
+    open-pull-requests-limit: 2
