@@ -2,11 +2,13 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AddressForm } from "@/components/AddressForm";
+import { DemoAccountNotice } from "@/components/DemoAccountNotice";
 import { AddressRowActions } from "@/components/AddressRowActions";
 import { getAddresses } from "@/lib/data/account";
 import { getCurrentUser } from "@/lib/data/auth";
 import { formatAddress } from "@/lib/validation/address";
 import { PRIVATE_PAGE } from "@/lib/seo";
+import { isDemoAccount } from "@/lib/site";
 
 export const metadata: Metadata = { title: "Endereços", robots: PRIVATE_PAGE };
 
@@ -29,6 +31,7 @@ export default async function AddressesPage() {
           ← Minha conta
         </Link>
       </div>
+      {isDemoAccount(user.email) ? <DemoAccountNotice className="mt-6" /> : null}
 
       {addresses.length > 0 ? (
         <ul className="mt-6 flex flex-col gap-3">

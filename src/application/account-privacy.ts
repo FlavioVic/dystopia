@@ -13,7 +13,7 @@
  * pedido (payload com endereço) e pedidos de orçamento (nome, e-mail, telefone).
  */
 
-import { eq, inArray, like, or } from "drizzle-orm";
+import { eq, inArray, like } from "drizzle-orm";
 import { db, type Executor } from "@/db";
 import {
   addresses,
@@ -28,6 +28,7 @@ import {
   users,
   wishlistItems,
 } from "@/db/schema";
+import { isDemoAccount } from "@/lib/site";
 import { PermanentError } from "@/shared/errors";
 import { recalculateProductRating } from "@/services/reviews";
 
@@ -74,7 +75,10 @@ export async function exportAccountData(userId: string) {
       with: { product: { columns: { name: true } } },
     }),
     db.query.serviceRequests.findMany({
-      where: or(eq(serviceRequests.userId, userId), eq(serviceRequests.email, user.email)),
+      // Só os feitos com a conta. O e-mail não prova nada: o cadastro não
+      // confirma o endereço, e quem criasse conta com o e-mail de outra pessoa
+      // levaria os orçamentos que ela mandou sem login.
+      where: eq(serviceRequests.userId, userId),
       columns: { protocol: true, kind: true, name: true, email: true, phone: true, details: true, status: true, createdAt: true },
     }),
     // Só quando entrou e até quando vale: o hash do token não é dado da pessoa e não sai daqui.
@@ -104,7 +108,8 @@ export async function exportAccountData(userId: string) {
 
 /**
  * Apaga a conta e tudo que é dela, numa transação só. Admin não se exclui (o
- * painel ficaria sem dono).
+ * painel ficaria sem dono), nem a conta demo (a senha é pública: um visitante
+ * a apagaria para todos os outros).
  */
 export async function deleteAccount(userId: string): Promise<{ deleted: boolean }> {
   return db.transaction((tx) => deleteAccountData(tx, userId));
@@ -119,20 +124,24 @@ async function deleteAccountData(executor: Executor, userId: string): Promise<{ 
   if (user.role === "admin") {
     throw new PermanentError("admin_account", "Conta de administrador não pode ser excluída por aqui.");
   }
+  if (isDemoAccount(user.email)) {
+    throw new PermanentError("demo_account", "A conta de demonstração é de todos os visitantes e não pode ser excluída.");
+  }
 
   const userOrders = await executor
     .select({ id: orders.id, orderNumber: orders.orderNumber })
     .from(orders)
     .where(eq(orders.userId, userId));
+  // Orçamento e e-mail entram pelo vínculo com a conta, nunca pelo endereço
+  // de e-mail (o cadastro não o confirma — ver `exportAccountData`). O
+  // orçamento mandado sem login sai a pedido, pelo e-mail da loja.
   const requests = await executor
     .select({ id: serviceRequests.id, protocol: serviceRequests.protocol })
     .from(serviceRequests)
-    .where(or(eq(serviceRequests.userId, userId), eq(serviceRequests.email, user.email)));
+    .where(eq(serviceRequests.userId, userId));
 
   const correlations = [...userOrders.map((o) => o.orderNumber), ...requests.map((r) => r.protocol)];
   if (correlations.length > 0) await executor.delete(notifications).where(inArray(notifications.correlationId, correlations));
-  // E-mail sem correlação (ex.: enviado antes de existir pedido) ainda é dele.
-  await executor.delete(notifications).where(eq(notifications.recipient, user.email));
 
   if (userOrders.length > 0) {
     await executor.delete(sagas).where(inArray(sagas.correlationId, userOrders.map((o) => o.orderNumber)));

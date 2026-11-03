@@ -18,10 +18,13 @@ export type OwnReview = {
 export function ReviewForm({
   productId,
   isLoggedIn,
+  demoAccount = false,
   own,
 }: {
   productId: string;
   isLoggedIn: boolean;
+  /** Conta demo: não avalia (a action recusa; aqui só explica o porquê). */
+  demoAccount?: boolean;
   own?: OwnReview | null;
 }) {
   const [state, formAction, pending] = useActionState<ReviewState, FormData>(submitReview, undefined);
@@ -40,6 +43,20 @@ export function ReviewForm({
             Entre na sua conta
           </Link>{" "}
           para avaliar este produto.
+        </p>
+      </div>
+    );
+  }
+
+  if (demoAccount) {
+    return (
+      <div className="rounded-xl border border-border bg-background-elevated p-4 text-sm">
+        <p className="text-foreground-muted">
+          A conta de demonstração não publica avaliações: o texto sairia em nome de todos os visitantes.{" "}
+          <Link href="/cadastro" className="font-semibold text-accent hover:underline">
+            Crie sua conta
+          </Link>{" "}
+          para avaliar.
         </p>
       </div>
     );

@@ -7,6 +7,7 @@ import { StripeCardField, type StripeCardHandle } from "@/components/StripeCardF
 import { placeOrder, validateCoupon } from "@/lib/actions/checkout";
 import { shippingFor, type CouponResult } from "@/lib/shipping";
 import { formatPriceCents } from "@/lib/format";
+import { DemoAccountNotice } from "@/components/DemoAccountNotice";
 
 export type SavedAddress = {
   id: string;
@@ -51,6 +52,7 @@ export function CheckoutForm({
   savedAddresses = [],
   simulationEnabled = false,
   stripePublishableKey = null,
+  demoAccount = false,
 }: {
   defaultName: string;
   lines: Line[];
@@ -59,6 +61,8 @@ export function CheckoutForm({
   simulationEnabled?: boolean;
   /** Com chave, cartão vai pelo Stripe Elements; sem, segue no simulado. */
   stripePublishableKey?: string | null;
+  /** Conta demo: avisa que endereço e pedido ficam à vista de outros visitantes. */
+  demoAccount?: boolean;
 }) {
   const [state, formAction, pending] = useActionState(placeOrder, undefined);
   const [method, setMethod] = useState(methods[0].id);
@@ -119,6 +123,7 @@ export function CheckoutForm({
     <form action={formAction} onSubmit={handleSubmit} className="mx-auto max-w-site px-4 py-12 sm:px-6 lg:px-8">
       <p className="label text-foreground-muted">Aquisição / Protocolo de compra</p>
       <h1 className="display-2 mt-4 text-[26px] leading-[34px] sm:text-[40px] sm:leading-[48px]">Aquisição</h1>
+      {demoAccount ? <DemoAccountNotice className="mt-4" /> : null}
 
       {state?.message ? (
         <p role="alert" className="mt-4 bg-signal px-4 py-3 text-sm text-on-signal">

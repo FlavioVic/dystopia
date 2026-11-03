@@ -8,6 +8,7 @@ import { isCheckoutSimulationEnabled } from "@/lib/checkout-simulation";
 import { getStripePublishableKey } from "@/lib/stripe-public";
 import { formatAddress } from "@/lib/validation/address";
 import { PRIVATE_PAGE } from "@/lib/seo";
+import { isDemoAccount } from "@/lib/site";
 
 export const metadata: Metadata = { title: "Finalizar compra", robots: PRIVATE_PAGE };
 // Vale para Server Action do formulário também: com o worker embutido, o
@@ -37,6 +38,7 @@ export default async function CheckoutPage() {
       subtotalCents={cart.subtotalCents}
       simulationEnabled={isCheckoutSimulationEnabled()}
       stripePublishableKey={getStripePublishableKey()}
+      demoAccount={isDemoAccount(user.email)}
       lines={cart.lines.map((l) => ({
         itemId: l.itemId,
         name: l.name,

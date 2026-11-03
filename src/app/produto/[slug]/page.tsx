@@ -15,6 +15,7 @@ import { getActiveCoupons, getProductBySlug, getRelatedProducts } from "@/lib/da
 import { publicName } from "@/lib/format";
 import { photoCreditByUrl } from "@/lib/photo-credits";
 import { JsonLd, absoluteUrl, breadcrumb, canonical } from "@/lib/seo";
+import { isDemoAccount } from "@/lib/site";
 
 export async function generateMetadata(props: PageProps<"/produto/[slug]">): Promise<Metadata> {
   const { slug } = await props.params;
@@ -189,6 +190,7 @@ export default async function ProductPage(props: PageProps<"/produto/[slug]">) {
             <ReviewForm
               productId={product.id}
               isLoggedIn={user != null}
+              demoAccount={user != null && isDemoAccount(user.email)}
               own={ownReview ? { rating: ownReview.rating, title: ownReview.title, comment: ownReview.comment } : null}
             />
           </div>
