@@ -12,7 +12,9 @@ import {
   createAddress,
   deleteAddress,
   getUserAddress,
+  hasRoomForAddress,
   listAddresses,
+  MAX_ADDRESSES,
   setDefaultAddress,
 } from "@/services/addresses";
 import { closeDatabase, resetDatabase, seedCheckoutFixture } from "../helpers/db";
@@ -118,5 +120,21 @@ describe("agenda de endereços", () => {
       await deleteAddress(db, fixture.userId, "00000000-0000-0000-0000-000000000000"),
       { deleted: false },
     );
+  });
+
+  it("a agenda tem teto: passou dele, recusa (e só para quem chegou nele)", async () => {
+    const fixture = await seedCheckoutFixture();
+    while ((await listAddresses(db, fixture.userId)).length < MAX_ADDRESSES) {
+      await createAddress(db, fixture.userId, base);
+    }
+    assert.equal(await hasRoomForAddress(db, fixture.userId), false);
+    await assert.rejects(
+      createAddress(db, fixture.userId, base),
+      (error) => error instanceof PermanentError && error.code === "address_limit",
+    );
+    assert.equal((await listAddresses(db, fixture.userId)).length, MAX_ADDRESSES);
+
+    const other = await seedCheckoutFixture();
+    assert.equal(await hasRoomForAddress(db, other.userId), true);
   });
 });

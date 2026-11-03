@@ -8,12 +8,27 @@ import { email, formStrings, parseForm, requiredText } from "./form";
 
 export const MIN_NAME_LENGTH = 2;
 export const MIN_PASSWORD_LENGTH = 8;
+/**
+ * O bcrypt só lê os primeiros 72 bytes da senha: o resto seria ignorado sem
+ * aviso (duas senhas longas com o mesmo começo valeriam a mesma coisa). A
+ * OWASP recomenda recusar acima disso. É byte, não letra: acento e emoji
+ * ocupam mais de um.
+ */
+export const MAX_PASSWORD_BYTES = 72;
+
+/** Senha nova (cadastro e redefinição). Não é aparada: espaço faz parte dela. */
+const newPassword = z
+  .string()
+  .min(MIN_PASSWORD_LENGTH, `A senha precisa ter ao menos ${MIN_PASSWORD_LENGTH} caracteres.`)
+  .refine(
+    (value) => new TextEncoder().encode(value).length <= MAX_PASSWORD_BYTES,
+    `A senha pode ter até ${MAX_PASSWORD_BYTES} caracteres (acento e emoji contam como mais de um).`,
+  );
 
 const signupSchema = z.object({
   name: requiredText(`Informe seu nome (mín. ${MIN_NAME_LENGTH} caracteres).`, MIN_NAME_LENGTH),
   email: email("Informe um e-mail válido."),
-  // Senha não é aparada: espaço faz parte dela.
-  password: z.string().min(MIN_PASSWORD_LENGTH, `A senha precisa ter ao menos ${MIN_PASSWORD_LENGTH} caracteres.`),
+  password: newPassword,
 });
 
 const loginSchema = z.object({
@@ -44,7 +59,7 @@ export function parseForgotPasswordForm(formData: FormData) {
 const resetPasswordSchema = z
   .object({
     token: z.string().min(1, "Link incompleto. Peça outro."),
-    password: z.string().min(MIN_PASSWORD_LENGTH, `A senha precisa ter ao menos ${MIN_PASSWORD_LENGTH} caracteres.`),
+    password: newPassword,
     confirm: z.string(),
   })
   .refine((values) => values.password === values.confirm, { path: ["confirm"], message: "As duas senhas não são iguais." });

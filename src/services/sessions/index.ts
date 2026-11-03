@@ -50,22 +50,23 @@ export async function createSession(
 }
 
 /**
- * Código conferido: a sessão pendente vira login de verdade (e ganha a
- * validade cheia). `null` se ela não existe mais ou já não estava pendente
- * (quem chama já conferiu a validade ao ler a sessão).
+ * Código conferido: a sessão pendente vira login de verdade, com a validade
+ * cheia e um TOKEN NOVO. Mudou o privilégio (de "senha conferida" para
+ * "logado"), e a OWASP pede token novo a cada mudança: o pendente, se tivesse
+ * vazado, não vira login. `null` se a pendente não existe mais ou já foi
+ * completada (o DELETE garante que só uma tentativa simultânea ganha).
  */
 export async function completeMfa(
   executor: Executor,
   token: string,
   now = new Date(),
-): Promise<{ expiresAt: Date } | null> {
-  const expiresAt = new Date(now.getTime() + SESSION_TTL_SECONDS * 1000);
-  const [updated] = await executor
-    .update(sessions)
-    .set({ mfaPending: false, expiresAt })
+): Promise<{ token: string; expiresAt: Date } | null> {
+  const [pending] = await executor
+    .delete(sessions)
     .where(and(eq(sessions.id, hashSessionToken(token)), eq(sessions.mfaPending, true)))
-    .returning({ expiresAt: sessions.expiresAt });
-  return updated ?? null;
+    .returning({ userId: sessions.userId });
+  if (!pending) return null;
+  return createSession(executor, { userId: pending.userId, mfaPending: false }, now);
 }
 
 /** Sair: a sessão deste token deixa de existir. */

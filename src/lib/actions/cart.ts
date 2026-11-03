@@ -29,6 +29,7 @@ async function currentOrNewCartId(): Promise<string> {
   const cartId = await cartsService.createGuestCart(db, token);
   (await cookies()).set(CART_COOKIE, token, {
     httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
     maxAge: COOKIE_MAX_AGE,

@@ -1,7 +1,8 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { limitPasswordResetRequests, resetPassword } from "@/application/password-reset";
+import { breachedPasswordMessage } from "@/application/password-policy";
+import { isPasswordResetLinkValid, limitPasswordResetRequests, resetPassword } from "@/application/password-reset";
 import { sendPasswordResetAfterResponse } from "@/composition/web";
 import { retryMessage } from "@/lib/action-limits";
 import { rememberThisDevice } from "@/lib/known-device";
@@ -28,6 +29,8 @@ export async function requestPasswordReset(_prev: ForgotPasswordState, formData:
   return { sent: true };
 }
 
+const INVALID_LINK_MESSAGE = "Este link não vale mais: já foi usado, venceu ou foi trocado por um mais novo. Peça outro.";
+
 export type ResetPasswordState = { message?: string; errors?: { password?: string; confirm?: string } } | undefined;
 
 export async function resetPasswordWithLink(_prev: ResetPasswordState, formData: FormData): Promise<ResetPasswordState> {
@@ -37,8 +40,16 @@ export async function resetPasswordWithLink(_prev: ResetPasswordState, formData:
     return { errors: { password: parsed.errors.password, confirm: parsed.errors.confirm } };
   }
 
-  const result = await resetPassword({ token: parsed.values.token, password: parsed.values.password });
-  if (!result) return { message: "Este link não vale mais: já foi usado, venceu ou foi trocado por um mais novo. Peça outro." };
+  const { token, password } = parsed.values;
+  // O link primeiro (uma consulta ao banco): só quem tem um link válido faz o
+  // site consultar o Pwned Passwords. Com senha vazada, o link não é gasto e a
+  // pessoa escolhe outra nele mesmo.
+  if (!(await isPasswordResetLinkValid(token))) return { message: INVALID_LINK_MESSAGE };
+  const breached = await breachedPasswordMessage(password);
+  if (breached) return { errors: { password: breached } };
+
+  const result = await resetPassword({ token, password });
+  if (!result) return { message: INVALID_LINK_MESSAGE };
 
   // Quem abriu o link provou ser dona do e-mail: este navegador passa a ser
   // conhecido, e o login aqui não esbarra no bloqueio da conta (se houver ataque).

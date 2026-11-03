@@ -27,9 +27,14 @@ export async function saveAddress(_prev: AddressState, formData: FormData): Prom
   if (!parsed.ok) return { errors: parsed.errors };
   const { values } = parsed;
 
-  await createAddress(db, user.id, values, {
-    makeDefault: formData.get("isDefault") != null ? true : undefined,
-  });
+  try {
+    await createAddress(db, user.id, values, {
+      makeDefault: formData.get("isDefault") != null ? true : undefined,
+    });
+  } catch (error) {
+    if (error instanceof PermanentError) return { message: error.message };
+    throw error;
+  }
 
   refresh();
   return { ok: true, message: "Endereço salvo." };

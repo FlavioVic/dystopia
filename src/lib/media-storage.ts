@@ -59,9 +59,13 @@ function blobStorage(token: string): MediaStorage {
 
 function diskStorage(dir: string): MediaStorage {
   const owns = (url: string) => url.startsWith(LOCAL_MEDIA_PREFIX);
+  const root = path.resolve(dir);
   const fileFor = (key: string) => {
     if (!safeMediaKey(key)) throw new Error(`chave de mídia inválida: ${key}`);
-    return path.join(dir, key);
+    // Segunda trava (a regex já barra `..`): o caminho final fica dentro da pasta.
+    const file = path.resolve(root, key);
+    if (!file.startsWith(root + path.sep)) throw new Error(`chave de mídia fora da pasta: ${key}`);
+    return file;
   };
   return {
     kind: "disk",

@@ -1,4 +1,8 @@
 import type { NextConfig } from "next";
+import { blobPublicHostname } from "./src/lib/blob-host";
+
+/* Fotos enviadas pelo painel: só o store da loja (ver src/lib/blob-host.ts). */
+const blobHost = blobPublicHostname(process.env);
 
 const nextConfig: NextConfig = {
   /* Sem `X-Powered-By: Next.js`: não anuncia o framework (e a versão a
@@ -8,14 +12,14 @@ const nextConfig: NextConfig = {
    * Vercel e no `next start` local fica o padrão. */
   ...(process.env.NEXT_OUTPUT === "standalone" ? { output: "standalone" as const } : {}),
   images: {
-    /* O catálogo usa ilustrações SVG locais em /public/images. O otimizador do
-     * next/image bloqueia SVG por padrão; como são assets próprios e confiáveis,
-     * liberamos com CSP + sandbox (neutraliza qualquer script embutido). */
-    dangerouslyAllowSVG: true,
+    /* SVG não passa pelo otimizador: as placas técnicas (/public/images, .svg)
+     * saem direto, porque o next/image pula a otimização sozinho quando o src
+     * termina em .svg. Liberar SVG no otimizador (`dangerouslyAllowSVG`) é a
+     * porta das falhas de SVG (como a de outubro de 2026, no sharp). A CSP com
+     * sandbox fica como segunda trava para o que o otimizador servir. */
     contentDispositionType: "attachment",
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
-    /* Fotos enviadas pelo painel (Vercel Blob, store público). */
-    remotePatterns: [{ protocol: "https", hostname: "*.public.blob.vercel-storage.com" }],
+    remotePatterns: blobHost ? [{ protocol: "https", hostname: blobHost }] : [],
   },
   experimental: {
     serverActions: {
@@ -37,6 +41,9 @@ const nextConfig: NextConfig = {
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+          /* Janela aberta por outro site não segura referência a esta (nem o
+           * contrário): fecha XS-Leaks e o tabnabbing pelo `window.opener`. */
+          { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
           { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" },
         ],
       },

@@ -221,6 +221,7 @@ torna a varredura impraticável.
 - [`docs/SAGA-E-FILA.md`](docs/SAGA-E-FILA.md) — checkout, fila, pagamentos, garantias e observabilidade
 - [`docs/ARQUITETURA.md`](docs/ARQUITETURA.md) — camadas, invariantes, convenções e como estender
 - [`docs/DECISOES.md`](docs/DECISOES.md) — por que cada escolha (saga, RabbitMQ, outbox, sessão no banco, MFA...), o que ficou de fora e o preço pago
+- [`docs/SEGURANCA.md`](docs/SEGURANCA.md) — revisão de segurança: o que foi olhado (OWASP Top 10 2025, ASVS 5.0), o que foi corrigido e os riscos aceitos
 - [`docs/DEPLOY.md`](docs/DEPLOY.md) — Vercel + Neon + CloudAMQP, custo zero
 - [`docs/AWS.md`](docs/AWS.md) — 2º ambiente na AWS em Pulumi (ECS Fargate, CloudFront, OIDC), custo zero com créditos, sobe e desce pelo Actions
 - [`docs/RECUPERACAO.md`](docs/RECUPERACAO.md) — o que fazer quando dá errado: deploy, dado apagado, fila, segredo vazado, admin sem celular

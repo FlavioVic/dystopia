@@ -59,7 +59,7 @@ const DATA = [
   },
   {
     what: "Endereço IP e e-mail digitado no login",
-    data: "O IP é a chave do limite de tentativas (login, cadastro, orçamento, chat, carrinho, cupom). No login e no pedido de redefinição de senha, o e-mail digitado também conta tentativas, guardado só como hash (não dá para ler o e-mail de volta).",
+    data: "O IP (no IPv6, o bloco /64 dele) é a chave do limite de tentativas (login, cadastro, orçamento, chat, carrinho, cupom). No login e no pedido de redefinição de senha, o e-mail digitado também conta tentativas, guardado só como hash (não dá para ler o e-mail de volta).",
     why: "Segurança: barrar força bruta e abuso. Apagado em até 48 horas.",
     basis: "Legítimo interesse em proteger o site e as contas (art. 7º, IX)",
   },
@@ -72,6 +72,11 @@ const PROCESSORS = [
   { name: "Resend", role: "Envio dos e-mails de pedido e de orçamento", where: "EUA" },
   { name: "Groq", role: "Modelo de linguagem do assistente", where: "EUA" },
   { name: "Stripe", role: "Pagamento com cartão, quando ativo", where: "EUA" },
+  {
+    name: "Have I Been Pwned",
+    role: "Conferir se a senha nova já apareceu em vazamento. Recebe só os 5 primeiros caracteres do hash dela, nunca a senha",
+    where: "Global (Cloudflare)",
+  },
 ];
 
 const RIGHTS = [
@@ -197,11 +202,15 @@ export default function PrivacyPage() {
         <ul className="flex list-disc flex-col gap-2 pl-5">
           <li>Conta, endereços, pedidos, avaliações e favoritos: enquanto a conta existir.</li>
           <li>
-            Ao excluir a conta, tudo isso é apagado na hora, junto com os e-mails enviados a você e seus pedidos de
-            orçamento. A cópia de segurança do banco guarda o histórico das últimas 6 horas; depois disso, o dado não
-            existe mais em lugar nenhum.
+            Ao excluir a conta, tudo isso é apagado na hora, junto com os e-mails enviados a você e os pedidos de
+            orçamento feitos com a conta. A cópia de segurança do banco guarda o histórico das últimas 6 horas; depois
+            disso, o dado não existe mais em lugar nenhum.
           </li>
-          <li>Pedido de orçamento sem conta: até o atendimento terminar ou até você pedir a exclusão.</li>
+          <li>
+            Pedido de orçamento sem conta: até o atendimento terminar ou até você pedir a exclusão pelo e-mail da loja.
+            Ele não entra no download nem na exclusão de uma conta, mesmo com o mesmo e-mail: o cadastro não confirma o
+            endereço, e quem criasse uma conta com o seu e-mail levaria o que você mandou.
+          </li>
           <li>Endereço IP e hash do e-mail no limite de tentativas: até 48 horas.</li>
           <li>Registro do navegador onde você entrou: até 180 dias sem uso, ou até você excluir a conta.</li>
           <li>Link de redefinição de senha: até ser usado ou vencer (30 minutos).</li>

@@ -11,6 +11,21 @@ test.describe("acesso", () => {
     await expect(page).toHaveURL(/\/entrar/);
   });
 
+  test("conta demo (senha pública): não é excluída, não avalia e avisa para não usar dado real", async ({ page }) => {
+    await logIn(page, "cliente@dystopia.dev", "cliente123");
+    await expect(page).toHaveURL(/\/conta/);
+    await expect(page.getByText("A conta de demonstração é de todos os visitantes e não pode ser excluída.")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Excluir minha conta" })).toHaveCount(0);
+
+    await page.goto("/conta/enderecos");
+    await expect(page.getByRole("note")).toContainText("conta pública de demonstração");
+
+    await page.goto("/produtos");
+    await page.locator('a[href^="/produto/"]').first().click();
+    await page.waitForURL(/\/produto\//);
+    await expect(page.getByText("A conta de demonstração não publica avaliações")).toBeVisible();
+  });
+
   test("anônimo não entra na conta; cliente não entra no admin", async ({ page }) => {
     await page.goto("/conta");
     await expect(page).toHaveURL(/\/entrar/);

@@ -8,6 +8,7 @@ import { logout } from "@/lib/actions/auth";
 import { formatPriceCents } from "@/lib/format";
 import { ORDER_STATUS_LABELS, orderStatusClass, type OrderStatus } from "@/lib/order-status";
 import { PRIVATE_PAGE } from "@/lib/seo";
+import { isDemoAccount } from "@/lib/site";
 
 export const metadata: Metadata = { title: "Minha conta", robots: PRIVATE_PAGE };
 
@@ -139,7 +140,13 @@ export default async function AccountPage() {
           <a href="/conta/dados" download className="label min-h-6 text-foreground underline underline-offset-4 hover:text-foreground-muted">
             Baixar meus dados (JSON)
           </a>
-          {user.role === "admin" ? null : <DeleteAccountForm />}
+          {user.role === "admin" ? null : isDemoAccount(user.email) ? (
+            <p className="text-sm text-foreground-muted">
+              A conta de demonstração é de todos os visitantes e não pode ser excluída.
+            </p>
+          ) : (
+            <DeleteAccountForm />
+          )}
         </div>
       </section>
     </div>

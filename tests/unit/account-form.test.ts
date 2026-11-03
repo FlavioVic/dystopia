@@ -27,6 +27,20 @@ describe("validação de conta", () => {
     assert.equal(values.password, " 1234567 ");
   });
 
+  it("senha nova vai até 72 bytes (o que o bcrypt lê); acento conta mais de um", () => {
+    const ok = (password: string) => parseSignupForm(form({ name: "Ana", email: "a@b.co", password })).ok;
+    assert.equal(ok("a".repeat(72)), true);
+    assert.equal(ok("a".repeat(73)), false);
+    assert.equal(ok("é".repeat(36)), true, "36 × 2 bytes = 72");
+    assert.equal(ok("é".repeat(37)), false, "37 letras, mas 74 bytes");
+    const reset = { token: "t", password: "a".repeat(73), confirm: "a".repeat(73) };
+    assert.deepEqual(Object.keys(parseResetPasswordForm(form(reset)).errors), ["password"]);
+  });
+
+  it("login aceita senha longa: quem cadastrou antes do limite ainda entra", () => {
+    assert.equal(parseLoginForm(form({ email: "a@b.co", password: "a".repeat(100) })).ok, true);
+  });
+
   it("login sem e-mail válido ou sem senha nem chega a consultar", () => {
     assert.equal(parseLoginForm(form({ email: "a@b.co", password: "x" })).ok, true);
     assert.equal(parseLoginForm(form({ email: "a@b", password: "x" })).ok, false);

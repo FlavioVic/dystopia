@@ -9,6 +9,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { notifications, orders, products, sagas, serviceRequests, users } from "@/db/schema";
 import { deleteAccount, exportAccountData } from "@/application/account-privacy";
+import { DEMO_ACCOUNT_EMAIL } from "@/lib/site";
 import { PermanentError } from "@/shared/errors";
 import { upsertReview } from "@/services/reviews";
 import { createServiceRequest } from "@/services/service-requests";
@@ -20,7 +21,12 @@ import { settleSaga } from "../helpers/saga";
 beforeEach(resetDatabase);
 after(closeDatabase);
 
-/** Conta com pedido pago (e o e-mail dele), avaliação e pedido de orçamento. */
+/**
+ * Conta com pedido pago (e o e-mail dele), avaliação e pedido de orçamento
+ * feito logado. `anonymous` é um orçamento mandado SEM login com o mesmo
+ * e-mail — pode ser de outra pessoa (o cadastro não confirma o e-mail), então
+ * não é da conta.
+ */
 async function accountWithHistory() {
   const fixture = await seedCheckoutFixture();
   const checkout = await startCheckout(fixture);
@@ -32,9 +38,17 @@ async function accountWithHistory() {
     email: fixture.userEmail,
     phone: "85999990000",
     details: "PC desligando sozinho durante jogos.",
+    userId: fixture.userId,
+  });
+  const anonymous = await createServiceRequest(db, {
+    kind: "montagem",
+    name: "Outra pessoa",
+    email: fixture.userEmail,
+    phone: "85988887777",
+    details: "Pedido feito sem login com o mesmo e-mail.",
     userId: null,
   });
-  return { fixture, checkout, request };
+  return { fixture, checkout, request, anonymous };
 }
 
 describe("dados da conta", () => {
@@ -47,7 +61,7 @@ describe("dados da conta", () => {
     assert.equal(data?.conta.email, fixture.userEmail);
     assert.deepEqual(data?.pedidos.map((o) => o.orderNumber), [checkout.orderNumber]);
     assert.equal(data?.avaliacoes.length, 1);
-    assert.deepEqual(data?.orcamentos.map((r) => r.protocol), [request.protocol], "acha o orçamento pelo e-mail");
+    assert.deepEqual(data?.orcamentos.map((r) => r.protocol), [request.protocol], "só o orçamento feito com a conta, não o do mesmo e-mail sem login");
     assert.ok(!JSON.stringify(data).includes("hash-de-teste"));
     assert.equal(data?.sessoes.length, 1);
     assert.deepEqual(Object.keys(data!.sessoes[0]).sort(), ["createdAt", "expiresAt"]);
@@ -55,7 +69,7 @@ describe("dados da conta", () => {
   });
 
   it("excluir apaga a conta e o que carrega dado dela, recalcula a nota e não toca em outra conta", async () => {
-    const { fixture, checkout, request } = await accountWithHistory();
+    const { fixture, checkout, request, anonymous } = await accountWithHistory();
     const other = await accountWithHistory();
 
     assert.deepEqual(await deleteAccount(fixture.userId), { deleted: true });
@@ -64,14 +78,29 @@ describe("dados da conta", () => {
     assert.equal(await db.$count(orders, eq(orders.userId, fixture.userId)), 0);
     assert.equal(await db.$count(sagas, eq(sagas.correlationId, checkout.orderNumber)), 0);
     assert.equal(await db.$count(notifications, eq(notifications.correlationId, checkout.orderNumber)), 0);
-    assert.equal(await db.$count(notifications, eq(notifications.recipient, fixture.userEmail)), 0);
     assert.equal(await db.$count(serviceRequests, eq(serviceRequests.protocol, request.protocol)), 0);
+    assert.equal(
+      await db.$count(serviceRequests, eq(serviceRequests.protocol, anonymous.protocol)),
+      1,
+      "o orçamento sem login com o mesmo e-mail não é apagado por quem criou a conta",
+    );
 
     const product = await db.query.products.findFirst({ where: eq(products.id, fixture.product.id) });
     assert.equal(product?.ratingCount, 0, "a média não guarda a nota de quem saiu");
 
     assert.equal(await db.$count(orders, eq(orders.userId, other.fixture.userId)), 1);
     assert.equal(await db.$count(serviceRequests, eq(serviceRequests.protocol, other.request.protocol)), 1);
+  });
+
+  it("a conta demo (senha pública) não é excluída", async () => {
+    const { fixture } = await accountWithHistory();
+    await db.update(users).set({ email: DEMO_ACCOUNT_EMAIL }).where(eq(users.id, fixture.userId));
+
+    await assert.rejects(
+      deleteAccount(fixture.userId),
+      (error) => error instanceof PermanentError && error.code === "demo_account",
+    );
+    assert.equal(await db.$count(users, eq(users.id, fixture.userId)), 1);
   });
 
   it("admin não se exclui por aqui", async () => {
