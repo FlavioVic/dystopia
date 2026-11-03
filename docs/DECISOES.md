@@ -26,6 +26,7 @@ conta sozinho. Os detalhes de funcionamento estão em
 | 17 | [Segundo ambiente na AWS, em Pulumi](#17-segundo-ambiente-na-aws-em-pulumi) | Containers descritos em código, sobem e descem pelo Actions |
 | 18 | [Limite de login por conta, com aparelho conhecido](#18-limite-de-login-por-conta-com-aparelho-conhecido) | O ataque distribuído esbarra; o dono não fica trancado |
 | 19 | [Recuperação de senha sem guardar o link](#19-recuperação-de-senha-sem-guardar-o-link) | O link é credencial: hash no banco e e-mail fora da outbox |
+| 20 | [Senha nova conferida contra vazamentos](#20-senha-nova-conferida-contra-vazamentos) | Pwned Passwords por k-anonimato; a senha nunca sai do servidor |
 
 ---
 
@@ -500,6 +501,41 @@ o painel tomaria a conta.
 vai para a caixa da loja: em produção o link chega lá, não ao cliente. Serve
 para demonstrar; para valer, é registrar um domínio e ligar
 `EMAIL_DELIVER_TO_RECIPIENTS=1`.
+
+## 20. Senha nova conferida contra vazamentos
+
+**Problema.** O cadastro aceitava `12345678` e `password`, que aparecem
+milhões de vezes em vazamentos. Quem ataca começa por essas listas, e o
+limite de tentativas não ajuda se a primeira tentativa já acerta. Além disso,
+o bcrypt só lê os primeiros 72 bytes: duas senhas longas com o mesmo começo
+valiam a mesma coisa.
+
+**Decisão.** Senha nova (cadastro e redefinição) tem até 72 bytes e é
+conferida no Pwned Passwords, do Have I Been Pwned (NIST SP 800-63B,
+3.1.1.2; OWASP ASVS 5.0, 6.2.12):
+
+- **k-anonimato:** só os 5 primeiros caracteres do SHA-1 saem do servidor; a
+  API devolve todos os sufixos que começam com eles (com padding), e a
+  comparação é feita aqui. A senha e o hash inteiro nunca saem;
+- se a API não responder em 2 segundos, a senha passa e o log avisa;
+- a consulta só acontece depois de um filtro (limite por IP no cadastro, link
+  válido na redefinição), para o site não virar proxy de consulta em massa;
+- o login segue aceitando senha longa: quem cadastrou antes do teto entra.
+
+**Alternativas.**
+- *Lista local das senhas mais comuns*: nenhuma chamada de fora, mas umas
+  dez mil senhas contra mais de 900 milhões.
+- *Regra de composição (maiúscula, número, símbolo)*: o NIST desaconselha;
+  vira `Senha@123`, que está em toda lista.
+- *Falhar fechado quando a API cai*: mais rígido, mas o cadastro pararia
+  junto com um serviço de terceiro.
+
+**Preço.** Uma chamada externa no cadastro (rápida, com cache da
+Cloudflare) e um operador a mais na política de privacidade. O que vai para
+lá (5 caracteres de um hash) não identifica nada.
+
+A revisão de segurança inteira, com os outros achados, está em
+[`SEGURANCA.md`](SEGURANCA.md).
 
 ## Perguntas prováveis
 

@@ -34,4 +34,4 @@ export const isDemoAccount = (email: string): boolean => email === DEMO_ACCOUNT_
  * `tests/unit/test-count.test.ts` conta os casos de verdade e falha se este
  * número ficar desatualizado.
  */
-export const TEST_COUNT = 583;
+export const TEST_COUNT = 600;
