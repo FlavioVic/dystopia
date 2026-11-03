@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { PermanentError, RetryableError, type AppError } from "@/shared/errors";
 import { renderHtml } from "@/services/notifications/delivery";
+import { sendEmailNow } from "@/services/notifications/direct";
 import { emailConfigFromEnv, resendSend, type FetchLike } from "@/services/notifications/resend";
 
 const config = { apiKey: "re_123", from: "Dystopia <onboarding@resend.dev>", redirectTo: "dono@exemplo.dev" };
@@ -83,3 +84,31 @@ describe("HTML do e-mail", () => {
     assert.ok(html.includes("Pedido &lt;1&gt;"));
   });
 });
+
+describe("envio direto (e-mail que não pode ficar gravado)", () => {
+  const reset = { to: "ana@exemplo.dev", subject: "Redefinição de senha", text: "link", html: "<p>link</p>", idempotencyKey: "password-reset:1" };
+
+  it("no sandbox vai para o dono do projeto, com o destinatário original no assunto", async () => {
+    const fetch = fakeFetch({ status: 200, body: { id: "msg_2" } });
+    assert.equal(await sendEmailNow(reset, { email: config, fetch }), "sent");
+
+    const body = JSON.parse(String(fetch.calls[0].init.body));
+    assert.deepEqual(body.to, ["dono@exemplo.dev"]);
+    assert.equal(body.subject, "[demo → ana@exemplo.dev] Redefinição de senha");
+  });
+
+  it("entrega ao destinatário quando liberado, e sem chave só simula", async () => {
+    const fetch = fakeFetch({ status: 200, body: { id: "msg_3" } });
+    await sendEmailNow(reset, { email: { ...config, redirectTo: null }, fetch });
+    assert.deepEqual(JSON.parse(String(fetch.calls[0].init.body)).to, ["ana@exemplo.dev"]);
+
+    assert.equal(await sendEmailNow(reset, { email: null, fetch }), "simulated");
+    assert.equal(fetch.calls.length, 1);
+  });
+
+  it("falha do provedor sobe para quem chamou (não há fila para tentar de novo)", async () => {
+    const fetch = fakeFetch({ status: 503, body: {} });
+    await assert.rejects(sendEmailNow(reset, { email: config, fetch }), RetryableError);
+  });
+});
+

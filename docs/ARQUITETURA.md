@@ -34,13 +34,14 @@ composition/web.ts        raiz da borda web: liga os casos de uso ao que só o
                           Next tem (o `after()` do worker embutido)
 application/*             casos de uso: o que cruza mais de um serviço ou abre
                           transação (checkout, orçamento, LGPD, ligar o MFA,
-                          login com limite por IP e por conta)
+                          login com limite por IP e por conta, esqueci a senha)
 saga/                     orquestração: ordem dos passos, retry, compensação
 services/*                regra de negócio, uma responsabilidade cada
                           (inventory, payments, orders, coupons, carts,
-                           accounts, sessions, known-devices, mfa,
-                           notifications, catalog, reviews, wishlist,
-                           addresses, rate-limit, service-requests)
+                           accounts, sessions, known-devices,
+                           password-resets, mfa, notifications, catalog,
+                           reviews, wishlist, addresses, rate-limit,
+                           service-requests)
 queue/                    fila genérica: outbox + relay, RabbitMQ, política
                           de retry (filas de espera com TTL), DLQ
 shared/errors.ts          taxonomia de erro (PermanentError x RetryableError),

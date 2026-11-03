@@ -27,6 +27,7 @@ import {
 const TABLES = [
   "rate_limits",
   "known_devices",
+  "password_resets",
   "sessions",
   "mfa_recovery_codes",
   "mfa_credentials",

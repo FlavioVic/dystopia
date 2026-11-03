@@ -50,6 +50,7 @@ grade com régua, campos de formulário) mora em `src/components/Kit.tsx`.
 | `/conta/enderecos` | Agenda de endereços: cadastrar, definir padrão, remover |
 | `/conta/seguranca` | Quantas sessões estão abertas e "sair dos outros aparelhos"; para o admin, o autenticador (cadastro por QR, códigos de recuperação, trocar de celular) |
 | `/favoritos` | Arquivo de favoritos ("Salvar" na vitrine e na página do produto) |
+| `/entrar/esqueci` | "Esqueci minha senha": manda um link por e-mail (30 minutos, uso único); `/entrar/redefinir` troca a senha e encerra os logins abertos. A conta demo não troca de senha por aqui |
 
 - **Avaliações**: quem está logado avalia direto na página do produto (1 a 5
   estrelas, título e comentário opcionais). As estrelas ficam vermelhas ao

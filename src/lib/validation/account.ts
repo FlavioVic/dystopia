@@ -31,3 +31,25 @@ export function parseSignupForm(formData: FormData) {
 export function parseLoginForm(formData: FormData) {
   return parseForm(loginSchema, formStrings(formData, ["email", "password"]));
 }
+
+const forgotPasswordSchema = z.object({
+  email: email("Informe um e-mail válido."),
+});
+
+/** Pedido do link: só o e-mail. */
+export function parseForgotPasswordForm(formData: FormData) {
+  return parseForm(forgotPasswordSchema, formStrings(formData, ["email"]));
+}
+
+const resetPasswordSchema = z
+  .object({
+    token: z.string().min(1, "Link incompleto. Peça outro."),
+    password: z.string().min(MIN_PASSWORD_LENGTH, `A senha precisa ter ao menos ${MIN_PASSWORD_LENGTH} caracteres.`),
+    confirm: z.string(),
+  })
+  .refine((values) => values.password === values.confirm, { path: ["confirm"], message: "As duas senhas não são iguais." });
+
+/** Senha nova pelo link: a mesma regra do cadastro, digitada duas vezes. */
+export function parseResetPasswordForm(formData: FormData) {
+  return parseForm(resetPasswordSchema, formStrings(formData, ["token", "password", "confirm"]));
+}

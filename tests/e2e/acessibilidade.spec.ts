@@ -14,7 +14,7 @@ import { addFirstProductToCart, expect, signUp, test } from "./fixtures";
 test.beforeEach(async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
 });
-const PAGES = ["/", "/produtos", "/produtos?q=memoria", "/servicos", "/portfolio", "/sobre", "/privacidade", "/entrar", "/cadastro", "/carrinho", "/nao-existe"];
+const PAGES = ["/", "/produtos", "/produtos?q=memoria", "/servicos", "/portfolio", "/sobre", "/privacidade", "/entrar", "/entrar/esqueci", "/entrar/redefinir?token=inventado", "/cadastro", "/carrinho", "/nao-existe"];
 
 for (const path of PAGES) {
   test(`acessibilidade: ${path}`, async ({ page }) => {

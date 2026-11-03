@@ -82,6 +82,12 @@ export async function revokeOtherSessions(executor: Executor, userId: string, ke
   return removed.length;
 }
 
+/** Senha redefinida: todo login aberto da pessoa cai (quem tinha a senha antiga sai). */
+export async function revokeAllSessions(executor: Executor, userId: string): Promise<number> {
+  const removed = await executor.delete(sessions).where(eq(sessions.userId, userId)).returning({ id: sessions.id });
+  return removed.length;
+}
+
 /** Sessões que ainda valem (contando a atual). Pendente de MFA não conta. */
 export async function countActiveSessions(executor: Executor, userId: string, now = new Date()): Promise<number> {
   const [row] = await executor

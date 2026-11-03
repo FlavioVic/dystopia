@@ -117,6 +117,20 @@ export const knownDevices = pgTable("known_devices", {
   index("known_devices_last_used_at_idx").on(table.lastUsedAt),
 ]);
 
+// Link de "esqueci minha senha" (ver services/password-resets). Uso único:
+// usar o link apaga a linha. Uma por conta — pedir de novo troca a anterior.
+export const passwordResets = pgTable("password_resets", {
+  id: text("id").primaryKey(), // SHA-256 (hex) do token do link
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+}, (table) => [
+  index("password_resets_user_id_idx").on(table.userId),
+  index("password_resets_expires_at_idx").on(table.expiresAt),
+]);
+
 // Segundo fator (TOTP, RFC 6238). Obrigatório para admin.
 export const mfaCredentials = pgTable("mfa_credentials", {
   userId: uuid("user_id")

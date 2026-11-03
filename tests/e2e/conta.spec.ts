@@ -23,10 +23,26 @@ test.describe("acesso", () => {
     await expect(page.getByRole("heading", { name: "Comando" })).toHaveCount(0);
   });
 
+  test("esqueci a senha: link no login, mesma resposta para qualquer e-mail, link inválido oferece outro", async ({ page }) => {
+    await page.goto("/entrar");
+    await page.getByRole("link", { name: "Esqueci minha senha" }).click();
+    await expect(page).toHaveURL(/\/entrar\/esqueci/);
+
+    // E-mail sem conta: a tela não pode dizer que ele não existe.
+    await page.locator('input[name="email"]').fill(`ninguem-${Date.now()}@exemplo.dev`);
+    await page.getByRole("button", { name: "Enviar link" }).click();
+    await expect(page.getByRole("status")).toContainText("Se existir uma conta com esse e-mail");
+
+    await page.goto("/entrar/redefinir?token=inventado");
+    await expect(page.getByText("Este link não vale mais")).toBeVisible();
+    await page.getByRole("link", { name: "Pedir outro link" }).click();
+    await expect(page).toHaveURL(/\/entrar\/esqueci/);
+  });
+
   test("título do login e do cadastro cabe numa linha (não quebra no meio da palavra)", async ({ page }) => {
     for (const width of [320, 375, 1280]) {
       await page.setViewportSize({ width, height: 800 });
-      for (const path of ["/entrar", "/cadastro"]) {
+      for (const path of ["/entrar", "/cadastro", "/entrar/esqueci"]) {
         await page.goto(path);
         // Mede com a Michroma carregada: com a fonte reserva a largura é outra.
         await page.evaluate(() => document.fonts.ready);
