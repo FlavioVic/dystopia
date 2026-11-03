@@ -7,6 +7,7 @@ import { completeMfaSession, endSession, startSession } from "@/lib/session";
 import { CART_COOKIE } from "@/lib/data/cart";
 import { getPendingMfaUser } from "@/lib/data/auth";
 import { attemptLogin } from "@/application/login";
+import { breachedPasswordMessage } from "@/application/password-policy";
 import { limitAction, retryMessage } from "@/lib/action-limits";
 import { readKnownDeviceToken, rememberThisDevice } from "@/lib/known-device";
 import { limitFromEnv } from "@/lib/rate-limit-config";
@@ -63,6 +64,9 @@ export async function signup(_prev: AuthState, formData: FormData): Promise<Auth
 
   const limited = await rateLimited("signup", SIGNUP_RULE);
   if (limited) return { message: limited, values: echo };
+
+  const breached = await breachedPasswordMessage(values.password);
+  if (breached) return { errors: { password: breached }, values: echo };
 
   let account: Account;
   try {
