@@ -45,6 +45,18 @@ export async function getUserAddress(
   });
 }
 
+/**
+ * Teto da agenda. Cadastrar endereço exige login, mas sem teto uma conta (a
+ * demo, por exemplo, que é de todos) encheria o banco sem fim.
+ */
+export const MAX_ADDRESSES = 20;
+export const ADDRESS_LIMIT_MESSAGE = `Sua agenda chegou a ${MAX_ADDRESSES} endereços. Apague um em Minha conta › Endereços para salvar outro.`;
+
+/** Cabe mais um endereço na agenda? (O checkout pergunta antes de abrir a transação.) */
+export async function hasRoomForAddress(executor: Executor, userId: string): Promise<boolean> {
+  return (await listAddresses(executor, userId)).length < MAX_ADDRESSES;
+}
+
 export async function createAddress(
   executor: Executor,
   userId: string,
@@ -52,6 +64,7 @@ export async function createAddress(
   options: { makeDefault?: boolean } = {},
 ): Promise<AddressRow> {
   const existing = await listAddresses(executor, userId);
+  if (existing.length >= MAX_ADDRESSES) throw new PermanentError("address_limit", ADDRESS_LIMIT_MESSAGE, { userId });
   // O primeiro endereço da conta é o padrão automaticamente.
   const makeDefault = options.makeDefault ?? existing.length === 0;
 

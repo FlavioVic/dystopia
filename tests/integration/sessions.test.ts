@@ -65,7 +65,7 @@ describe("sessões", () => {
     assert.equal(await currentUser(token), null);
   });
 
-  it("senha certa e código pendente não é login; o código completa e dá a validade cheia", async () => {
+  it("senha certa e código pendente não é login; o código completa com token novo e a validade cheia", async () => {
     const userId = await createUser("admin@exemplo.dev", "admin");
     const now = new Date();
     const { token, expiresAt } = await createSession(db, { userId, mfaPending: true }, now);
@@ -77,7 +77,9 @@ describe("sessões", () => {
 
     const completed = await completeMfa(db, token, now);
     assert.equal(completed?.expiresAt.getTime(), now.getTime() + SESSION_TTL_SECONDS * 1000);
-    assert.equal((await currentUser(token))?.id, userId);
+    assert.notEqual(completed?.token, token, "mudou o privilégio, muda o token");
+    assert.equal((await currentUser(completed!.token))?.id, userId);
+    assert.equal(await lookupSession(db, token), null, "o token pendente não vira login");
     assert.equal(await completeMfa(db, token, now), null, "sessão já completa não completa de novo");
   });
 

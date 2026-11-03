@@ -33,13 +33,13 @@ export async function startSession(input: { userId: string; mfaPending: boolean 
   await writeCookie(token, expiresAt);
 }
 
-/** Código do autenticador conferido: a sessão pendente vira login. */
+/** Código do autenticador conferido: a sessão pendente vira login, com token novo no cookie. */
 export async function completeMfaSession(): Promise<boolean> {
   const token = await readSessionToken();
   if (!token) return false;
-  const completed = await sessionsService.completeMfa(db, token);
+  const completed = await db.transaction((tx) => sessionsService.completeMfa(tx, token));
   if (!completed) return false;
-  await writeCookie(token, completed.expiresAt);
+  await writeCookie(completed.token, completed.expiresAt);
   return true;
 }
 

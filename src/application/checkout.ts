@@ -26,7 +26,7 @@ import { shippingFor } from "@/lib/shipping";
 import type { AddressFormValues } from "@/lib/validation/address";
 import { CHECKOUT_SAGA_TYPE, type CheckoutSagaPayload } from "@/saga/definitions/checkout";
 import { startSaga } from "@/saga/runner";
-import { createAddress, getUserAddress } from "@/services/addresses";
+import { ADDRESS_LIMIT_MESSAGE, createAddress, getUserAddress, hasRoomForAddress } from "@/services/addresses";
 import { getCheckoutLines } from "@/services/carts";
 import { resolveCoupon } from "@/services/coupons";
 import { createOrder, generateOrderNumber } from "@/services/orders";
@@ -73,6 +73,10 @@ export async function placeOrder(input: PlaceOrderInput, hooks: UseCaseHooks = {
 
   if ("savedId" in input.address && !(await getUserAddress(db, customer.id, input.address.savedId))) {
     return { ok: false, message: "Endereço não encontrado na sua conta." };
+  }
+  // Endereço novo também entra na agenda, que tem teto.
+  if ("values" in input.address && !(await hasRoomForAddress(db, customer.id))) {
+    return { ok: false, message: ADDRESS_LIMIT_MESSAGE };
   }
 
   // Conta a tentativa com carrinho e endereço válidos — antes do cupom, para

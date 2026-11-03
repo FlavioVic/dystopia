@@ -12,6 +12,7 @@ import { db } from "@/db";
 import { addresses, coupons, orders, outbox, products, sagas, sagaSteps } from "@/db/schema";
 import { formatPriceCents } from "@/lib/format";
 import { shippingFor } from "@/lib/shipping";
+import { ADDRESS_LIMIT_MESSAGE, createAddress, MAX_ADDRESSES } from "@/services/addresses";
 import { closeDatabase, resetDatabase, seedCheckoutFixture, type CheckoutFixture } from "../helpers/db";
 
 beforeEach(resetDatabase);
@@ -137,6 +138,20 @@ describe("caso de uso: fechar a compra", () => {
 
     // Confirmando com o total novo, fecha.
     assert.ok((await placeOrder(input(fixture, { expectedTotalCents: charged }))).ok);
+  });
+
+  it("agenda cheia: endereço novo recusa com explicação; um salvo segue valendo", async () => {
+    const fixture = await seedCheckoutFixture();
+    while ((await db.$count(addresses, eq(addresses.userId, fixture.userId))) < MAX_ADDRESSES) {
+      await createAddress(db, fixture.userId, NEW_ADDRESS);
+    }
+
+    const refused = await placeOrder(input(fixture));
+    assert.deepEqual(refused, { ok: false, message: ADDRESS_LIMIT_MESSAGE });
+    assert.equal(await db.$count(orders), 0);
+
+    const saved = await db.query.addresses.findFirst({ where: eq(addresses.userId, fixture.userId) });
+    assert.ok((await placeOrder(input(fixture, { address: { savedId: saved!.id } }))).ok);
   });
 
   it("cupom informado que deixou de valer: recusa, em vez de cobrar sem o desconto mostrado", async () => {
