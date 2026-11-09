@@ -69,7 +69,7 @@ export async function placeOrder(input: PlaceOrderInput, hooks: UseCaseHooks = {
       message: `${list} ${unavailable.length === 1 ? "saiu" : "saíram"} de venda. Tire do carrinho para concluir a compra.`,
     };
   }
-  const lines = cartLines.map(({ available: _available, ...line }) => line);
+  const lines = cartLines.map(({ available, ...line }) => line);
 
   if ("savedId" in input.address && !(await getUserAddress(db, customer.id, input.address.savedId))) {
     return { ok: false, message: "Endereço não encontrado na sua conta." };

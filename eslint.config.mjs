@@ -5,6 +5,14 @@ import nextTs from "eslint-config-next/typescript";
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
+  {
+    rules: {
+      // Tirar um campo com `{ campo, ...resto }` não conta como variável sem
+      // uso: é o jeito de mandar o objeto sem ele (ex.: o checkout tira o
+      // `available` das linhas antes de montar o pedido).
+      "@typescript-eslint/no-unused-vars": ["warn", { ignoreRestSiblings: true }],
+    },
+  },
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:
