@@ -111,17 +111,17 @@ Ficaram de fora de propósito, com o porquê:
 - **Argumento das actions do painel sem checagem de tipo.** O TypeScript não
   vale em tempo de execução, mas só um admin com autenticador chega lá, e o
   efeito de um valor estranho é inofensivo (o serviço só grava o que conhece).
-- **2 alertas moderados do Dependabot em ferramenta, não no site.**
+- **2 alertas moderados do Dependabot em ferramenta, não no site.** Os dois
+  são dependência de desenvolvimento e não vão para o site.
   `esbuild` 0.18 (o servidor de desenvolvimento dele responde a pedido de
   qualquer site) vem do drizzle-kit, por um pacote antigo (`@esbuild-kit`),
-  e é dependência de desenvolvimento: não vai para o site, e o
-  `esbuild serve` não é usado. `glob` 13 (uma busca cancelada continua
-  lendo pastas) vem do Pulumi, no `infra/`, e só roda na CI do deploy da
-  AWS, com padrões nossos. O Pulumi 3.274 (#59) já não usa o `glob`, e esse
-  alerta fecha quando ele entrar. O do `esbuild` fica aberto de propósito,
-  para o Dependabot avisar quando o drizzle-kit trouxer a versão corrigida.
-  Eram 4: os 2 do `minimatch` sumiram em novembro de 2026 porque o GitHub
-  retirou o aviso de segurança, não por atualização nossa.
+  e o `esbuild serve` não é usado. `minimatch` 10 (DoS com padrão de glob
+  feito para isso) vem do eslint 10 e do typescript-eslint, e os padrões
+  que ele lê são os nossos, da configuração do lint. A correção é a
+  versão 11, que os dois ainda não aceitam (pedem `^10`): forçar arrisca
+  quebrar o lint. Ficam abertos de propósito, para o Dependabot avisar
+  quando o drizzle-kit e o eslint trouxerem a versão corrigida. Na
+  `infra/`, o Pulumi 3.274 (#59) tirou o `glob` e o `minimatch` vulneráveis.
 - **Padrões genéricos e checagem de validade do secret scanning.** São do
   plano pago do GitHub. Os padrões dos provedores (Stripe, Resend, AWS...)
   e a push protection estão ligados.
