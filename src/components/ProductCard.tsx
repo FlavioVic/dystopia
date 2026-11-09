@@ -54,11 +54,16 @@ export function ProductCard({ product, priority = false }: { product: ProductCar
             }
           />
         ) : null}
-        {/* No canto da foto só o que é curto: no celular o card tem ~179px, e
-            "ÚLTIMAS 01" ao lado do "SALVAR" não cabe (um cobria o outro).
-            Estoque fica junto do preço; esgotado, o próprio botão diz. */}
-        {discount ? <span className="dys-label dys-label--classified absolute left-3 top-3">-{discount}%</span> : null}
       </Link>
+
+      {/* No canto da foto só o que é curto: no celular o card tem ~179px, e
+          "ÚLTIMAS 01" ao lado do "SALVAR" não cabe (um cobria o outro).
+          Estoque fica junto do preço; esgotado, o próprio botão diz.
+          Fora do <Link>: o nome dele é o do produto, e texto visível dentro
+          do link tem que estar no nome (WCAG 2.5.3). O clique atravessa o selo. */}
+      {discount ? (
+        <span className="dys-label dys-label--classified pointer-events-none absolute left-3 top-3">-{discount}%</span>
+      ) : null}
 
       {/* Fora do <Link>: botão dentro de âncora não é HTML válido (e o clique navegaria). */}
       <div className="absolute right-3 top-3 z-10">

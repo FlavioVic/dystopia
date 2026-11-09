@@ -156,8 +156,9 @@ test.describe("conta do cliente", () => {
     const productPath = await addFirstProductToCart(page);
     await page.goto(productPath);
 
-    await page.getByRole("button", { name: "Adicionar aos favoritos" }).first().click();
-    await expect(page.getByRole("button", { name: "Remover dos favoritos" }).first()).toBeVisible();
+    // O nome sai do texto da tela (Salvar → Salvo); o estado também vai no aria-pressed.
+    await page.getByRole("button", { name: "Salvar nos favoritos" }).first().click();
+    await expect(page.getByRole("button", { name: "Salvo nos favoritos" }).first()).toHaveAttribute("aria-pressed", "true");
 
     // Título único: o produto do catálogo acumula avaliações de outras rodadas e
     // do outro tamanho de tela (rodam juntos).

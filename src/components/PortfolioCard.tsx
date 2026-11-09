@@ -2,8 +2,32 @@ import Image from "next/image";
 import Link from "next/link";
 import type { PortfolioProject } from "@/lib/portfolio";
 
-/** Imagem do projeto com a moldura da marca e zoom lento no hover. */
-export function ProjectImage({ project, priority = false, sizes }: { project: PortfolioProject; priority?: boolean; sizes: string }) {
+/** Selo no canto da imagem: diz se é captura de tela ou diagrama. */
+export function ProjectTag({ project }: { project: PortfolioProject }) {
+  return (
+    <span className="label pointer-events-none absolute left-3 top-3 bg-background/90 px-2 py-1 text-foreground-muted">
+      {project.screenshot ? "Captura real" : "Arquitetura"}
+    </span>
+  );
+}
+
+/**
+ * Imagem do projeto com a moldura da marca e zoom lento no hover.
+ * `tag={false}` quando a imagem vai dentro de um link com aria-label: aí o
+ * selo vai do lado de fora (ver /portfolio), porque texto visível dentro do
+ * link tem que estar no nome dele (WCAG 2.5.3).
+ */
+export function ProjectImage({
+  project,
+  priority = false,
+  sizes,
+  tag = true,
+}: {
+  project: PortfolioProject;
+  priority?: boolean;
+  sizes: string;
+  tag?: boolean;
+}) {
   return (
     <div className="relative aspect-[16/10] overflow-hidden border border-border-faint bg-background">
       <Image
@@ -14,9 +38,7 @@ export function ProjectImage({ project, priority = false, sizes }: { project: Po
         sizes={sizes}
         className="object-cover object-top transition-transform duration-700 ease-out group-hover:scale-[1.03]"
       />
-      <span className="label absolute left-3 top-3 bg-background/90 px-2 py-1 text-foreground-muted">
-        {project.screenshot ? "Captura real" : "Arquitetura"}
-      </span>
+      {tag ? <ProjectTag project={project} /> : null}
     </div>
   );
 }
