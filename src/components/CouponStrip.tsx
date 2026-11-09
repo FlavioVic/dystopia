@@ -42,8 +42,9 @@ function CouponCard({ coupon }: { coupon: Coupon }) {
       <button
         type="button"
         onClick={copy}
+        // Sem aria-label: o nome é o que está escrito ("CÓDIGO Copiar código").
+        // Um nome diferente do texto deixa o comando de voz sem alvo (WCAG 2.5.3).
         className="flex flex-col items-start border border-foreground px-3 py-2 hover:bg-foreground hover:text-background"
-        aria-label={`Copiar cupom ${coupon.code}`}
       >
         <span className="serial">{coupon.code}</span>
         <span className="label text-[10px] opacity-70">{copied ? "Copiado" : "Copiar código"}</span>

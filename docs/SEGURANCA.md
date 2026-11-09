@@ -111,15 +111,17 @@ Ficaram de fora de propósito, com o porquê:
 - **Argumento das actions do painel sem checagem de tipo.** O TypeScript não
   vale em tempo de execução, mas só um admin com autenticador chega lá, e o
   efeito de um valor estranho é inofensivo (o serviço só grava o que conhece).
-- **4 alertas moderados do Dependabot em ferramenta, não no site.**
-  `minimatch` (DoS por padrão de glob) e `esbuild` (servidor de
-  desenvolvimento dele) vêm do eslint e do drizzle-kit; `minimatch` e `glob`
-  no `infra/` rodam só na CI do deploy da AWS. A correção do `minimatch` é a
-  versão 11, e o eslint usa a 3, com outra API: forçar quebraria o lint.
-  Nenhum é alcançável aqui (os padrões de glob são nossos, e o
-  `esbuild serve` não é usado). Ficam abertos de propósito, para o
-  Dependabot avisar quando o eslint e o drizzle-kit trouxerem a versão
-  corrigida.
+- **2 alertas moderados do Dependabot em ferramenta, não no site.**
+  `esbuild` 0.18 (o servidor de desenvolvimento dele responde a pedido de
+  qualquer site) vem do drizzle-kit, por um pacote antigo (`@esbuild-kit`),
+  e é dependência de desenvolvimento: não vai para o site, e o
+  `esbuild serve` não é usado. `glob` 13 (uma busca cancelada continua
+  lendo pastas) vem do Pulumi, no `infra/`, e só roda na CI do deploy da
+  AWS, com padrões nossos. O Pulumi 3.274 (#59) já não usa o `glob`, e esse
+  alerta fecha quando ele entrar. O do `esbuild` fica aberto de propósito,
+  para o Dependabot avisar quando o drizzle-kit trouxer a versão corrigida.
+  Eram 4: os 2 do `minimatch` sumiram em novembro de 2026 porque o GitHub
+  retirou o aviso de segurança, não por atualização nossa.
 - **Padrões genéricos e checagem de validade do secret scanning.** São do
   plano pago do GitHub. Os padrões dos provedores (Stripe, Resend, AWS...)
   e a push protection estão ligados.
@@ -147,7 +149,10 @@ alertas. Nenhum era falha explorável:
 ## Como manter
 
 - **Dependências:** o "Dependabot security updates" abre PR na hora em que
-  sai um alerta; o resto chega agrupado toda segunda.
+  sai um alerta; o resto chega agrupado toda segunda. A versão principal do
+  Node não vem por ele: é uma só em todo lugar (o `engines` do
+  `package.json`, que a Vercel e a CI leem, os Dockerfiles e o
+  `@types/node`) e muda à mão, nos três juntos, quando a Vercel suportar.
 - **Segredos:** push protection barra o push com chave conhecida; o secret
   scanning varre o histórico.
 - **Código:** o CodeQL (conjunto `security-extended`) roda em todo PR.

@@ -29,6 +29,8 @@ setup("admin: senha + autenticador", async ({ page }) => {
     // Sai e entra de novo com um código de recuperação (o celular "sumiu").
     await page.goto("/conta");
     await page.getByRole("button", { name: "Encerrar sessão" }).click();
+    // Espera a saída terminar: com a sessão ainda viva, /entrar redireciona e o formulário não aparece.
+    await expect(page).toHaveURL(/\/entrar/);
     await logIn(page);
     await expect(page).toHaveURL(/\/entrar\/verificacao/);
     await page.getByLabel("Código do autenticador").fill(recoveryCode);

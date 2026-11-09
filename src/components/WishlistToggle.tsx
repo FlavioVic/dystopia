@@ -30,7 +30,9 @@ export function WishlistToggle({
       type="button"
       disabled={pending}
       aria-pressed={active}
-      aria-label={active ? "Remover dos favoritos" : "Adicionar aos favoritos"}
+      // Nome tirado do texto ("Salvar nos favoritos" / "Salvo nos favoritos"),
+      // não de um aria-label: a palavra da tela tem que estar no nome (WCAG 2.5.3).
+      // O title vira a descrição: diz o que o clique faz.
       title={active ? "Remover dos favoritos" : "Adicionar aos favoritos"}
       onClick={(event) => {
         event.preventDefault();
@@ -60,6 +62,7 @@ export function WishlistToggle({
       }`}
     >
       {active ? "Salvo" : "Salvar"}
+      <span className="sr-only"> nos favoritos</span>
     </button>
   );
 }

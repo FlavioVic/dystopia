@@ -4,8 +4,21 @@ import { Emblem, Logo } from "@/components/Logo";
 
 type Category = { slug: string; name: string };
 
+/**
+ * Contador do atalho. O "02" é o mostrador da marca e fica fora do leitor de
+ * tela, que ouve "(2 itens)". O nome do link sai do texto, e não de um
+ * aria-label: o que está escrito na tela tem que estar no nome (WCAG 2.5.3),
+ * senão quem usa comando de voz diz "Carrinho" e o link não responde.
+ */
 function Count({ value }: { value: number }) {
-  return <span className="font-mono text-foreground">{String(Math.min(value, 99)).padStart(2, "0")}</span>;
+  return (
+    <>
+      <span aria-hidden="true" className="font-mono text-foreground">
+        {String(Math.min(value, 99)).padStart(2, "0")}
+      </span>
+      <span className="sr-only">{`(${value} ${value === 1 ? "item" : "itens"})`}</span>
+    </>
+  );
 }
 
 /**
@@ -44,8 +57,8 @@ export function Header({
                 <span className="hidden sm:inline">{user.name.split(" ")[0]}</span>
                 <span className="sm:hidden">Conta</span>
               </Link>
-              <Link href="/favoritos" className={`${shortcut} hidden md:flex`} aria-label={`Arquivo de favoritos (${favoriteCount})`}>
-                Arquivo <Count value={favoriteCount} />
+              <Link href="/favoritos" className={`${shortcut} hidden md:flex`}>
+                Arquivo<span className="sr-only"> de favoritos</span> <Count value={favoriteCount} />
               </Link>
             </>
           ) : (
@@ -56,7 +69,6 @@ export function Header({
           <Link
             href="/carrinho"
             className={`${shortcut} border border-border px-3 py-2 hover:border-primary`}
-            aria-label={`Carrinho (${cartCount} ${cartCount === 1 ? "item" : "itens"})`}
           >
             Carrinho <Count value={cartCount} />
           </Link>

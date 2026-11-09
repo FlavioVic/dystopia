@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { PageHeader, Sector, buttonPrimary, buttonSecondary } from "@/components/Kit";
 import { Reveal } from "@/components/Motion";
-import { ProjectImage, StackTags } from "@/components/PortfolioCard";
+import { ProjectImage, ProjectTag, StackTags } from "@/components/PortfolioCard";
 import { PORTFOLIO, PROFILE } from "@/lib/portfolio";
 import { canonical } from "@/lib/seo";
 
@@ -46,10 +46,15 @@ export default function PortfolioPage() {
           >
             <div className="mx-auto max-w-site px-4 py-14 sm:px-6 lg:px-8">
               <Reveal immediate={i === 0} className="group grid items-start gap-10 lg:grid-cols-12">
-                <div className={`min-w-0 lg:col-span-7 ${i % 2 === 1 ? "lg:order-2" : ""}`}>
+                <div className={`relative min-w-0 lg:col-span-7 ${i % 2 === 1 ? "lg:order-2" : ""}`}>
                   <a href={p.live ?? p.repo} target="_blank" rel="noreferrer" aria-label={`Abrir ${p.name}`}>
-                    <ProjectImage project={p} priority={i === 0} sizes="(min-width: 1024px) 55vw, 90vw" />
+                    <ProjectImage project={p} priority={i === 0} sizes="(min-width: 1024px) 55vw, 90vw" tag={false} />
                   </a>
+                  {/* Fora do link (o nome dele é "Abrir …"), com a mesma borda de 1px
+                      da moldura, para o selo cair no mesmo lugar de dentro da imagem. */}
+                  <div className="pointer-events-none absolute inset-0 border border-transparent">
+                    <ProjectTag project={p} />
+                  </div>
                 </div>
                 <div className={`flex min-w-0 flex-col gap-5 lg:col-span-5 ${i % 2 === 1 ? "lg:order-1" : ""}`}>
                   <div className="flex items-center justify-between gap-4">
