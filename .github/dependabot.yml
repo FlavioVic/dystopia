@@ -40,6 +40,13 @@ updates:
       desenvolvimento:
         dependency-type: development
         update-types: [minor, patch]
+    # Node é uma versão principal só em todo lugar: o `engines` do package.json
+    # (lido pela Vercel e pela CI), os Dockerfiles e o @types/node. Trocar de
+    # versão principal é decisão, não rotina: muda os três juntos num PR feito
+    # à mão, quando a Vercel suportar a versão nova.
+    ignore:
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
     commit-message:
       prefix: "chore(deps)"
     open-pull-requests-limit: 5
@@ -52,6 +59,10 @@ updates:
       day: monday
       time: "09:00"
       timezone: America/Sao_Paulo
+    # Mesma regra do npm: versão principal do Node só junto com o `engines`.
+    ignore:
+      - dependency-name: node
+        update-types: ["version-update:semver-major"]
     commit-message:
       prefix: "chore(docker)"
     open-pull-requests-limit: 2

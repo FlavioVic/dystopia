@@ -147,7 +147,10 @@ alertas. Nenhum era falha explorável:
 ## Como manter
 
 - **Dependências:** o "Dependabot security updates" abre PR na hora em que
-  sai um alerta; o resto chega agrupado toda segunda.
+  sai um alerta; o resto chega agrupado toda segunda. A versão principal do
+  Node não vem por ele: é uma só em todo lugar (o `engines` do
+  `package.json`, que a Vercel e a CI leem, os Dockerfiles e o
+  `@types/node`) e muda à mão, nos três juntos, quando a Vercel suportar.
 - **Segredos:** push protection barra o push com chave conhecida; o secret
   scanning varre o histórico.
 - **Código:** o CodeQL (conjunto `security-extended`) roda em todo PR.

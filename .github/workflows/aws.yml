@@ -86,7 +86,8 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          # Versão do Node: a do `engines` no package.json (a Vercel lê o mesmo campo).
+          node-version-file: package.json
           cache: npm
           cache-dependency-path: infra/package-lock.json
 
