@@ -51,9 +51,9 @@ updates:
       prefix: "chore(deps)"
     open-pull-requests-limit: 5
 
-  # Imagem base dos containers (Dockerfile.web e Dockerfile.worker).
+  # Imagem base dos containers (docker/Dockerfile.web e docker/Dockerfile.worker).
   - package-ecosystem: docker
-    directory: /
+    directory: /docker
     schedule:
       interval: weekly
       day: monday

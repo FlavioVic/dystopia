@@ -60,7 +60,7 @@ services:
   # ---------------------------------------------------------------- stack (--profile app)
   web:
     profiles: [app]
-    build: { context: ., dockerfile: Dockerfile.web }
+    build: { context: ., dockerfile: docker/Dockerfile.web }
     environment: &app-env
       DATABASE_URL: postgresql://dystopia_app:${APP_DB_PASSWORD:-dystopia_app_dev_pw}@db:5432/${POSTGRES_DB:-dystopia}
       # Banco próprio do serviço de pagamentos (mesmo servidor Postgres aqui;
@@ -117,7 +117,7 @@ services:
   # src/db/app-role.ts).
   migrate:
     profiles: [app]
-    build: { context: ., dockerfile: Dockerfile.worker }
+    build: { context: ., dockerfile: docker/Dockerfile.worker }
     command: ["sh", "-c", "npm run db:migrate && npm run db:app-role"]
     environment:
       <<: *app-env
@@ -146,7 +146,7 @@ services:
   # Filas `saga` e `notifications` + relay da outbox + reconciliação.
   worker:
     profiles: [app]
-    build: { context: ., dockerfile: Dockerfile.worker }
+    build: { context: ., dockerfile: docker/Dockerfile.worker }
     environment:
       <<: *app-env
       WORKER_QUEUES: saga,notifications
@@ -157,7 +157,7 @@ services:
   # próprio: sem DATABASE_URL de propósito — ele não conecta no banco da loja.
   payments:
     profiles: [app]
-    build: { context: ., dockerfile: Dockerfile.worker }
+    build: { context: ., dockerfile: docker/Dockerfile.worker }
     command: ["node", "--import", "tsx", "src/scripts/payments-worker.ts"]
     environment:
       <<: *app-env
