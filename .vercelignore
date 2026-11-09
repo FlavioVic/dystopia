@@ -10,10 +10,10 @@ coverage
 *.tsbuildinfo
 next-env.d.ts
 
-# Fora do app web: testes, worker em container, docs.
+# Fora do app web: testes, imagens e proxy da stack em containers, docs.
 tests
 docs
-Dockerfile.worker
+docker
 docker-compose.yml
 
 .uploads

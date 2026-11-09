@@ -8,7 +8,7 @@ const nextConfig: NextConfig = {
   /* Sem `X-Powered-By: Next.js`: não anuncia o framework (e a versão a
    * procurar em lista de CVE) para quem varre o site. */
   poweredByHeader: false,
-  /* Só no build da imagem Docker (Dockerfile.web): servidor autocontido. Na
+  /* Só no build da imagem Docker (docker/Dockerfile.web): servidor autocontido. Na
    * Vercel e no `next start` local fica o padrão. */
   ...(process.env.NEXT_OUTPUT === "standalone" ? { output: "standalone" as const } : {}),
   images: {

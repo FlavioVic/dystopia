@@ -268,7 +268,7 @@ aviso ao dreno é a raiz de composição da borda web (`composition/web.ts`). Qu
 executa a saga é sempre o consumidor da fila — em container ou no dreno.
 
 **Preço.** Sem tráfego, um retry pode esperar o próximo request ou o cron. Com
-tráfego real, o caminho é subir o `Dockerfile.worker` num container e desligar
+tráfego real, o caminho é subir o `docker/Dockerfile.worker` num container e desligar
 a flag.
 
 ## 9. Sessão no banco, não JWT
@@ -583,7 +583,7 @@ serviço segue o mesmo caminho.
 
 **"Como isso escala?"**
 O gargalo seria o worker embutido: com tráfego, sobe-se o worker em container
-(já existe o `Dockerfile.worker`) e várias instâncias consomem em paralelo — o
+(já existe o `docker/Dockerfile.worker`) e várias instâncias consomem em paralelo — o
 lease da saga e o `SKIP LOCKED` do relay já foram feitos para isso.
 
 ## O que eu faria com mais tempo ou tráfego

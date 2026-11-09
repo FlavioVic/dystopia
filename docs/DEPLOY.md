@@ -35,7 +35,7 @@ transação (outbox), pagamentos continua falando por mensagem (fila
 mesmo tempo são seguros (o broker entrega cada mensagem a um consumidor só, o
 relay usa `SKIP LOCKED` e a saga tem lease). Muda só **quem** consome —
 `src/composition/worker.ts` monta os mesmos handlers para os dois executores. Com
-tráfego de verdade, o caminho é subir o `Dockerfile.worker` num container e
+tráfego de verdade, o caminho é subir o `docker/Dockerfile.worker` num container e
 desligar a flag.
 
 ## 1. Neon — banco

@@ -5,7 +5,7 @@
 # (Fly.io, Render…). Mesmo repo, mesmo código: só muda o entrypoint. A demo
 # pública dispensa o container: ver INLINE_WORKER em docs/DEPLOY.md.
 #
-#   docker build -f Dockerfile.worker -t dystopia-worker .
+#   docker build -f docker/Dockerfile.worker -t dystopia-worker .
 #   docker run --env-file .env dystopia-worker
 
 FROM node:24-alpine
