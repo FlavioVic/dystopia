@@ -27,7 +27,7 @@ conta sozinho. Os detalhes de funcionamento estão em
 | 18 | [Limite de login por conta, com aparelho conhecido](#18-limite-de-login-por-conta-com-aparelho-conhecido) | O ataque distribuído esbarra; o dono não fica trancado |
 | 19 | [Recuperação de senha sem guardar o link](#19-recuperação-de-senha-sem-guardar-o-link) | O link é credencial: hash no banco e e-mail fora da outbox |
 | 20 | [Senha nova conferida contra vazamentos](#20-senha-nova-conferida-contra-vazamentos) | Pwned Passwords por k-anonimato; a senha nunca sai do servidor |
-| 21 | [Emblema 3D com three.js, contido e desktop-only](#21-emblema-3d-com-threejs-contido-e-desktop-only) | 3D no hero sem furar o LCP nem o mobile; fallback SVG |
+| 21 | [Emblema 3D com three.js, contido e desktop-only](#21-emblema-3d-com-threejs-contido-e-desktop-only) | **Revertida** — o resultado visual não convenceu; hero voltou ao SVG |
 | 22 | [Transições de página com View Transitions nativas](#22-transições-de-página-com-view-transitions-nativas) | React 19, zero biblioteca, sem violar a CSP |
 | 23 | [Prettier sem reformatação em massa](#23-prettier-sem-reformatação-em-massa) | Config pronta; o diff gigante fica para um passo isolado |
 
@@ -541,6 +541,14 @@ A revisão de segurança inteira, com os outros achados, está em
 [`SEGURANCA.md`](SEGURANCA.md).
 
 ## 21. Emblema 3D com three.js, contido e desktop-only
+
+> **Revertida (2026-11-10).** Implementada com todas as cercas abaixo e com os
+> números dentro do previsto, mas o resultado visual não convenceu em produção:
+> o relevo com parallax ficou aquém do emblema SVG, que é mais nítido e mais
+> fiel à identidade. O hero voltou ao `EmblemSting` e `three` /
+> `@react-three/fiber` saíram do projeto. A decisão fica registrada pelo
+> processo (como conter 3D sem furar LCP/mobile) e pela lição: acabamento
+> decorativo se julga pelo resultado na tela, não pelo custo bem pago.
 
 **Problema.** O hero da home é a primeira tela de um projeto de portfólio e
 precisa ter acabamento de produto. O emblema "The Gate" é a marca da loja; uma

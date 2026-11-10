@@ -80,13 +80,11 @@ test.describe("painel admin", () => {
     await expect(page.getByText("Imagens (2/10)")).toBeVisible();
 
     // Arquivo que não é imagem (texto com nome .png) é recusado pelo conteúdo.
-    await page
-      .locator("#image-file")
-      .setInputFiles({
-        name: "falso.png",
-        mimeType: "image/png",
-        buffer: Buffer.from("<svg><script>alert(1)</script></svg>"),
-      });
+    await page.locator("#image-file").setInputFiles({
+      name: "falso.png",
+      mimeType: "image/png",
+      buffer: Buffer.from("<svg><script>alert(1)</script></svg>"),
+    });
     await page.getByRole("button", { name: "Enviar imagem" }).click();
     await expect(page.getByText("Formato não aceito. Envie JPEG, PNG, WebP ou AVIF.")).toBeVisible();
 

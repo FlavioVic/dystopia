@@ -42,15 +42,9 @@ responde (aprovar, recusar, instável, fora do ar) para ver a saga reagir.
 - **Assistente com IA que usa o próprio sistema**: busca no catálogo, consulta
   o pedido de quem está logado e registra orçamento por ferramentas (tool
   calling), com a identidade vinda da sessão — nunca da conversa.
-- **Vitrine com acabamento de produto**: no hero da home, o emblema "The Gate"
-  ganha uma versão em 3D (three.js / `@react-three/fiber`), monocromática e
-  fosca — steel e bone sobre obsidian, sem glow nem neon, fiel à identidade; o
-  portão não abre, o único movimento é um parallax mecânico. É **progressivo e
-  acessível**: só monta no desktop com WebGL e sem `prefers-reduced-motion` —
-  no celular o chunk pesado nem é baixado e fica o emblema SVG de fallback.
-  Transições entre páginas com o `<ViewTransition>` nativo do React 19 (zero
-  biblioteca, sem furar a CSP) e clique mecânico nos botões do kit; tudo some
-  com `prefers-reduced-motion`.
+- **Vitrine com acabamento de produto**: transições entre páginas com o
+  `<ViewTransition>` nativo do React 19 (zero biblioteca, sem furar a CSP) e
+  clique mecânico nos botões do kit; tudo some com `prefers-reduced-motion`.
 - **Pronto para ficar exposto**: CSP com nonce por request, limite de
   tentativas no login, login que não revela quais e-mails existem, sessão no
   banco (sair vale na hora, em qualquer aparelho), **MFA obrigatório no
@@ -128,8 +122,7 @@ pagamentos, garantias, observabilidade) e
 ## Stack
 
 Next.js 16 (App Router, Server Actions) · TypeScript · PostgreSQL + Drizzle ·
-RabbitMQ (`amqplib`) · Zod · Tailwind CSS v4 · three.js / `@react-three/fiber`
-(emblema 3D do hero) · `node:test` + Playwright.
+RabbitMQ (`amqplib`) · Zod · Tailwind CSS v4 · `node:test` + Playwright.
 
 Orquestrador, relay da outbox, política de retry e logger são do projeto — é
 onde está o interesse do portfólio. O Stripe é chamado por `fetch`, sem SDK.
