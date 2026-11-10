@@ -4,7 +4,7 @@
  */
 
 import { z } from "zod";
-import { email, formStrings, parseForm, requiredText } from "./form";
+import { email, formStrings, MAX_NAME_LENGTH, parseForm, requiredText } from "./form";
 
 export const MIN_NAME_LENGTH = 2;
 export const MIN_PASSWORD_LENGTH = 8;
@@ -26,7 +26,7 @@ const newPassword = z
   );
 
 const signupSchema = z.object({
-  name: requiredText(`Informe seu nome (mín. ${MIN_NAME_LENGTH} caracteres).`, MIN_NAME_LENGTH),
+  name: requiredText(`Informe seu nome (mín. ${MIN_NAME_LENGTH} caracteres).`, MIN_NAME_LENGTH, MAX_NAME_LENGTH),
   email: email("Informe um e-mail válido."),
   password: newPassword,
 });

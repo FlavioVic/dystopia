@@ -14,12 +14,19 @@ export function field(formData: FormData, key: string): string {
 }
 
 export const SLUG_PATTERN = /^[a-z0-9-]+$/;
+/** Descrição do produto: texto de marketing, cabe mais que um campo de uma linha. */
+export const MAX_DESCRIPTION_LENGTH = 2_000;
 
 const productSchema = z
   .object({
     name: requiredText("Informe o nome.", 2),
-    slug: z.string().trim().toLowerCase().regex(SLUG_PATTERN, "Slug só com letras minúsculas, números e hífen."),
-    description: requiredText("Informe a descrição."),
+    slug: z
+      .string()
+      .trim()
+      .toLowerCase()
+      .max(120, "Slug longo demais.")
+      .regex(SLUG_PATTERN, "Slug só com letras minúsculas, números e hífen."),
+    description: requiredText("Informe a descrição.", 1, MAX_DESCRIPTION_LENGTH),
     brand: optionalText(),
     sku: requiredText("Informe o SKU."),
     categoryId: requiredText("Escolha a categoria."),

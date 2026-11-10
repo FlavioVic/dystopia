@@ -19,6 +19,7 @@ const addressSchema = z.object({
   label: z
     .string()
     .trim()
+    .max(60, "Rótulo longo demais.")
     .transform((value) => value || "Entrega"),
   recipientName: requiredText("Informe o destinatário.", 2),
   street: requiredText("Informe a rua."),

@@ -4,7 +4,7 @@
 
 import { z } from "zod";
 import { isServiceKind, type ServiceKind } from "@/lib/services-catalog";
-import { email, formStrings, parseForm } from "./form";
+import { email, formStrings, MAX_NAME_LENGTH, parseForm } from "./form";
 
 export const MIN_DETAILS_LENGTH = 20;
 export const MAX_DETAILS_LENGTH = 2_000;
@@ -25,7 +25,7 @@ const serviceRequestSchema = z.object({
     .string()
     .trim()
     .transform((value) => value.replace(/\s+/g, " "))
-    .pipe(z.string().min(2, "Informe seu nome.")),
+    .pipe(z.string().min(2, "Informe seu nome.").max(MAX_NAME_LENGTH, "Nome longo demais.")),
   email: email("E-mail inválido."),
   phone: z.string().transform((value, ctx) => {
     if (!value.trim()) return null;

@@ -32,12 +32,13 @@ const searchArgs = z.object({
   preco_max_reais: z.number().positive().max(1_000_000).optional(),
 });
 const orderArgs = z.object({ numero: z.string().trim().toUpperCase().max(30) });
+// Tetos de rejeição antecipada; a validação real é a mesma do form (parseServiceRequestForm).
 const serviceArgs = z.object({
-  servico: z.string(),
-  nome: z.string(),
-  email: z.string(),
-  telefone: z.string().optional(),
-  descricao: z.string(),
+  servico: z.string().max(60),
+  nome: z.string().max(120),
+  email: z.string().max(254),
+  telefone: z.string().max(40).optional(),
+  descricao: z.string().max(2_000),
 });
 
 type ToolResult = Record<string, unknown>;

@@ -67,4 +67,23 @@ describe("validação de conta", () => {
     ]);
     assert.deepEqual(Object.keys(parseResetPasswordForm(form({ ...ok, token: "" })).errors), ["token"]);
   });
+
+  it("recusa e-mail acima do limite da RFC (fecha o 500 do índice único do Postgres)", () => {
+    const grande = `${"a".repeat(250)}@x.co`; // 255 > 254
+    assert.deepEqual(Object.keys(parseSignupForm(form({ name: "Ana", email: grande, password: "12345678" })).errors), [
+      "email",
+    ]);
+    const noLimite = `${"a".repeat(240)}@x.co`; // 245 ≤ 254
+    assert.equal(parseSignupForm(form({ name: "Ana", email: noLimite, password: "12345678" })).ok, true);
+  });
+
+  it("recusa nome absurdamente longo", () => {
+    assert.ok(parseSignupForm(form({ name: "A".repeat(121), email: "a@b.co", password: "12345678" })).errors.name);
+    assert.equal(parseSignupForm(form({ name: "A".repeat(120), email: "a@b.co", password: "12345678" })).ok, true);
+  });
+
+  it("login com e-mail longo demais dá a mesma mensagem genérica (não vaza no comprimento)", () => {
+    const grande = `${"a".repeat(300)}@x.co`;
+    assert.equal(parseLoginForm(form({ email: grande, password: "x" })).errors.email, "E-mail ou senha inválidos.");
+  });
 });
