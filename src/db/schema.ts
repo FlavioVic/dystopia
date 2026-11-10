@@ -30,6 +30,7 @@ import {
   unique,
   uniqueIndex,
   uuid,
+  varchar,
 } from "drizzle-orm/pg-core";
 
 // ---------------------------------------------------------------------------
@@ -64,10 +65,13 @@ export const users = pgTable(
   "users",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    email: text("email").notNull(),
+    // varchar com o mesmo teto da validação (MAX_EMAIL_LENGTH, RFC 5321): um
+    // e-mail gigante não chega mais ao índice único btree (~2704 bytes) — era a
+    // causa do 500 não tratado no cadastro. O hash da senha fica `text` (é hash).
+    email: varchar("email", { length: 254 }).notNull(),
     passwordHash: text("password_hash").notNull(),
-    name: text("name").notNull(),
-    phone: text("phone"),
+    name: varchar("name", { length: 120 }).notNull(), // MAX_NAME_LENGTH
+    phone: varchar("phone", { length: 20 }), // normalizePhone guarda só dígitos (10-11)
     role: userRoleEnum("role").notNull().default("customer"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -165,16 +169,18 @@ export const addresses = pgTable(
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    label: text("label").notNull().default("Principal"), // "Casa", "Trabalho"...
-    recipientName: text("recipient_name").notNull(),
-    street: text("street").notNull(),
-    number: text("number").notNull(),
-    complement: text("complement"),
-    neighborhood: text("neighborhood").notNull(),
-    city: text("city").notNull(),
-    state: text("state").notNull(), // UF, ex: "SP"
-    zipCode: text("zip_code").notNull(), // CEP
-    country: text("country").notNull().default("BR"),
+    // Tetos espelham a validação de endereço (address.ts): texto livre em 200,
+    // rótulo em 60, e os campos de formato fixo no tamanho do próprio formato.
+    label: varchar("label", { length: 60 }).notNull().default("Principal"), // "Casa", "Trabalho"...
+    recipientName: varchar("recipient_name", { length: 200 }).notNull(),
+    street: varchar("street", { length: 200 }).notNull(),
+    number: varchar("number", { length: 200 }).notNull(),
+    complement: varchar("complement", { length: 200 }),
+    neighborhood: varchar("neighborhood", { length: 200 }).notNull(),
+    city: varchar("city", { length: 200 }).notNull(),
+    state: varchar("state", { length: 2 }).notNull(), // UF, ex: "SP"
+    zipCode: varchar("zip_code", { length: 9 }).notNull(), // CEP 00000-000
+    country: varchar("country", { length: 2 }).notNull().default("BR"),
     isDefault: boolean("is_default").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -230,11 +236,12 @@ export const products = pgTable(
     categoryId: uuid("category_id")
       .notNull()
       .references(() => categories.id, { onDelete: "restrict" }),
-    name: text("name").notNull(),
-    slug: text("slug").notNull(),
-    description: text("description").notNull(),
-    brand: text("brand"),
-    sku: text("sku").notNull(),
+    // Tetos espelham product.ts (slug 120, descrição 2000, resto 200).
+    name: varchar("name", { length: 200 }).notNull(),
+    slug: varchar("slug", { length: 120 }).notNull(),
+    description: varchar("description", { length: 2_000 }).notNull(), // MAX_DESCRIPTION_LENGTH
+    brand: varchar("brand", { length: 200 }),
+    sku: varchar("sku", { length: 200 }).notNull(),
     priceCents: integer("price_cents").notNull(),
     compareAtPriceCents: integer("compare_at_price_cents"), // preço "de/por"
     stockQuantity: integer("stock_quantity").notNull().default(0),
@@ -281,7 +288,9 @@ export const productVariants = pgTable(
     productId: uuid("product_id")
       .notNull()
       .references(() => products.id, { onDelete: "cascade" }),
-    name: text("name").notNull(), // "M / Preto"
+    name: varchar("name", { length: 200 }).notNull(), // "M / Preto" (requiredText)
+    // `sku` fica text: a validação (variant.ts) só exige regex com mínimo, sem
+    // `.max()` — limitar só no banco rejeitaria fora da validação. Lacuna de app.
     sku: text("sku").notNull(),
     priceCents: integer("price_cents"), // override; null = usa o do produto
     stockQuantity: integer("stock_quantity").notNull().default(0),
@@ -348,8 +357,8 @@ export const coupons = pgTable(
   "coupons",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    code: text("code").notNull(),
-    description: text("description"),
+    code: varchar("code", { length: 20 }).notNull(), // CODE_PATTERN: 3-20 [A-Z0-9]
+    description: varchar("description", { length: 200 }),
     discountType: discountTypeEnum("discount_type").notNull(),
     discountValue: integer("discount_value").notNull(), // % (0-100) ou centavos
     minOrderCents: integer("min_order_cents").notNull().default(0),
@@ -473,8 +482,8 @@ export const reviews = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     rating: integer("rating").notNull(), // 1-5, validado na app layer
-    title: text("title"),
-    comment: text("comment"),
+    title: varchar("title", { length: 80 }), // MAX_TITLE_LENGTH
+    comment: varchar("comment", { length: 1_000 }), // MAX_COMMENT_LENGTH
     isVerifiedPurchase: boolean("is_verified_purchase").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -785,10 +794,11 @@ export const serviceRequests = pgTable(
     // Protocolo legível (DYS-S0001): é o que a pessoa recebe e cita na conversa.
     protocol: text("protocol").notNull(),
     kind: serviceKindEnum("kind").notNull(),
-    name: text("name").notNull(),
-    email: text("email").notNull(),
-    phone: text("phone"),
-    details: text("details").notNull(),
+    // Tetos espelham service-request.ts (nome 120, e-mail 254, detalhes 2000).
+    name: varchar("name", { length: 120 }).notNull(),
+    email: varchar("email", { length: 254 }).notNull(),
+    phone: varchar("phone", { length: 20 }),
+    details: varchar("details", { length: 2_000 }).notNull(),
     status: serviceRequestStatusEnum("status").notNull().default("novo"),
     userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
