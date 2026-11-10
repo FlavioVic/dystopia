@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CouponStrip } from "@/components/CouponStrip";
 import { ProductGrid, Rule, SectionHeading, Sector } from "@/components/Kit";
+import { PageTransition } from "@/components/PageTransition";
 import { ProductActions } from "@/components/ProductActions";
 import { ProductCard } from "@/components/ProductCard";
 import { ProductGallery } from "@/components/ProductGallery";
@@ -46,7 +47,7 @@ export default async function ProductPage(props: PageProps<"/produto/[slug]">) {
   const rating = Number(product.ratingAverage);
 
   return (
-    <>
+    <PageTransition>
       <JsonLd
         data={{
           "@graph": [
@@ -229,6 +230,6 @@ export default async function ProductPage(props: PageProps<"/produto/[slug]">) {
           </ProductGrid>
         </section>
       ) : null}
-    </>
+    </PageTransition>
   );
 }

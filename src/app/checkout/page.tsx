@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { CheckoutForm } from "@/components/CheckoutForm";
+import { PageTransition } from "@/components/PageTransition";
 import { getAddresses } from "@/lib/data/account";
 import { getCurrentUser } from "@/lib/data/auth";
 import { getCart } from "@/lib/data/cart";
@@ -26,8 +27,9 @@ export default async function CheckoutPage() {
   const addresses = await getAddresses(user.id);
 
   return (
-    <CheckoutForm
-      defaultName={user.name}
+    <PageTransition>
+      <CheckoutForm
+        defaultName={user.name}
       savedAddresses={addresses.map((address) => ({
         id: address.id,
         label: address.label,
@@ -48,6 +50,7 @@ export default async function CheckoutPage() {
         lineTotalCents: l.lineTotalCents,
         imageUrl: l.imageUrl,
       }))}
-    />
+      />
+    </PageTransition>
   );
 }

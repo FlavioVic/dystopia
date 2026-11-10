@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PageHeader, ProductGrid, Sector, buttonPrimary, counted } from "@/components/Kit";
+import { PageTransition } from "@/components/PageTransition";
 import { Pagination } from "@/components/Pagination";
 import { ProductCard } from "@/components/ProductCard";
 import { listActiveProducts, searchProducts } from "@/lib/data/products";
@@ -30,7 +31,7 @@ export default async function ProductsPage(props: PageProps<"/produtos">) {
   if (isPastLastPage(page.page, total, STORE_PAGE_SIZE)) notFound();
 
   return (
-    <>
+    <PageTransition>
       <Sector tone="crimson" compact>
         <PageHeader
           ruled={false}
@@ -76,6 +77,6 @@ export default async function ProductsPage(props: PageProps<"/produtos">) {
           params={query ? { q: query } : {}}
         />
       </div>
-    </>
+    </PageTransition>
   );
 }
