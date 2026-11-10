@@ -511,13 +511,6 @@
   animation: blink 1s steps(1) infinite;
 }
 
-/* "Power-on" do emblema 3D: só opacidade, sem deslocar o canvas (ver HeroEmblem). */
-@keyframes emblem-in {
-  from {
-    opacity: 0;
-  }
-}
-
 /* ------------------------------------------------- transição entre páginas
  * View Transitions nativas (React 19.3, componente PageTransition). Corte seco,
  * mecânico: o antigo sai rápido, o novo assenta. O cabeçalho/rodapé (root) não

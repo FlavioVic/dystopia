@@ -364,11 +364,8 @@ revise o SQL → `npm run db:migrate`. Nunca edite migration já aplicada.
 - Animação: `Reveal`/`CountUp` (`components/Motion.tsx`), transição entre
   páginas com o `<ViewTransition>` nativo do React 19 (`components/PageTransition.tsx`,
   recorte em `::view-transition-*` no `globals.css`) e classes em `globals.css`;
-  respeite `prefers-reduced-motion`. O emblema 3D do hero (three.js /
-  `@react-three/fiber`) mora em `src/components/hero/` e entra por `next/dynamic`
-  (`ssr: false`), só no desktop (lg+) com WebGL e sem `prefers-reduced-motion`,
-  com o SVG `EmblemSting` de fallback — não o carregue fora do hero nem no
-  caminho de LCP.
+  respeite `prefers-reduced-motion`. O emblema do hero é o SVG `EmblemSting`
+  (`components/Logo.tsx`) — a versão 3D foi revertida (ADR 21).
 - Data layer em `src/lib/data/*` com `cache()` do React; mutação em
   `src/lib/actions/*`. Página e componente (`.tsx`) não importam banco,
   Drizzle nem serviço — o teste de arquitetura cobra.
