@@ -1,0 +1,21 @@
+# Prettier respeita o .gitignore por padrão (v3+), então .next/, .env*,
+# .uploads/, test-results/ e afins já ficam de fora. Aqui vai o que é
+# versionado mas NÃO deve ser reformatado.
+
+# Migrations e snapshots gerados pelo drizzle-kit — artefato, não código de mão.
+drizzle/
+drizzle-payments/
+
+# Lockfile e artefatos.
+package-lock.json
+
+# Documentação em pt-BR com quebra de linha manual (tabelas, ~80 colunas):
+# reflow do Prettier só atrapalharia a leitura.
+*.md
+
+# Infra (Pulumi): pacote próprio, com tooling e lint próprios (o ESLint também
+# ignora). Formatar daqui conflitaria com o dele.
+infra/
+
+# Assets públicos.
+public/
