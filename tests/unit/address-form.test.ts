@@ -67,6 +67,12 @@ describe("validação de endereço", () => {
     assert.equal(parseAddressForm(form({ state: "s" })).errors.state, "UF");
   });
 
+  it("recusa campos de texto acima do teto (anti-bloat de armazenamento)", () => {
+    assert.ok(parseAddressForm(form({ street: "x".repeat(201) })).errors.street);
+    assert.ok(parseAddressForm(form({ label: "L".repeat(61) })).errors.label);
+    assert.equal(parseAddressForm(form({ street: "x".repeat(200) })).ok, true);
+  });
+
   it("formata o endereço em uma linha legível", () => {
     const values = valuesOf(parseAddressForm(form({ complement: "Apto 42" })));
     const line = formatAddress(values);

@@ -39,14 +39,33 @@ export function parseForm<S extends z.ZodType>(schema: S, input: unknown): FormR
   return { ok: false, errors };
 }
 
-/** Texto obrigatório (sem espaço nas pontas). */
-export const requiredText = (message: string, min = 1) => z.string().trim().min(min, message);
+/** Teto padrão de um campo de texto de uma linha (nome, endereço, SKU…). */
+export const MAX_TEXT_LENGTH = 200;
+/** Teto de nome de pessoa. */
+export const MAX_NAME_LENGTH = 120;
+/**
+ * E-mail: limite da RFC 5321. Sem este teto, um e-mail gigante passa pelo Zod,
+ * chega no `INSERT` e estoura o índice único do Postgres (btree, ~2704 bytes) →
+ * 500 não tratado num endpoint público (cadastro).
+ */
+export const MAX_EMAIL_LENGTH = 254;
 
-/** Texto opcional: vazio vira `null`. */
-export const optionalText = (max?: { length: number; message: string }) => {
-  const base = z.string().trim();
-  return (max ? base.max(max.length, max.message) : base).transform((value) => value || null);
-};
+/** Texto obrigatório (sem espaço nas pontas), com piso e teto de tamanho. */
+export const requiredText = (message: string, min = 1, max = MAX_TEXT_LENGTH) =>
+  z.string().trim().min(min, message).max(max, message);
+
+/** Texto opcional: vazio vira `null`. Tem teto mesmo sem `max` explícito. */
+export const optionalText = (
+  max: { length: number; message: string } = {
+    length: MAX_TEXT_LENGTH,
+    message: `Máximo de ${MAX_TEXT_LENGTH} caracteres.`,
+  },
+) =>
+  z
+    .string()
+    .trim()
+    .max(max.length, max.message)
+    .transform((value) => value || null);
 
 /** Inteiro sem sinal digitado ("3"; não "3.5", "3x" nem ""), com mínimo. */
 export const wholeNumber = (message: string, min = 0, max?: number) =>
@@ -82,5 +101,6 @@ export const optionalCents = <F extends number | null>(message: string, fallback
 
 export const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-/** E-mail comparável: sem espaço nas pontas e em minúsculas. */
-export const email = (message: string) => z.string().trim().toLowerCase().regex(EMAIL_RE, message);
+/** E-mail comparável: sem espaço nas pontas, em minúsculas e com teto (RFC 5321). */
+export const email = (message: string, max = MAX_EMAIL_LENGTH) =>
+  z.string().trim().toLowerCase().max(max, message).regex(EMAIL_RE, message);

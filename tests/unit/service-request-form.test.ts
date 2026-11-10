@@ -42,6 +42,12 @@ describe("formulário de orçamento", () => {
     assert.ok(parseServiceRequestForm(form({ ...valid, phone: "1234" })).errors.phone);
     assert.equal(valuesOf(parseServiceRequestForm(form({ ...valid, phone: "(11) 91234-5678" }))).phone, "11912345678");
   });
+
+  it("recusa nome e e-mail longos demais (endpoint público; mesma validação vale para o assistente)", () => {
+    assert.ok(parseServiceRequestForm(form({ ...valid, name: "A".repeat(121) })).errors.name);
+    assert.ok(parseServiceRequestForm(form({ ...valid, email: `${"a".repeat(260)}@x.co` })).errors.email);
+    assert.equal(parseServiceRequestForm(form({ ...valid, name: "A".repeat(120) })).ok, true);
+  });
 });
 
 describe("telefone", () => {
