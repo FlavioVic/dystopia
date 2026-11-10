@@ -73,7 +73,12 @@ describe("passo remoto — envio", () => {
     const replyTo = readReplyTo(command.payload as Record<string, unknown>);
     assert.equal(replyTo?.type, SAGA_REPLY);
     assert.equal(replyTo?.queue, SAGA_QUEUE);
-    assert.deepEqual(replyTo?.payload, { sagaId: checkout.sagaId, step: "authorize-payment", phase: "invoke", kind: "command" });
+    assert.deepEqual(replyTo?.payload, {
+      sagaId: checkout.sagaId,
+      step: "authorize-payment",
+      phase: "invoke",
+      kind: "command",
+    });
 
     // Avançar de novo enquanto espera não reenvia nada.
     assert.deepEqual(await advanceSaga(checkout.sagaId), { status: "waiting", step: "authorize-payment" });
@@ -99,7 +104,10 @@ describe("passo remoto — resposta", () => {
     assert.deepEqual(await work("saga"), { received: 1, acked: 1, retried: 0, dead: 0 });
     const saga = await db.query.sagas.findFirst({ where: eq(sagas.id, checkout.sagaId) });
     assert.equal(saga?.status, "completed");
-    assert.equal((await paymentsDb.query.payments.findMany({ where: eq(payments.orderId, checkout.orderId) })).length, 1);
+    assert.equal(
+      (await paymentsDb.query.payments.findMany({ where: eq(payments.orderId, checkout.orderId) })).length,
+      1,
+    );
     assert.equal(await stockOf(fixture.product.id), 4, "nada aplicado de novo");
   });
 

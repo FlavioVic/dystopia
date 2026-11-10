@@ -63,7 +63,7 @@ const TOOLS: Record<string, ToolDefinition> = {
       function: {
         name: "buscar_produtos",
         description:
-          "Busca produtos à venda na loja. Use palavras curtas do produto (ex.: \"rtx\", \"ryzen\", \"ssd 1tb\"), a categoria e/ou o preço máximo. Pelo menos um filtro.",
+          'Busca produtos à venda na loja. Use palavras curtas do produto (ex.: "rtx", "ryzen", "ssd 1tb"), a categoria e/ou o preço máximo. Pelo menos um filtro.',
         parameters: {
           type: "object",
           properties: {
@@ -188,7 +188,10 @@ const TOOLS: Record<string, ToolDefinition> = {
 
       const result = await submitServiceRequest({ values: parsed.values, ip: context.ip, userId: context.userId });
       if (!result.ok) {
-        return { erro: "limite", instrucao: `Limite de pedidos atingido. Nova tentativa em ${Math.ceil(result.retryAfterSeconds / 60)} min.` };
+        return {
+          erro: "limite",
+          instrucao: `Limite de pedidos atingido. Nova tentativa em ${Math.ceil(result.retryAfterSeconds / 60)} min.`,
+        };
       }
       return { protocolo: result.protocol, instrucao: "Informe o protocolo à pessoa." };
     },
@@ -220,7 +223,8 @@ export async function runTool(name: string, rawArguments: string, context: Assis
   try {
     return await tool.run(args, context);
   } catch (error) {
-    if (error instanceof z.ZodError) return { erro: "argumentos_invalidos", detalhes: z.flattenError(error).fieldErrors };
+    if (error instanceof z.ZodError)
+      return { erro: "argumentos_invalidos", detalhes: z.flattenError(error).fieldErrors };
     throw error;
   }
 }

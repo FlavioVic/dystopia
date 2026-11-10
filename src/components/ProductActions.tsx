@@ -3,11 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import { addToCart } from "@/lib/actions/cart";
 import { isLowStock, MAX_PER_ITEM, unitPriceCents } from "@/lib/catalog-rules";
-import {
-  discountPercent,
-  formatPriceCents,
-  installmentText,
-} from "@/lib/format";
+import { discountPercent, formatPriceCents, installmentText } from "@/lib/format";
 
 type Variant = {
   id: string;

@@ -8,21 +8,10 @@ import { WishlistToggle } from "@/components/WishlistToggle";
  * `getWishlistProductIds` são memoizados por request (React `cache()`), então
  * a vitrine inteira custa uma query — não uma por card.
  */
-export async function WishlistHeart({
-  productId,
-  size = "md",
-}: {
-  productId: string;
-  size?: "sm" | "md";
-}) {
+export async function WishlistHeart({ productId, size = "md" }: { productId: string; size?: "sm" | "md" }) {
   const [user, favorites] = await Promise.all([getCurrentUser(), getWishlistProductIds()]);
 
   return (
-    <WishlistToggle
-      productId={productId}
-      initial={favorites.has(productId)}
-      isLoggedIn={user != null}
-      size={size}
-    />
+    <WishlistToggle productId={productId} initial={favorites.has(productId)} isLoggedIn={user != null} size={size} />
   );
 }

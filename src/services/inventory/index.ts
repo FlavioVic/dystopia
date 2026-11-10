@@ -34,9 +34,7 @@ export async function reserveStock(executor: Executor, lines: StockLine[]): Prom
       ? await executor
           .update(productVariants)
           .set({ stockQuantity: sql`${productVariants.stockQuantity} - ${line.quantity}` })
-          .where(
-            and(eq(productVariants.id, line.variantId), gte(productVariants.stockQuantity, line.quantity)),
-          )
+          .where(and(eq(productVariants.id, line.variantId), gte(productVariants.stockQuantity, line.quantity)))
           .returning({ id: productVariants.id })
       : await executor
           .update(products)

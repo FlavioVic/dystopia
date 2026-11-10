@@ -21,7 +21,12 @@ async function main(): Promise<void> {
   const rows = await db
     .select({ id: products.id, slug: products.slug, name: products.name })
     .from(products)
-    .where(inArray(products.slug, SEED_PRODUCTS.map((p) => p.slug)));
+    .where(
+      inArray(
+        products.slug,
+        SEED_PRODUCTS.map((p) => p.slug),
+      ),
+    );
 
   const managed = new Set(
     (await db.select({ productId: productImages.productId, url: productImages.url }).from(productImages))
@@ -43,10 +48,15 @@ async function main(): Promise<void> {
             ]
           : [{ productId: row.id, url: plate, altText: row.name, position: 0 }],
       );
-      await tx.update(products).set({ isFeatured: Boolean(photo) }).where(eq(products.id, row.id));
+      await tx
+        .update(products)
+        .set({ isFeatured: Boolean(photo) })
+        .where(eq(products.id, row.id));
     });
   }
-  console.log(`mídia sincronizada: ${rows.length - skipped.length} produtos, ${Object.keys(PRODUCT_PHOTOS).length} com foto`);
+  console.log(
+    `mídia sincronizada: ${rows.length - skipped.length} produtos, ${Object.keys(PRODUCT_PHOTOS).length} com foto`,
+  );
   if (skipped.length > 0) {
     console.log(`mantidos (galeria editada no painel): ${skipped.map((row) => row.slug).join(", ")}`);
   }

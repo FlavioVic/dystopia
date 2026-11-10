@@ -16,7 +16,10 @@ export function ForgotPasswordForm() {
 
   if (state?.sent) {
     return (
-      <div role="status" className="mt-7 flex flex-col gap-3 border border-foreground px-4 py-4 text-sm text-foreground">
+      <div
+        role="status"
+        className="mt-7 flex flex-col gap-3 border border-foreground px-4 py-4 text-sm text-foreground"
+      >
         <p>
           Se existir uma conta com esse e-mail, enviamos um link para escolher uma senha nova. Ele vale 30 minutos e
           funciona uma vez só.

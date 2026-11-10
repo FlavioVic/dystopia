@@ -171,10 +171,7 @@ export async function countItems(executor: Executor, cartId: string): Promise<nu
 }
 
 export async function clearCart(executor: Executor, cartId: string): Promise<{ removed: number }> {
-  const removed = await executor
-    .delete(cartItems)
-    .where(eq(cartItems.cartId, cartId))
-    .returning({ id: cartItems.id });
+  const removed = await executor.delete(cartItems).where(eq(cartItems.cartId, cartId)).returning({ id: cartItems.id });
   return { removed: removed.length };
 }
 

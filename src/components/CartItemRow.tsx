@@ -26,9 +26,7 @@ export function CartItemRow({ line }: { line: CartLine }) {
   const atMax = !line.available || line.quantity >= Math.min(line.stock, MAX_PER_ITEM);
 
   return (
-    <li
-      className={`flex gap-4 py-5 transition-opacity ${isPending ? "opacity-50" : ""}`}
-    >
+    <li className={`flex gap-4 py-5 transition-opacity ${isPending ? "opacity-50" : ""}`}>
       {line.available ? (
         <Link href={`/produto/${line.slug}`} aria-label={line.name} className={THUMB}>
           <Thumb line={line} />
@@ -43,19 +41,14 @@ export function CartItemRow({ line }: { line: CartLine }) {
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             {line.available ? (
-              <Link
-                href={`/produto/${line.slug}`}
-                className="line-clamp-2 text-sm font-medium hover:text-accent"
-              >
+              <Link href={`/produto/${line.slug}`} className="line-clamp-2 text-sm font-medium hover:text-accent">
                 {line.name}
               </Link>
             ) : (
               // A página do produto fora de venda não abre mais: sem link.
               <span className="line-clamp-2 text-sm font-medium text-foreground-muted">{line.name}</span>
             )}
-            {line.variantName ? (
-              <p className="mt-0.5 text-xs text-foreground-muted">{line.variantName}</p>
-            ) : null}
+            {line.variantName ? <p className="mt-0.5 text-xs text-foreground-muted">{line.variantName}</p> : null}
             {line.available ? null : <p className="mt-1 text-xs font-semibold">Saiu de venda — não entra na compra.</p>}
           </div>
           <button
@@ -92,9 +85,7 @@ export function CartItemRow({ line }: { line: CartLine }) {
           </div>
 
           <div className="text-right">
-            <span className="font-mono text-sm font-semibold">
-              {formatPriceCents(line.lineTotalCents)}
-            </span>
+            <span className="font-mono text-sm font-semibold">{formatPriceCents(line.lineTotalCents)}</span>
             {line.quantity > 1 ? (
               <span className="block text-[11px] text-foreground-muted">
                 {formatPriceCents(line.unitPriceCents)} cada

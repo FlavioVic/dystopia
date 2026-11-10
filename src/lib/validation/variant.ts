@@ -29,7 +29,11 @@ export function formatAttributes(attributes: unknown): string {
 const variantSchema = z
   .object({
     name: requiredText("Informe o nome da variante."),
-    sku: z.string().trim().toUpperCase().regex(/^[A-Z0-9-]{3,}$/, "SKU com 3+ letras/números/hífen."),
+    sku: z
+      .string()
+      .trim()
+      .toUpperCase()
+      .regex(/^[A-Z0-9-]{3,}$/, "SKU com 3+ letras/números/hífen."),
     // Preço vazio = herda o do produto (coluna é nullable de propósito).
     price: optionalCents("Preço inválido.", null),
     stock: wholeNumber("Estoque inválido."),

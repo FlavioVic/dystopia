@@ -136,8 +136,8 @@ export function StripeCardField({ publishableKey, ref }: { publishableKey: strin
       <p className="mt-2 text-[11px] leading-relaxed text-foreground-muted">
         Stripe em modo de teste — nenhum cartão real é cobrado. Use{" "}
         <span className="font-mono text-foreground">4242 4242 4242 4242</span> para aprovar ou{" "}
-        <span className="font-mono text-foreground">4000 0000 0000 0002</span> para ver a recusa, com qualquer
-        validade futura e qualquer CVC.
+        <span className="font-mono text-foreground">4000 0000 0000 0002</span> para ver a recusa, com qualquer validade
+        futura e qualquer CVC.
       </p>
     </div>
   );

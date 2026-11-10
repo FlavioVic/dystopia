@@ -40,9 +40,7 @@ export function ProductForm({
   return (
     <form action={formAction} className="flex flex-col gap-5">
       {state?.message ? (
-        <p className="rounded-lg border border-signal bg-signal px-3 py-2 text-sm text-on-signal">
-          {state.message}
-        </p>
+        <p className="rounded-lg border border-signal bg-signal px-3 py-2 text-sm text-on-signal">{state.message}</p>
       ) : null}
 
       <div className="grid gap-4 sm:grid-cols-2">
@@ -51,35 +49,75 @@ export function ProductForm({
         <Field name="sku" label="SKU" defaultValue={defaults.sku} error={e.sku} />
         <Field name="brand" label="Marca (opcional)" defaultValue={defaults.brand ?? ""} />
         <div className="flex flex-col gap-1">
-          <label htmlFor="categoryId" className={label}>Categoria</label>
+          <label htmlFor="categoryId" className={label}>
+            Categoria
+          </label>
           <select id="categoryId" name="categoryId" defaultValue={defaults.categoryId ?? ""} className={input}>
-            <option value="" disabled>Escolha…</option>
+            <option value="" disabled>
+              Escolha…
+            </option>
             {categories.map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
             ))}
           </select>
           {e.categoryId ? <span className="text-[11px] text-foreground">{e.categoryId}</span> : null}
         </div>
-        <Field name="price" label="Preço (R$)" type="number" step="0.01" defaultValue={defaults.price} error={e.price} />
-        <Field name="compareAt" label='Preço "de" (opcional)' type="number" step="0.01" defaultValue={defaults.compareAt} error={e.compareAt} />
+        <Field
+          name="price"
+          label="Preço (R$)"
+          type="number"
+          step="0.01"
+          defaultValue={defaults.price}
+          error={e.price}
+        />
+        <Field
+          name="compareAt"
+          label='Preço "de" (opcional)'
+          type="number"
+          step="0.01"
+          defaultValue={defaults.compareAt}
+          error={e.compareAt}
+        />
         <Field name="stock" label="Estoque" type="number" defaultValue={defaults.stock} error={e.stock} />
         {mode === "create" ? (
-          <p className="text-xs text-foreground-muted sm:col-span-2">As fotos entram depois de criar, na edição do produto.</p>
+          <p className="text-xs text-foreground-muted sm:col-span-2">
+            As fotos entram depois de criar, na edição do produto.
+          </p>
         ) : null}
         <div className="flex flex-col gap-1 sm:col-span-2">
-          <label htmlFor="description" className={label}>Descrição</label>
-          <textarea id="description" name="description" rows={4} defaultValue={defaults.description} className={input} />
+          <label htmlFor="description" className={label}>
+            Descrição
+          </label>
+          <textarea
+            id="description"
+            name="description"
+            rows={4}
+            defaultValue={defaults.description}
+            className={input}
+          />
           {e.description ? <span className="text-[11px] text-foreground">{e.description}</span> : null}
         </div>
       </div>
 
       <div className="flex flex-wrap gap-5">
         <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" name="isActive" defaultChecked={defaults.isActive ?? true} className="accent-[var(--accent)]" />
+          <input
+            type="checkbox"
+            name="isActive"
+            defaultChecked={defaults.isActive ?? true}
+            className="accent-[var(--accent)]"
+          />
           Ativo (visível na loja)
         </label>
         <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" name="isFeatured" defaultChecked={defaults.isFeatured ?? false} className="accent-[var(--accent)]" />
+          <input
+            type="checkbox"
+            name="isFeatured"
+            defaultChecked={defaults.isFeatured ?? false}
+            className="accent-[var(--accent)]"
+          />
           Destaque na home
         </label>
       </div>
@@ -92,7 +130,10 @@ export function ProductForm({
         >
           {pending ? "Salvando…" : mode === "create" ? "Criar produto" : "Salvar alterações"}
         </button>
-        <Link href="/admin/produtos" className="rounded-lg border border-border px-5 py-2.5 text-sm font-medium hover:border-border-hover">
+        <Link
+          href="/admin/produtos"
+          className="rounded-lg border border-border px-5 py-2.5 text-sm font-medium hover:border-border-hover"
+        >
           Cancelar
         </Link>
       </div>
@@ -114,7 +155,9 @@ function Field({
 } & React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <div className={`flex flex-col gap-1 ${className}`}>
-      <label htmlFor={name} className={label}>{labelText}</label>
+      <label htmlFor={name} className={label}>
+        {labelText}
+      </label>
       <input id={name} name={name} className={input} {...rest} />
       {error ? <span className="text-[11px] text-foreground">{error}</span> : null}
     </div>

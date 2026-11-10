@@ -56,7 +56,6 @@ services:
       timeout: 5s
       retries: 30
 
-
   # ---------------------------------------------------------------- stack (--profile app)
   web:
     profiles: [app]

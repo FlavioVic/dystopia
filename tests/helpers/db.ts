@@ -13,15 +13,7 @@ import { ALL_QUEUES } from "@/composition/worker";
 import { db, pgPool } from "@/db";
 import { paymentsDb, paymentsPool } from "@/services/payments/db";
 import { closeBroker, purgeQueues } from "@/queue/broker";
-import {
-  cartItems,
-  carts,
-  categories,
-  coupons,
-  productVariants,
-  products,
-  users,
-} from "@/db/schema";
+import { cartItems, carts, categories, coupons, productVariants, products, users } from "@/db/schema";
 
 /** Ordem importa menos aqui porque é CASCADE, mas manter explícito documenta o grafo. */
 const TABLES = [

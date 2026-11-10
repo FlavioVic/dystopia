@@ -47,7 +47,13 @@ test.describe("vitrine", () => {
   test("sobre fala da loja: o que vende, compromissos e quem atende", async ({ page }) => {
     await page.goto("/sobre");
     await expect(page).toHaveTitle(/Sobre a loja/);
-    for (const heading of ["O que a loja faz", "Como o atendimento funciona", "Compromissos da loja", "Quem atende", "Loja de demonstração"]) {
+    for (const heading of [
+      "O que a loja faz",
+      "Como o atendimento funciona",
+      "Compromissos da loja",
+      "Quem atende",
+      "Loja de demonstração",
+    ]) {
       await expect(page.getByRole("heading", { name: heading })).toBeVisible();
     }
     await expect(page.getByText("Em compras a partir de R$ 149,90.", { exact: false })).toBeVisible();
@@ -62,7 +68,10 @@ test.describe("vitrine", () => {
     await expect(coupons).toBeVisible();
     // Antes das avaliações e da ficha técnica, na coluna da compra.
     const [buy, couponsBox, reviews] = await Promise.all([
-      page.getByRole("button", { name: /Adicionar ao carrinho|Sem estoque/ }).first().boundingBox(),
+      page
+        .getByRole("button", { name: /Adicionar ao carrinho|Sem estoque/ })
+        .first()
+        .boundingBox(),
       coupons.boundingBox(),
       page.getByRole("heading", { name: "Relatórios de campo" }).boundingBox(),
     ]);

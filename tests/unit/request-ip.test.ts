@@ -43,7 +43,11 @@ describe("IP do cliente (limite de tentativas)", () => {
     assert.equal(from("2001:db8:abcd:12:1:2:3:4"), "2001:db8:abcd:12::/64");
     assert.equal(from("2001:db8:abcd:12:ffff:ffff:ffff:ffff"), from("2001:db8:abcd:12:1:2:3:4"));
     assert.notEqual(from("2001:db8:abcd:13::1"), from("2001:db8:abcd:12::1"), "outro /64, outro contador");
-    assert.equal(from("2001:0db8:0000:0012:0000:0000:0000:0001"), "2001:db8:0:12::/64", "forma longa e curta dão a mesma chave");
+    assert.equal(
+      from("2001:0db8:0000:0012:0000:0000:0000:0001"),
+      "2001:db8:0:12::/64",
+      "forma longa e curta dão a mesma chave",
+    );
     assert.equal(from("::ffff:198.51.100.9"), "198.51.100.9", "IPv4 escrito como IPv6 volta a ser IPv4");
     assert.equal(from("fe80::1%eth0"), "fe80:0:0:0::/64");
     assert.equal(from("64:ff9b::192.0.2.33"), "64:ff9b:0:0::/64");
@@ -59,7 +63,14 @@ describe("limite configurável por ambiente", () => {
   it("usa o valor da variável só se for inteiro positivo; senão, o de produção", async () => {
     const { limitFromEnv } = await import("@/lib/rate-limit-config");
     const name = "LIMITE_DE_TESTE";
-    for (const [raw, expected] of [["200", 200], ["0", 5], ["-3", 5], ["2.5", 5], ["abc", 5], [undefined, 5]] as const) {
+    for (const [raw, expected] of [
+      ["200", 200],
+      ["0", 5],
+      ["-3", 5],
+      ["2.5", 5],
+      ["abc", 5],
+      [undefined, 5],
+    ] as const) {
       if (raw === undefined) delete process.env[name];
       else process.env[name] = raw;
       assert.equal(limitFromEnv(name, 5), expected, String(raw));

@@ -73,7 +73,8 @@ async function ensureDatabase(url: string, migrationsFolder: string): Promise<vo
 
 async function main(): Promise<void> {
   const all = unitOnly ? testFiles("unit") : [...testFiles("unit"), ...testFiles("integration")];
-  const files = filters.length === 0 ? all : all.filter((file) => filters.some((term) => path.basename(file).includes(term)));
+  const files =
+    filters.length === 0 ? all : all.filter((file) => filters.some((term) => path.basename(file).includes(term)));
 
   if (!unitOnly) {
     await ensureTestDatabases();

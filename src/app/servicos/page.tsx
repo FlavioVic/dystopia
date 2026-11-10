@@ -45,7 +45,11 @@ export default async function ServicesPage(props: PageProps<"/servicos">) {
       <Sector tone="crimson">
         <div className={`grid-cols-1 lg:grid-cols-2 ${gridFrame}`}>
           {SERVICES.map((s) => (
-            <section key={s.kind} id={s.kind} className={`flex min-w-0 scroll-mt-32 flex-col gap-5 p-6 sm:p-8 ${gridCell}`}>
+            <section
+              key={s.kind}
+              id={s.kind}
+              className={`flex min-w-0 scroll-mt-32 flex-col gap-5 p-6 sm:p-8 ${gridCell}`}
+            >
               <div className="flex items-center justify-between gap-4">
                 <span className="serial text-foreground-muted">{s.serial}</span>
                 <Link
@@ -86,7 +90,11 @@ export default async function ServicesPage(props: PageProps<"/servicos">) {
       </Sector>
 
       <Sector>
-        <SectionHeading index={`${String(SERVICE_FAQ.length).padStart(2, "0")} itens`} label="Dúvidas" title="Perguntas frequentes" />
+        <SectionHeading
+          index={`${String(SERVICE_FAQ.length).padStart(2, "0")} itens`}
+          label="Dúvidas"
+          title="Perguntas frequentes"
+        />
         <dl className="mt-8 grid gap-x-12 border-t border-border-faint lg:grid-cols-2">
           {SERVICE_FAQ.map((item) => (
             <div key={item.question} className="border-b border-border-faint py-5">
@@ -110,18 +118,34 @@ export default async function ServicesPage(props: PageProps<"/servicos">) {
             <p className="label mt-1 text-signal-text">{PROFILE.role}</p>
             <p className="mt-3 text-sm leading-relaxed text-foreground-muted">{PROFILE.summary}</p>
             <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2">
-              <Link href="/portfolio" className="label text-foreground underline underline-offset-4 hover:text-signal-text">
+              <Link
+                href="/portfolio"
+                className="label text-foreground underline underline-offset-4 hover:text-signal-text"
+              >
                 Portfólio
               </Link>
-              <a href={PROFILE.linkedin} target="_blank" rel="noreferrer" className="label text-foreground underline underline-offset-4 hover:text-signal-text">
+              <a
+                href={PROFILE.linkedin}
+                target="_blank"
+                rel="noreferrer"
+                className="label text-foreground underline underline-offset-4 hover:text-signal-text"
+              >
                 LinkedIn
               </a>
-              <a href={PROFILE.github} target="_blank" rel="noreferrer" className="label text-foreground underline underline-offset-4 hover:text-signal-text">
+              <a
+                href={PROFILE.github}
+                target="_blank"
+                rel="noreferrer"
+                className="label text-foreground underline underline-offset-4 hover:text-signal-text"
+              >
                 GitHub
               </a>
             </div>
             <p className="mt-6 label text-foreground-muted">Contato direto</p>
-            <a href={`mailto:${CONTACT_EMAIL}`} className="mt-2 inline-block break-all text-sm text-foreground underline underline-offset-4 hover:text-foreground-muted">
+            <a
+              href={`mailto:${CONTACT_EMAIL}`}
+              className="mt-2 inline-block break-all text-sm text-foreground underline underline-offset-4 hover:text-foreground-muted"
+            >
               {CONTACT_EMAIL}
             </a>
           </div>

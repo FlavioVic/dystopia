@@ -14,7 +14,10 @@ import {
 /** Cadastro do autenticador: gerar QR → escanear → confirmar com o primeiro código. */
 export function MfaSetup() {
   const [start, startAction, starting] = useActionState<MfaStartState, FormData>(startMfaEnrollment, undefined);
-  const [confirm, confirmAction, confirming] = useActionState<MfaConfirmState, FormData>(confirmMfaEnrollment, undefined);
+  const [confirm, confirmAction, confirming] = useActionState<MfaConfirmState, FormData>(
+    confirmMfaEnrollment,
+    undefined,
+  );
 
   if (confirm && "recoveryCodes" in confirm) {
     return (
@@ -55,7 +58,13 @@ export function MfaSetup() {
       </ol>
       {/* Fundo claro fixo: QR invertido (claro sobre escuro) muitos leitores não leem. */}
       {/* eslint-disable-next-line @next/next/no-img-element -- data URL gerada no servidor, não passa pelo otimizador */}
-      <img src={scan.qrDataUrl} alt="QR code para cadastrar a conta no app autenticador" width={200} height={200} className="bg-white" />
+      <img
+        src={scan.qrDataUrl}
+        alt="QR code para cadastrar a conta no app autenticador"
+        width={200}
+        height={200}
+        className="bg-white"
+      />
       <div>
         <p className={fieldLabelClass}>Chave para digitar</p>
         <p className="mt-1.5 break-all font-mono text-sm text-foreground" data-testid="mfa-manual-key">

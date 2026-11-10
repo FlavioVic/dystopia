@@ -36,7 +36,8 @@ export function Header({
   favoriteCount?: number;
   user?: { name: string } | null;
 }) {
-  const shortcut = "label flex min-h-6 items-center gap-2 text-foreground-muted transition-colors hover:text-foreground";
+  const shortcut =
+    "label flex min-h-6 items-center gap-2 text-foreground-muted transition-colors hover:text-foreground";
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur-sm">
       <div className="mx-auto flex h-16 max-w-site items-center gap-3 px-3 min-[360px]:gap-4 min-[360px]:px-4 sm:gap-8 sm:px-6 lg:px-8">
@@ -66,10 +67,7 @@ export function Header({
               Entrar
             </Link>
           )}
-          <Link
-            href="/carrinho"
-            className={`${shortcut} border border-border px-3 py-2 hover:border-primary`}
-          >
+          <Link href="/carrinho" className={`${shortcut} border border-border px-3 py-2 hover:border-primary`}>
             Carrinho <Count value={cartCount} />
           </Link>
         </nav>

@@ -65,7 +65,10 @@ export async function housekeeping(): Promise<void> {
   results.forEach((result, index) => {
     const [name] = jobs[index];
     if (result.status === "rejected") {
-      logger.warn("faxina falhou numa parte; as outras seguiram", { part: name, error: rootCauseMessage(result.reason) });
+      logger.warn("faxina falhou numa parte; as outras seguiram", {
+        part: name,
+        error: rootCauseMessage(result.reason),
+      });
     } else if (result.value > 0) {
       removed[name] = result.value;
     }

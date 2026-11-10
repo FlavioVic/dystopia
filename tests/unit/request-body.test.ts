@@ -40,6 +40,9 @@ describe("corpo JSON com teto", () => {
 
   it("JSON quebrado ou corpo vazio é pedido inválido", async () => {
     assert.deepEqual(await readJsonBody(chunked(["{messages:"]), LIMIT), { ok: false, status: 400 });
-    assert.deepEqual(await readJsonBody(new Request("http://loja.dev/api", { method: "POST" }), LIMIT), { ok: false, status: 400 });
+    assert.deepEqual(await readJsonBody(new Request("http://loja.dev/api", { method: "POST" }), LIMIT), {
+      ok: false,
+      status: 400,
+    });
   });
 });

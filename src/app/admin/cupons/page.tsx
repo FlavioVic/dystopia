@@ -14,13 +14,8 @@ export default async function AdminCoupons() {
   return (
     <div>
       <div className="flex items-center justify-between">
-        <h2 className="label text-foreground-muted">
-          Cupons ({coupons.length})
-        </h2>
-        <Link
-          href="/admin/cupons/novo"
-          className="rounded-lg bg-primary px-4 py-2 label text-primary-foreground"
-        >
+        <h2 className="label text-foreground-muted">Cupons ({coupons.length})</h2>
+        <Link href="/admin/cupons/novo" className="rounded-lg bg-primary px-4 py-2 label text-primary-foreground">
           + Novo cupom
         </Link>
       </div>
@@ -28,7 +23,12 @@ export default async function AdminCoupons() {
       {coupons.length === 0 ? (
         <p className="mt-4 text-sm text-foreground-muted">Nenhum cupom cadastrado.</p>
       ) : (
-        <div tabIndex={0} role="region" aria-label="Cupons" className="mt-4 overflow-x-auto rounded-xl border border-border">
+        <div
+          tabIndex={0}
+          role="region"
+          aria-label="Cupons"
+          className="mt-4 overflow-x-auto rounded-xl border border-border"
+        >
           <table className="w-full min-w-[760px] text-sm">
             <thead className="border-b border-border bg-background-elevated text-left text-xs text-foreground-muted">
               <tr>
@@ -64,9 +64,7 @@ export default async function AdminCoupons() {
                   </td>
                   <td className="px-4 py-2.5 text-xs text-foreground-muted">
                     {new Date(coupon.validFrom).toLocaleDateString("pt-BR")}
-                    {coupon.validUntil
-                      ? ` → ${new Date(coupon.validUntil).toLocaleDateString("pt-BR")}`
-                      : " → sem fim"}
+                    {coupon.validUntil ? ` → ${new Date(coupon.validUntil).toLocaleDateString("pt-BR")}` : " → sem fim"}
                   </td>
                   <td className="px-4 py-2.5">
                     <CouponActions couponId={coupon.id} isActive={coupon.isActive} />

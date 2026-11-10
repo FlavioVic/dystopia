@@ -47,7 +47,7 @@ export function VariantRow({
             onClick={() =>
               startRemoving(async () => {
                 const result = await removeVariant(variantId);
-                setError(result.ok ? null : result.error ?? "Erro.");
+                setError(result.ok ? null : (result.error ?? "Erro."));
               })
             }
             className="font-medium hover:text-foreground disabled:opacity-50"

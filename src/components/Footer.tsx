@@ -15,8 +15,8 @@ export function Footer({ categories }: { categories: Category[] }) {
           <Logo href="/" size={32} />
           <p className="display-4 mt-8 text-[12px] text-foreground">A ordem é um serviço.</p>
           <p className="mt-3 max-w-sm text-sm leading-relaxed text-foreground-muted">
-            Hardware registrado e serviços técnicos. Montagem, manutenção, formatação e desenvolvimento de
-            software. Nada é perdido. Tudo é arquivado.
+            Hardware registrado e serviços técnicos. Montagem, manutenção, formatação e desenvolvimento de software.
+            Nada é perdido. Tudo é arquivado.
           </p>
         </div>
 

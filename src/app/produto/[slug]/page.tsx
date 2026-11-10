@@ -154,7 +154,11 @@ export default async function ProductPage(props: PageProps<"/produto/[slug]">) {
       ) : null}
 
       <Sector tone="graphite">
-        <SectionHeading index={`${String(product.ratingCount).padStart(2, "0")} registros`} label="Avaliações" title="Relatórios de campo" />
+        <SectionHeading
+          index={`${String(product.ratingCount).padStart(2, "0")} registros`}
+          label="Avaliações"
+          title="Relatórios de campo"
+        />
 
         <div className="mt-8 grid gap-8 lg:grid-cols-12">
           <div className="flex flex-col gap-6 lg:col-span-4">
@@ -209,7 +213,9 @@ export default async function ProductPage(props: PageProps<"/produto/[slug]">) {
                       </span>
                     </div>
                     {r.title ? <p className="mt-3 text-base font-semibold">{r.title}</p> : null}
-                    {r.comment ? <p className="mt-1 text-sm leading-relaxed text-foreground-muted">{r.comment}</p> : null}
+                    {r.comment ? (
+                      <p className="mt-1 text-sm leading-relaxed text-foreground-muted">{r.comment}</p>
+                    ) : null}
                   </li>
                 ))}
               </ul>

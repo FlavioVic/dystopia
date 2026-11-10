@@ -103,7 +103,8 @@ export const SERVICE_FAQ = [
   },
   {
     question: "Perco meus arquivos na formatação?",
-    answer: "Não. Os arquivos são copiados antes de qualquer intervenção, e só então o Windows ou o Linux é reinstalado.",
+    answer:
+      "Não. Os arquivos são copiados antes de qualquer intervenção, e só então o Windows ou o Linux é reinstalado.",
   },
   {
     question: "O que recebo na entrega?",

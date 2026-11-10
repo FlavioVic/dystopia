@@ -21,18 +21,18 @@ export default async function AdminProducts(props: PageProps<"/admin/produtos">)
   return (
     <div>
       <div className="flex items-center justify-between">
-        <h2 className="label text-foreground-muted">
-          Produtos ({total})
-        </h2>
-        <Link
-          href="/admin/produtos/novo"
-          className="rounded-lg bg-primary px-4 py-2 label text-primary-foreground"
-        >
+        <h2 className="label text-foreground-muted">Produtos ({total})</h2>
+        <Link href="/admin/produtos/novo" className="rounded-lg bg-primary px-4 py-2 label text-primary-foreground">
           + Novo produto
         </Link>
       </div>
 
-      <div tabIndex={0} role="region" aria-label="Produtos" className="mt-4 overflow-x-auto rounded-xl border border-border">
+      <div
+        tabIndex={0}
+        role="region"
+        aria-label="Produtos"
+        className="mt-4 overflow-x-auto rounded-xl border border-border"
+      >
         <table className="w-full min-w-[720px] text-sm">
           <thead className="border-b border-border bg-background-elevated text-left text-xs text-foreground-muted">
             <tr>
@@ -59,7 +59,9 @@ export default async function AdminProducts(props: PageProps<"/admin/produtos">)
                   </td>
                   <td className="px-4 py-2.5 text-foreground-muted">{p.category?.name ?? "—"}</td>
                   <td className="px-4 py-2.5 text-right font-mono tabular-nums">{formatPriceCents(p.priceCents)}</td>
-                  <td className={`px-4 py-2.5 text-right font-mono tabular-nums ${p.stockQuantity <= LOW_STOCK_MAX ? "text-foreground-muted" : ""}`}>
+                  <td
+                    className={`px-4 py-2.5 text-right font-mono tabular-nums ${p.stockQuantity <= LOW_STOCK_MAX ? "text-foreground-muted" : ""}`}
+                  >
                     {p.stockQuantity}
                   </td>
                   <td className="px-4 py-2.5">

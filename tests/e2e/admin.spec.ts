@@ -45,7 +45,8 @@ test.describe("painel admin", () => {
     const save = card.getByRole("button", { name: /favoritos/i });
     await expect(stock).toBeVisible();
     const [a, b] = await Promise.all([stock.boundingBox(), save.boundingBox()]);
-    const overlap = a && b && a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
+    const overlap =
+      a && b && a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
     expect(overlap, "selo de estoque por cima do Salvar").toBeFalsy();
   });
 
@@ -65,8 +66,13 @@ test.describe("painel admin", () => {
     // Depois de criar, a edição — é lá que ficam as fotos.
     await expect(page).toHaveURL(/\/admin\/produtos\/[0-9a-f-]{36}$/);
 
-    for (const [side, color] of [["frente", [200, 30, 50]], ["lado", [30, 60, 200]]] as const) {
-      await page.locator("#image-file").setInputFiles({ name: `${side}.png`, mimeType: "image/png", buffer: solidPng(64, 64, color) });
+    for (const [side, color] of [
+      ["frente", [200, 30, 50]],
+      ["lado", [30, 60, 200]],
+    ] as const) {
+      await page
+        .locator("#image-file")
+        .setInputFiles({ name: `${side}.png`, mimeType: "image/png", buffer: solidPng(64, 64, color) });
       await page.locator("#image-alt").fill(`${name} de ${side}`);
       await page.getByRole("button", { name: "Enviar imagem" }).click();
       await expect(page.getByRole("img", { name: `${name} de ${side}` })).toBeVisible();
@@ -74,12 +80,20 @@ test.describe("painel admin", () => {
     await expect(page.getByText("Imagens (2/10)")).toBeVisible();
 
     // Arquivo que não é imagem (texto com nome .png) é recusado pelo conteúdo.
-    await page.locator("#image-file").setInputFiles({ name: "falso.png", mimeType: "image/png", buffer: Buffer.from("<svg><script>alert(1)</script></svg>") });
+    await page
+      .locator("#image-file")
+      .setInputFiles({
+        name: "falso.png",
+        mimeType: "image/png",
+        buffer: Buffer.from("<svg><script>alert(1)</script></svg>"),
+      });
     await page.getByRole("button", { name: "Enviar imagem" }).click();
     await expect(page.getByText("Formato não aceito. Envie JPEG, PNG, WebP ou AVIF.")).toBeVisible();
 
     await page.getByRole("button", { name: "Tornar principal" }).click();
-    await expect(page.getByText("Principal", { exact: true }).locator("xpath=ancestor::li[1]").getByRole("img")).toHaveAttribute("alt", `${name} de lado`);
+    await expect(
+      page.getByText("Principal", { exact: true }).locator("xpath=ancestor::li[1]").getByRole("img"),
+    ).toHaveAttribute("alt", `${name} de lado`);
 
     await page.goto(`/produto/ventoinha-e2e-${id}`);
     await expect(page.getByText("01 / 02", { exact: true })).toBeVisible();

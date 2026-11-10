@@ -4,7 +4,11 @@ import { useRef, useState, type TouchEvent } from "react";
 import Image from "next/image";
 import { isTechnicalPlate } from "@/lib/product-media";
 
-type GalleryImage = { url: string; altText: string | null; credit?: { author: string; license: string; source: string } };
+type GalleryImage = {
+  url: string;
+  altText: string | null;
+  credit?: { author: string; license: string; source: string };
+};
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
@@ -36,7 +40,8 @@ export function ProductGallery({ images, productName }: { images: GalleryImage[]
       if (Math.abs(dx) > 40) go(dx < 0 ? 1 : -1);
     },
   };
-  const arrow = "label absolute top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center border border-border bg-background/90 text-foreground transition-colors hover:border-foreground";
+  const arrow =
+    "label absolute top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center border border-border bg-background/90 text-foreground transition-colors hover:border-foreground";
 
   if (!current) return <div className="aspect-square border border-border-faint bg-background" />;
 
@@ -66,7 +71,10 @@ export function ProductGallery({ images, productName }: { images: GalleryImage[]
             <button type="button" onClick={() => go(1)} className={`${arrow} right-2`} aria-label="Próxima imagem">
               →
             </button>
-            <span className="label pointer-events-none absolute bottom-2 right-2 bg-background/90 px-2 py-1 text-foreground" aria-live="polite">
+            <span
+              className="label pointer-events-none absolute bottom-2 right-2 bg-background/90 px-2 py-1 text-foreground"
+              aria-live="polite"
+            >
               {pad(active + 1)} / {pad(count)}
             </span>
           </>
@@ -88,7 +96,13 @@ export function ProductGallery({ images, productName }: { images: GalleryImage[]
                 aria-label={`Ver imagem ${i + 1} de ${count}`}
                 aria-current={i === active ? "true" : undefined}
               >
-                <Image src={img.url} alt="" fill sizes="64px" className={isTechnicalPlate(img.url) ? "object-cover" : "object-contain p-1"} />
+                <Image
+                  src={img.url}
+                  alt=""
+                  fill
+                  sizes="64px"
+                  className={isTechnicalPlate(img.url) ? "object-cover" : "object-contain p-1"}
+                />
               </button>
             </li>
           ))}
@@ -111,12 +125,23 @@ export function ProductGallery({ images, productName }: { images: GalleryImage[]
               {many ? `${pad(active + 1)} / ${pad(count)} · ` : ""}
               {productName}
             </p>
-            <button type="button" onClick={() => dialogRef.current?.close()} className="label shrink-0 border border-border px-3 py-2 hover:border-foreground" autoFocus>
+            <button
+              type="button"
+              onClick={() => dialogRef.current?.close()}
+              className="label shrink-0 border border-border px-3 py-2 hover:border-foreground"
+              autoFocus
+            >
               Fechar
             </button>
           </div>
           <div className="relative min-h-0 flex-1" {...swipe}>
-            <Image src={current.url} alt={current.altText ?? productName} fill sizes="100vw" className="object-contain p-4 sm:p-10" />
+            <Image
+              src={current.url}
+              alt={current.altText ?? productName}
+              fill
+              sizes="100vw"
+              className="object-contain p-4 sm:p-10"
+            />
             {many ? (
               <>
                 <button type="button" onClick={() => go(-1)} className={`${arrow} left-3`} aria-label="Imagem anterior">
@@ -144,7 +169,12 @@ function Credit({ credit }: { credit: NonNullable<GalleryImage["credit"]> }) {
   return (
     <p className="label break-words text-foreground-muted">
       Foto: {credit.author} /{" "}
-      <a href={credit.source} target="_blank" rel="noreferrer" className="underline underline-offset-4 hover:text-foreground">
+      <a
+        href={credit.source}
+        target="_blank"
+        rel="noreferrer"
+        className="underline underline-offset-4 hover:text-foreground"
+      >
         {credit.license}, Wikimedia Commons
       </a>
     </p>

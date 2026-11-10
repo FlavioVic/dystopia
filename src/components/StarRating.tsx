@@ -2,15 +2,7 @@
  * Nota de avaliação. A marca não usa ícone decorativo: cinco quadrados (cheio =
  * ponto atingido) e o número em mono.
  */
-export function StarRating({
-  rating,
-  count,
-  size = "sm",
-}: {
-  rating: number;
-  count?: number;
-  size?: "sm" | "md";
-}) {
+export function StarRating({ rating, count, size = "sm" }: { rating: number; count?: number; size?: "sm" | "md" }) {
   const full = Math.round(rating);
   const dim = size === "sm" ? "h-2 w-2" : "h-2.5 w-2.5";
 

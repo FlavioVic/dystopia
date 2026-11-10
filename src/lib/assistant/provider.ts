@@ -108,7 +108,9 @@ export function createChatCompletion(config: ChatConfig, fetchImpl: typeof fetch
     }
     if (!response.ok) {
       // O corpo pode ecoar detalhes da conta: vai só para o log do servidor, nunca para o cliente.
-      throw new AssistantUnavailableError(`provedor respondeu ${response.status}: ${(await response.text()).slice(0, 300)}`);
+      throw new AssistantUnavailableError(
+        `provedor respondeu ${response.status}: ${(await response.text()).slice(0, 300)}`,
+      );
     }
 
     const body = (await response.json()) as {

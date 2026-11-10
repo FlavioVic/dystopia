@@ -3,15 +3,7 @@
 import { useState, useTransition } from "react";
 import { toggleProductFlag } from "@/lib/actions/admin";
 
-export function ProductFlags({
-  id,
-  isActive,
-  isFeatured,
-}: {
-  id: string;
-  isActive: boolean;
-  isFeatured: boolean;
-}) {
+export function ProductFlags({ id, isActive, isFeatured }: { id: string; isActive: boolean; isFeatured: boolean }) {
   const [active, setActive] = useState(isActive);
   const [featured, setFeatured] = useState(isFeatured);
   const [pending, startTransition] = useTransition();
@@ -33,10 +25,20 @@ export function ProductFlags({
 
   return (
     <div className="flex gap-1.5">
-      <button type="button" disabled={pending} onClick={() => toggle("isActive", active, setActive)} className={chip(active)}>
+      <button
+        type="button"
+        disabled={pending}
+        onClick={() => toggle("isActive", active, setActive)}
+        className={chip(active)}
+      >
         {active ? "Ativo" : "Inativo"}
       </button>
-      <button type="button" disabled={pending} onClick={() => toggle("isFeatured", featured, setFeatured)} className={chip(featured)}>
+      <button
+        type="button"
+        disabled={pending}
+        onClick={() => toggle("isFeatured", featured, setFeatured)}
+        className={chip(featured)}
+      >
         {featured ? "★ Destaque" : "Destaque"}
       </button>
     </div>

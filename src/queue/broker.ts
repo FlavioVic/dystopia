@@ -194,10 +194,7 @@ export type Envelope = {
   lastError?: string;
 };
 
-export type Route =
-  | { to: "work" }
-  | { to: "retry"; delayMs: number }
-  | { to: "dead" };
+export type Route = { to: "work" } | { to: "retry"; delayMs: number } | { to: "dead" };
 
 /**
  * Publica no canal com confirmação. Não espera a confirmação aqui — quem
@@ -284,7 +281,14 @@ export async function queueDepths(queues: string[]): Promise<QueueDepth[]> {
       if (count > 0 && soonestRetryMs === null) soonestRetryMs = ms;
     }
     const dead = await broker.publisher.checkQueue(n.dead);
-    depths.push({ queue, ready: work.messageCount, retrying, soonestRetryMs, dead: dead.messageCount, consumers: work.consumerCount });
+    depths.push({
+      queue,
+      ready: work.messageCount,
+      retrying,
+      soonestRetryMs,
+      dead: dead.messageCount,
+      consumers: work.consumerCount,
+    });
   }
   return depths;
 }

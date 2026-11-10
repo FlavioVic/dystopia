@@ -56,7 +56,10 @@ describe("origem do pedido", () => {
 
   it("aceita a própria página (inclusive atrás de proxy)", () => {
     assert.equal(isSameOrigin(headers({ origin: "https://loja.dev", host: "loja.dev" })), true);
-    assert.equal(isSameOrigin(headers({ origin: "https://loja.dev", host: "interno:3000", "x-forwarded-host": "loja.dev" })), true);
+    assert.equal(
+      isSameOrigin(headers({ origin: "https://loja.dev", host: "interno:3000", "x-forwarded-host": "loja.dev" })),
+      true,
+    );
   });
 
   it("recusa outro site, origem ausente ou malformada", () => {

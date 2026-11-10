@@ -11,7 +11,8 @@ import { CONTACT_EMAIL, SITE_URL } from "@/lib/site";
 
 export const dynamic = "force-dynamic";
 
-const link = (title: string, path: string, note?: string) => `- [${title}](${SITE_URL}${path})${note ? `: ${note}` : ""}`;
+const link = (title: string, path: string, note?: string) =>
+  `- [${title}](${SITE_URL}${path})${note ? `: ${note}` : ""}`;
 
 export async function GET(): Promise<Response> {
   const categories = await getCategories();
@@ -26,7 +27,11 @@ export async function GET(): Promise<Response> {
     "## Serviços",
     "",
     ...SERVICES.map((s) => link(s.name, `/servicos#${s.kind}`, `${s.summary} Inclui: ${s.scope.join("; ")}.`)),
-    link("Pedir orçamento", "/servicos#orcamento", "formulário; cada pedido recebe um protocolo DYS-S e o retorno é por e-mail"),
+    link(
+      "Pedir orçamento",
+      "/servicos#orcamento",
+      "formulário; cada pedido recebe um protocolo DYS-S e o retorno é por e-mail",
+    ),
     "",
     "## Como funciona",
     "",
@@ -53,5 +58,7 @@ export async function GET(): Promise<Response> {
     "",
   ].join("\n");
 
-  return new Response(body, { headers: { "Content-Type": "text/markdown; charset=utf-8", "Cache-Control": "public, max-age=3600" } });
+  return new Response(body, {
+    headers: { "Content-Type": "text/markdown; charset=utf-8", "Cache-Control": "public, max-age=3600" },
+  });
 }

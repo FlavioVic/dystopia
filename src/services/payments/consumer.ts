@@ -45,7 +45,9 @@ export const paymentHandlers: Record<string, MessageHandler> = {
   [PAYMENT_REFUND]: (message) =>
     handle(message, parseRefund, async (tx, command): Promise<RefundReply> => refundPayment(tx, command)),
   [PAYMENT_STATUS]: (message) =>
-    handle(message, parseStatus, async (tx, command): Promise<StatusReply> => getPaymentStatus(tx, command.idempotencyKey)),
+    handle(message, parseStatus, async (tx, command): Promise<StatusReply> =>
+      getPaymentStatus(tx, command.idempotencyKey),
+    ),
 };
 
 async function handle<TCommand, TReply extends Record<string, unknown>>(
@@ -93,7 +95,8 @@ function parseAuthorize(payload: Record<string, unknown>): AuthorizeCommand {
   const { orderId, method, amountCents, idempotencyKey } = payload;
   if (typeof orderId !== "string") throw invalid(PAYMENT_AUTHORIZE, "orderId");
   if (!isPaymentMethod(method)) throw invalid(PAYMENT_AUTHORIZE, "method");
-  if (typeof amountCents !== "number" || !Number.isInteger(amountCents)) throw invalid(PAYMENT_AUTHORIZE, "amountCents");
+  if (typeof amountCents !== "number" || !Number.isInteger(amountCents))
+    throw invalid(PAYMENT_AUTHORIZE, "amountCents");
   if (typeof idempotencyKey !== "string") throw invalid(PAYMENT_AUTHORIZE, "idempotencyKey");
   const paymentToken = legacyToken(payload) ?? payload.paymentToken;
   if (paymentToken !== undefined && !isPaymentToken(paymentToken)) throw invalid(PAYMENT_AUTHORIZE, "paymentToken");

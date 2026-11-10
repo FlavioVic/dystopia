@@ -18,7 +18,6 @@ export default async function Home() {
   const featured = await getFeaturedProducts(4);
   const [lead, ...others] = PORTFOLIO;
 
-
   return (
     <PageTransition className="flex flex-col">
       {/* ---------------------------------------------------------- abertura */}
@@ -37,7 +36,10 @@ export default async function Home() {
                 {/* Em 80px "A ORDEM É UM" cabe numa linha: a quebra fica fixa depois do "é", como em todo tamanho. */}
                 A ordem é <br className="hidden 3xl:inline" />
                 um <span className="text-primary">serviço.</span>
-                <span aria-hidden="true" className="caret ml-1 inline-block h-[0.8em] w-[0.35em] translate-y-[0.1em] bg-primary" />
+                <span
+                  aria-hidden="true"
+                  className="caret ml-1 inline-block h-[0.8em] w-[0.35em] translate-y-[0.1em] bg-primary"
+                />
               </h1>
             </Reveal>
             <Reveal immediate delay={160}>
@@ -98,7 +100,9 @@ export default async function Home() {
                   </span>
                   <span className="serial text-foreground-muted">{s.serial}</span>
                 </div>
-                <h3 className="display-3 break-words text-[15px] leading-[24px] tracking-[0.06em] sm:text-[20px] sm:leading-[28px] sm:tracking-[0.1em]">{s.name}</h3>
+                <h3 className="display-3 break-words text-[15px] leading-[24px] tracking-[0.06em] sm:text-[20px] sm:leading-[28px] sm:tracking-[0.1em]">
+                  {s.name}
+                </h3>
                 <p className="text-base leading-relaxed text-foreground-muted">{s.summary}</p>
                 <ul className="flex flex-col gap-2">
                   {s.scope.slice(0, 3).map((item) => (
@@ -204,8 +208,8 @@ export default async function Home() {
               title="Hardware registrado"
               action={
                 <Link href="/produtos" className={`shrink-0 ${buttonSecondary}`}>
-                Inventário completo <span aria-hidden="true">→</span>
-              </Link>
+                  Inventário completo <span aria-hidden="true">→</span>
+                </Link>
               }
             />
           </Reveal>

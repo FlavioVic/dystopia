@@ -54,7 +54,10 @@ describe("telefone", () => {
 
 describe("protocolo", () => {
   it("tem formato fixo DYS-S + 6 dígitos", () => {
-    assert.equal(generateProtocol(() => 42), "DYS-S000042");
+    assert.equal(
+      generateProtocol(() => 42),
+      "DYS-S000042",
+    );
     assert.match(generateProtocol(), /^DYS-S\d{6}$/);
   });
 });

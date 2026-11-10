@@ -26,11 +26,7 @@ export type ReviewInput = {
   comment: string | null;
 };
 
-export async function hasPurchasedProduct(
-  executor: Executor,
-  userId: string,
-  productId: string,
-): Promise<boolean> {
+export async function hasPurchasedProduct(executor: Executor, userId: string, productId: string): Promise<boolean> {
   const rows = await executor
     .select({ id: orderItems.id })
     .from(orderItems)
@@ -112,10 +108,7 @@ export async function recalculateProductRating(
   executor: Executor,
   productId: string,
 ): Promise<{ average: string; count: number }> {
-  const rows = await executor
-    .select({ rating: reviews.rating })
-    .from(reviews)
-    .where(eq(reviews.productId, productId));
+  const rows = await executor.select({ rating: reviews.rating }).from(reviews).where(eq(reviews.productId, productId));
 
   const average = averageRating(rows.map((row) => row.rating));
   const count = rows.length;
@@ -129,10 +122,7 @@ export async function recalculateProductRating(
 }
 
 /** Distribuição de notas (1..5) — usada no resumo da página do produto. */
-export async function ratingBreakdown(
-  executor: Executor,
-  productId: string,
-): Promise<Record<number, number>> {
+export async function ratingBreakdown(executor: Executor, productId: string): Promise<Record<number, number>> {
   const rows = await executor
     .select({ rating: reviews.rating, total: sql<number>`count(*)::int` })
     .from(reviews)

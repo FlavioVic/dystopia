@@ -30,7 +30,10 @@ describe("limite de tentativas", () => {
     const results = [];
     for (let i = 0; i < 4; i++) results.push(await consumeRateLimit(db, "login:ip:1.1.1.1", RULE));
 
-    assert.deepEqual(results.slice(0, 3).map((r) => r.allowed), [true, true, true]);
+    assert.deepEqual(
+      results.slice(0, 3).map((r) => r.allowed),
+      [true, true, true],
+    );
     assert.equal(results[3].allowed, false);
     assert.ok(results[3].retryAfterSeconds > 0 && results[3].retryAfterSeconds <= 60);
   });
@@ -56,9 +59,7 @@ describe("limite de tentativas", () => {
   });
 
   it("tentativas simultâneas não se perdem (exatamente `limit` passam)", async () => {
-    const results = await Promise.all(
-      Array.from({ length: 10 }, () => consumeRateLimit(db, "login:ip:9.9.9.9", RULE)),
-    );
+    const results = await Promise.all(Array.from({ length: 10 }, () => consumeRateLimit(db, "login:ip:9.9.9.9", RULE)));
 
     assert.equal(results.filter((r) => r.allowed).length, RULE.limit);
     const [row] = await db.select().from(rateLimits).where(eq(rateLimits.key, "login:ip:9.9.9.9"));
@@ -96,7 +97,10 @@ describe("limite de tentativas", () => {
     const { limit } = ACTION_LIMITS.checkout;
     for (let i = 0; i < limit; i++) assert.equal(await limitAction("checkout", "user:a"), null);
 
-    assert.match((await limitAction("checkout", "user:a")) ?? "", /^Muitas tentativas\. Tente de novo em \d+ minutos?\.$/);
+    assert.match(
+      (await limitAction("checkout", "user:a")) ?? "",
+      /^Muitas tentativas\. Tente de novo em \d+ minutos?\.$/,
+    );
     assert.equal(await limitAction("checkout", "user:b"), null);
     assert.equal(await limitAction("cart", "user:a"), null, "cada ação tem o próprio contador");
   });

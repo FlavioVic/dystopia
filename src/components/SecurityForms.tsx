@@ -62,7 +62,10 @@ export function NewRecoveryCodesForm() {
 
 /** Trocar de celular: um fator agora (app ou recuperação) e o cadastro recomeça. */
 export function ReplaceAuthenticatorForm() {
-  const [state, formAction, pending] = useActionState<ReplaceAuthenticatorState, FormData>(replaceAuthenticator, undefined);
+  const [state, formAction, pending] = useActionState<ReplaceAuthenticatorState, FormData>(
+    replaceAuthenticator,
+    undefined,
+  );
   return (
     <form action={formAction} className="flex flex-col gap-3">
       {state?.message ? <FormAlert>{state.message}</FormAlert> : null}

@@ -11,11 +11,7 @@
 import { db } from "@/db";
 import { findCustomerOrder, listOrderEvents } from "@/services/orders";
 
-export async function viewOrder(
-  orderNumber: string,
-  userId: string,
-  hooks: { whilePending?: () => void } = {},
-) {
+export async function viewOrder(orderNumber: string, userId: string, hooks: { whilePending?: () => void } = {}) {
   const order = await findCustomerOrder(db, orderNumber, userId);
   if (!order) return null;
 

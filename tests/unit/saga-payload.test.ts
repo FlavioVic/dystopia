@@ -45,7 +45,10 @@ describe("payload da saga de checkout", () => {
       "sim_flaky_once",
       "o modo demonstração vinha antes do cartão",
     );
-    assert.equal(parseCheckoutPayload({ ...valid, simulate: "approve", cardPaymentMethodId: "pm_card_visa" }).paymentToken, "pm_card_visa");
+    assert.equal(
+      parseCheckoutPayload({ ...valid, simulate: "approve", cardPaymentMethodId: "pm_card_visa" }).paymentToken,
+      "pm_card_visa",
+    );
     assert.equal(parseCheckoutPayload({ ...valid, simulate: "qualquer-coisa" }).paymentToken, undefined);
   });
 
@@ -63,10 +66,7 @@ describe("payload da saga de checkout", () => {
 
   it("rejeita pedido sem itens ou com quantidade inválida", () => {
     assert.throws(() => parseCheckoutPayload({ ...valid, lines: [] }), /sem itens/);
-    assert.throws(
-      () => parseCheckoutPayload({ ...valid, lines: [{ ...valid.lines[0], quantity: 0 }] }),
-      /quantidade/,
-    );
+    assert.throws(() => parseCheckoutPayload({ ...valid, lines: [{ ...valid.lines[0], quantity: 0 }] }), /quantidade/);
   });
 
   it("erro de payload é permanente (não faz sentido tentar de novo)", () => {

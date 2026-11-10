@@ -25,11 +25,7 @@ export type RateLimitResult = {
 };
 
 /** Conta uma tentativa para `key` e diz se ela está dentro do limite. */
-export async function consumeRateLimit(
-  executor: Executor,
-  key: string,
-  rule: RateLimitRule,
-): Promise<RateLimitResult> {
+export async function consumeRateLimit(executor: Executor, key: string, rule: RateLimitRule): Promise<RateLimitResult> {
   const window = sql`make_interval(secs => ${rule.windowSeconds})`;
   const expired = sql`${rateLimits.windowStartedAt} <= now() - ${window}`;
 

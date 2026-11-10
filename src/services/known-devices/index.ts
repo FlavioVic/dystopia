@@ -31,7 +31,11 @@ function staleBefore(now: Date): Date {
 export type KnownDevice = { id: string; userId: string };
 
 /** Aparelho do token, se existe e foi usado nos últimos 180 dias. */
-export async function findKnownDevice(executor: Executor, token: string, now = new Date()): Promise<KnownDevice | null> {
+export async function findKnownDevice(
+  executor: Executor,
+  token: string,
+  now = new Date(),
+): Promise<KnownDevice | null> {
   const [device] = await executor
     .select({ id: knownDevices.id, userId: knownDevices.userId })
     .from(knownDevices)
@@ -61,7 +65,9 @@ export async function rememberDevice(
   }
 
   const token = randomBytes(32).toString("base64url");
-  await executor.insert(knownDevices).values({ id: hashDeviceToken(token), userId: input.userId, createdAt: now, lastUsedAt: now });
+  await executor
+    .insert(knownDevices)
+    .values({ id: hashDeviceToken(token), userId: input.userId, createdAt: now, lastUsedAt: now });
   return { token, expiresAt };
 }
 

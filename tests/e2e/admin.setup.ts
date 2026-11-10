@@ -50,7 +50,12 @@ setup("admin: senha + autenticador", async ({ page }) => {
     };
     await submitCode();
     // Rodada anterior colada nesta pode ter usado o código desta janela de 30 s.
-    if (!(await page.waitForURL(/\/admin$/, { timeout: 5_000 }).then(() => true, () => false))) {
+    if (
+      !(await page.waitForURL(/\/admin$/, { timeout: 5_000 }).then(
+        () => true,
+        () => false,
+      ))
+    ) {
       await expect(page.getByText("Código inválido ou já usado.")).toBeVisible();
       await waitNextStep();
       await submitCode();

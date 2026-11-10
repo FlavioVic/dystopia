@@ -110,7 +110,9 @@ export async function placeOrder(input: PlaceOrderInput, hooks: UseCaseHooks = {
     // Endereço novo entra na agenda do cliente — é o que alimenta
     // /conta/enderecos e o seletor do próximo checkout.
     const shippingAddressId =
-      "savedId" in input.address ? input.address.savedId : (await createAddress(tx, customer.id, input.address.values)).id;
+      "savedId" in input.address
+        ? input.address.savedId
+        : (await createAddress(tx, customer.id, input.address.values)).id;
 
     const { orderId } = await createOrder(tx, {
       orderNumber,

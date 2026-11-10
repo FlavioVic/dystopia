@@ -13,9 +13,7 @@ import { parseAddressForm } from "@/lib/validation/address";
 import { PermanentError } from "@/shared/errors";
 import { createAddress, deleteAddress, setDefaultAddress } from "@/services/addresses";
 
-export type AddressState =
-  | { errors?: Record<string, string>; message?: string; ok?: boolean }
-  | undefined;
+export type AddressState = { errors?: Record<string, string>; message?: string; ok?: boolean } | undefined;
 
 export type AddressActionResult = { ok: boolean; error?: string };
 

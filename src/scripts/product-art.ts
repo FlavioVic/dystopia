@@ -129,7 +129,11 @@ const DRAWINGS: Record<ArtKind, () => string> = {
     rect(90, 270, 620, 260) +
     repeat(5, (r) =>
       repeat(14 - (r === 4 ? 6 : 0), (c) =>
-        r === 4 && c === 3 ? rect(110 + c * 42, 290 + r * 46, 220, 34, 2) : r === 4 && c > 3 ? "" : rect(110 + c * 42, 290 + r * 46, 34, 34, 2, STEEL),
+        r === 4 && c === 3
+          ? rect(110 + c * 42, 290 + r * 46, 220, 34, 2)
+          : r === 4 && c > 3
+            ? ""
+            : rect(110 + c * 42, 290 + r * 46, 34, 34, 2, STEEL),
       ),
     ) +
     repeat(3, (i) => rect(110 + (10 + i) * 42 + 20, 290 + 4 * 46, 34, 34, 2, STEEL)),
@@ -153,7 +157,8 @@ function frame(serial: string): string {
   ]
     .map((d) => line(d, 4, STEEL))
     .join("");
-  const grid = repeat(12, (i) => line(`M${(i + 1) * 64 - 16} 0L${(i + 1) * 64 - 16} ${SIZE}`, 1, FAINT)) +
+  const grid =
+    repeat(12, (i) => line(`M${(i + 1) * 64 - 16} 0L${(i + 1) * 64 - 16} ${SIZE}`, 1, FAINT)) +
     repeat(12, (i) => line(`M0 ${(i + 1) * 64 - 16}L${SIZE} ${(i + 1) * 64 - 16}`, 1, FAINT));
   const text = (x: number, y: number, s: string, anchor = "start", color = MUTED, size = 20) =>
     `<text x="${x}" y="${y}" fill="${color}" font-family="${MONO}" font-size="${size}" font-weight="500" letter-spacing="2.8" text-anchor="${anchor}">${escape(s)}</text>`;

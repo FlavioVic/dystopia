@@ -138,7 +138,11 @@ describe("relay", () => {
 
   it("relays em paralelo não publicam a mesma mensagem duas vezes (SKIP LOCKED)", async () => {
     for (let i = 0; i < 20; i += 1) await enqueue(db, { type: "teste.job", queue: Q, payload: { i } });
-    const reports = await Promise.all([relayOutbox(db, { limit: 7 }), relayOutbox(db, { limit: 7 }), relayOutbox(db, { limit: 7 })]);
+    const reports = await Promise.all([
+      relayOutbox(db, { limit: 7 }),
+      relayOutbox(db, { limit: 7 }),
+      relayOutbox(db, { limit: 7 }),
+    ]);
     const total = reports.reduce((sum, report) => sum + report.published, 0);
     assert.equal(total + (await relayOutbox(db)).published, 20);
     assert.equal((await depth()).ready, 20);
@@ -173,7 +177,10 @@ describe("política de retentativa", () => {
     assert.deepEqual(await depth(), { ready: 0, retrying: 1, dead: 0 }, "esperando o TTL, não na fila de trabalho");
 
     await drain(handlers, true);
-    assert.deepEqual(seen.map((message) => message.attempt), [1, 2]);
+    assert.deepEqual(
+      seen.map((message) => message.attempt),
+      [1, 2],
+    );
     assert.equal(seen[0].id, seen[1].id, "mesma mensagem, mesmo id");
     assert.deepEqual(await depth(), { ready: 0, retrying: 0, dead: 0 });
   });
@@ -199,7 +206,9 @@ describe("política de retentativa", () => {
     await enqueue(db, { type: "teste.job", queue: Q, maxAttempts: 1 });
     const { handlers } = recorder(() => {
       const driver = new Error("getaddrinfo ENOTFOUND base");
-      throw new Error("Failed query: insert into \"notifications\" values ($1)\nparams: cliente@exemplo.com", { cause: driver });
+      throw new Error('Failed query: insert into "notifications" values ($1)\nparams: cliente@exemplo.com', {
+        cause: driver,
+      });
     });
 
     await drain(handlers);
@@ -244,7 +253,10 @@ describe("política de retentativa", () => {
 
     await drain(handlers, true);
     assert.equal(seen.length, 4, "adiada 3 vezes com maxAttempts = 2, e ainda assim processada");
-    assert.ok(seen.every((message) => message.attempt === 1), "tentativa não andou");
+    assert.ok(
+      seen.every((message) => message.attempt === 1),
+      "tentativa não andou",
+    );
     assert.equal((await depth()).dead, 0);
   });
 
@@ -296,7 +308,10 @@ describe("DLQ: inspeção e reprocessamento", () => {
 
     assert.equal(await replayDeadLetters(Q, { messageId: second.id }), 1);
     assert.deepEqual(await depth(), { ready: 1, retrying: 0, dead: 1 });
-    assert.deepEqual((await peekDeadLetters(Q)).map((letter) => letter.id), [first.id]);
+    assert.deepEqual(
+      (await peekDeadLetters(Q)).map((letter) => letter.id),
+      [first.id],
+    );
 
     const { seen, handlers } = recorder(); // causa corrigida
     await drain(handlers);
@@ -325,7 +340,13 @@ describe("DLQ: inspeção e reprocessamento", () => {
 describe("worker de longa duração (push)", () => {
   it("conexão com o broker cai no meio: o worker reconecta sozinho e volta a consumir", async () => {
     const { seen, handlers } = recorder();
-    const worker = startWorker({ outboxes: [storeOutbox], workerId: "teste-reconexao", queues: [Q], handlers, relayEveryMs: 50 });
+    const worker = startWorker({
+      outboxes: [storeOutbox],
+      workerId: "teste-reconexao",
+      queues: [Q],
+      handlers,
+      relayEveryMs: 50,
+    });
     const until = async (cond: () => boolean) => {
       const deadline = Date.now() + 8_000;
       while (!cond() && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 25));
@@ -343,7 +364,10 @@ describe("worker de longa duração (push)", () => {
     worker.stop();
     await worker.done;
 
-    assert.deepEqual(seen.map((message) => message.payload.n), [1, 2]);
+    assert.deepEqual(
+      seen.map((message) => message.payload.n),
+      [1, 2],
+    );
     assert.deepEqual(await depth(), { ready: 0, retrying: 0, dead: 0 });
   });
 

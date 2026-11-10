@@ -120,8 +120,8 @@ export default function PrivacyPage() {
 
       <Section id="controlador" title="Quem cuida dos dados">
         <p>
-          O controlador é {PROFILE.name}, responsável pelo site DYSTOPIA. O mesmo contato atende como encarregado
-          (art. 41): {mail}.
+          O controlador é {PROFILE.name}, responsável pelo site DYSTOPIA. O mesmo contato atende como encarregado (art.
+          41): {mail}.
         </p>
         <p>
           A loja de peças é uma demonstração técnica: o pagamento é simulado e nenhum valor é cobrado. Os dados que você
@@ -161,12 +161,12 @@ export default function PrivacyPage() {
             lugar, o bloqueio por excesso de tentativas não atinja você aqui.
           </li>
           <li>
-            <span className="text-foreground">cart_session</span>: guarda o carrinho de quem ainda não entrou, por até 30
-            dias.
+            <span className="text-foreground">cart_session</span>: guarda o carrinho de quem ainda não entrou, por até
+            30 dias.
           </li>
           <li>
-            <span className="text-foreground">Conversa do assistente</span>: fica no armazenamento da aba (sessionStorage)
-            e some quando ela fecha.
+            <span className="text-foreground">Conversa do assistente</span>: fica no armazenamento da aba
+            (sessionStorage) e some quando ela fecha.
           </li>
         </ul>
         <p>
@@ -183,7 +183,10 @@ export default function PrivacyPage() {
         </p>
         <ul className="flex flex-col border-t border-border-faint text-sm">
           {PROCESSORS.map((p) => (
-            <li key={p.name} className="flex flex-col gap-1 border-b border-border-faint py-3 sm:flex-row sm:justify-between sm:gap-6">
+            <li
+              key={p.name}
+              className="flex flex-col gap-1 border-b border-border-faint py-3 sm:flex-row sm:justify-between sm:gap-6"
+            >
               <span>
                 <span className="text-foreground">{p.name}</span>: {p.role}
               </span>
@@ -193,8 +196,8 @@ export default function PrivacyPage() {
         </ul>
         <p>
           Esses provedores ficam fora do Brasil. A transferência internacional se apoia nas garantias contratuais de
-          proteção de dados que cada um oferece (art. 33). Dados também podem ser entregues a autoridade pública quando a
-          lei exigir.
+          proteção de dados que cada um oferece (art. 33). Dados também podem ser entregues a autoridade pública quando
+          a lei exigir.
         </p>
       </Section>
 
@@ -237,7 +240,12 @@ export default function PrivacyPage() {
         <p>
           Se achar que seus dados foram tratados de forma irregular, você também pode reclamar à Autoridade Nacional de
           Proteção de Dados (
-          <a href="https://www.gov.br/anpd" target="_blank" rel="noreferrer" className="text-foreground underline underline-offset-4">
+          <a
+            href="https://www.gov.br/anpd"
+            target="_blank"
+            rel="noreferrer"
+            className="text-foreground underline underline-offset-4"
+          >
             ANPD
           </a>
           ).
@@ -246,18 +254,18 @@ export default function PrivacyPage() {
 
       <Section id="seguranca" title="Segurança">
         <p>
-          Conexão sempre criptografada (HTTPS com HSTS), senha guardada como hash bcrypt, sessão em cookie
-          inacessível a scripts e encerrada no servidor ao sair, limite de tentativas contra força bruta, política de
-          conteúdo (CSP) contra injeção de script, e painel administrativo que exige, além da senha, o código de um app
-          autenticador. Se houver um incidente que possa
-          causar risco ou dano relevante a você, você e a ANPD serão avisados (art. 48).
+          Conexão sempre criptografada (HTTPS com HSTS), senha guardada como hash bcrypt, sessão em cookie inacessível a
+          scripts e encerrada no servidor ao sair, limite de tentativas contra força bruta, política de conteúdo (CSP)
+          contra injeção de script, e painel administrativo que exige, além da senha, o código de um app autenticador.
+          Se houver um incidente que possa causar risco ou dano relevante a você, você e a ANPD serão avisados (art.
+          48).
         </p>
       </Section>
 
       <Section id="menores" title="Crianças e adolescentes">
         <p>
-          O site não é direcionado a menores de 18 anos. Se um responsável souber que um menor criou conta, basta escrever
-          para {mail} que a conta é excluída.
+          O site não é direcionado a menores de 18 anos. Se um responsável souber que um menor criou conta, basta
+          escrever para {mail} que a conta é excluída.
         </p>
       </Section>
 

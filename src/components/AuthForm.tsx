@@ -15,9 +15,7 @@ export function AuthForm({ mode, notice }: { mode: "login" | "signup"; notice?: 
   return (
     <div className="mx-auto w-full max-w-sm px-4 py-16 sm:py-20">
       <p className="label text-foreground-muted">{isSignup ? "Registro / Nova ficha" : "Acesso / Identificação"}</p>
-      <h1 className="display-2 display-2--narrow mt-4">
-        {isSignup ? "Registro" : "Identificação"}
-      </h1>
+      <h1 className="display-2 display-2--narrow mt-4">{isSignup ? "Registro" : "Identificação"}</h1>
       <p className="mt-3 text-sm text-foreground-muted">
         {isSignup
           ? "Abra sua ficha para registrar aquisições e acompanhar pedidos."
@@ -81,17 +79,16 @@ export function AuthForm({ mode, notice }: { mode: "login" | "signup"; notice?: 
           />
           <FieldError message={state?.errors?.password} />
           {isSignup ? null : (
-            <Link href="/entrar/esqueci" className="self-end text-xs text-foreground-muted underline underline-offset-4 hover:text-foreground">
+            <Link
+              href="/entrar/esqueci"
+              className="self-end text-xs text-foreground-muted underline underline-offset-4 hover:text-foreground"
+            >
               Esqueci minha senha
             </Link>
           )}
         </div>
 
-        <button
-          type="submit"
-          disabled={pending}
-          className={`mt-2 w-full ${buttonPrimary}`}
-        >
+        <button type="submit" disabled={pending} className={`mt-2 w-full ${buttonPrimary}`}>
           {pending ? "Verificando…" : isSignup ? "Abrir ficha" : "Identificar-se"}
         </button>
         {isSignup ? (

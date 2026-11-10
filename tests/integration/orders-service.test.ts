@@ -10,13 +10,7 @@ import { db } from "@/db";
 import { orderItems, orders } from "@/db/schema";
 import { PermanentError } from "@/shared/errors";
 import { createAddress } from "@/services/addresses";
-import {
-  createOrder,
-  listOrderEvents,
-  markOrderCancelled,
-  markOrderPaid,
-  transitionOrder,
-} from "@/services/orders";
+import { createOrder, listOrderEvents, markOrderCancelled, markOrderPaid, transitionOrder } from "@/services/orders";
 import { closeDatabase, resetDatabase, seedCheckoutFixture, type CheckoutFixture } from "../helpers/db";
 
 beforeEach(resetDatabase);
@@ -154,8 +148,7 @@ describe("transições de status", () => {
 
     await assert.rejects(
       () => transitionOrder(db, orderId, "delivered"),
-      (error: unknown) =>
-        error instanceof PermanentError && error.code === "invalid_order_transition",
+      (error: unknown) => error instanceof PermanentError && error.code === "invalid_order_transition",
     );
 
     const order = await db.query.orders.findFirst({ where: eq(orders.id, orderId) });

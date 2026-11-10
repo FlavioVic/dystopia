@@ -72,7 +72,10 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       <head>
         {/* Liga a animação de "revelar" só quando há JS: sem isso, o conteúdo
             nunca fica escondido esperando um script que não vai rodar. */}
-        <script nonce={nonce} dangerouslySetInnerHTML={{ __html: "document.documentElement.classList.add('js-reveal')" }} />
+        <script
+          nonce={nonce}
+          dangerouslySetInnerHTML={{ __html: "document.documentElement.classList.add('js-reveal')" }}
+        />
         {/* Vercel Web Analytics (grátis no Hobby) pela integração por script, sem
             dependência nova. Só na Vercel: fora dela o endpoint não existe. */}
         {process.env.VERCEL === "1" ? (
@@ -97,12 +100,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
         </a>
         <JsonLd data={siteGraph()} />
         <PromoBar />
-        <Header
-          categories={categories}
-          cartCount={cartCount}
-          favoriteCount={favorites.size}
-          user={user}
-        />
+        <Header categories={categories} cartCount={cartCount} favoriteCount={favorites.size} user={user} />
         <main id="conteudo" tabIndex={-1} className="flex-1 outline-none">
           {children}
         </main>

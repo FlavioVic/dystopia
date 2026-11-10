@@ -31,7 +31,11 @@ const productSchema = z
   })
   .superRefine((product, ctx) => {
     if (product.compareAt != null && product.compareAt <= product.price) {
-      ctx.addIssue({ code: "custom", path: ["compareAt"], message: 'O preço "de" precisa ser maior que o preço de venda.' });
+      ctx.addIssue({
+        code: "custom",
+        path: ["compareAt"],
+        message: 'O preço "de" precisa ser maior que o preço de venda.',
+      });
     }
   })
   .transform(({ price, compareAt, stock, ...rest }) => ({

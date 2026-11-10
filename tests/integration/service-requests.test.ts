@@ -9,11 +9,7 @@ import { db } from "@/db";
 import { notifications, outbox, serviceRequests } from "@/db/schema";
 import { sendServiceRequestAlert } from "@/services/notifications";
 import { PermanentError } from "@/shared/errors";
-import {
-  createServiceRequest,
-  listServiceRequests,
-  updateServiceRequestStatus,
-} from "@/services/service-requests";
+import { createServiceRequest, listServiceRequests, updateServiceRequestStatus } from "@/services/service-requests";
 import { closeDatabase, resetDatabase } from "../helpers/db";
 
 beforeEach(resetDatabase);
@@ -68,7 +64,15 @@ describe("pedidos de orçamento", () => {
   it("pedido e alerta na mesma transação: o alerta entra na fila uma vez só", async () => {
     await db.transaction(async (tx) => {
       const row = await createServiceRequest(tx, input);
-      const alert = { recipient: "responsavel@exemplo.dev", protocol: row.protocol, serviceName: "Manutenção", name: row.name, email: row.email, phone: null, details: row.details };
+      const alert = {
+        recipient: "responsavel@exemplo.dev",
+        protocol: row.protocol,
+        serviceName: "Manutenção",
+        name: row.name,
+        email: row.email,
+        phone: null,
+        details: row.details,
+      };
       assert.equal((await sendServiceRequestAlert(tx, alert)).duplicate, false);
       assert.equal((await sendServiceRequestAlert(tx, alert)).duplicate, true);
     });
@@ -82,7 +86,15 @@ describe("pedidos de orçamento", () => {
     await assert.rejects(() =>
       db.transaction(async (tx) => {
         const row = await createServiceRequest(tx, input);
-        await sendServiceRequestAlert(tx, { recipient: "r@exemplo.dev", protocol: row.protocol, serviceName: "Manutenção", name: row.name, email: row.email, phone: null, details: row.details });
+        await sendServiceRequestAlert(tx, {
+          recipient: "r@exemplo.dev",
+          protocol: row.protocol,
+          serviceName: "Manutenção",
+          name: row.name,
+          email: row.email,
+          phone: null,
+          details: row.details,
+        });
         throw new Error("falha depois de gravar");
       }),
     );

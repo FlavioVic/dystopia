@@ -81,4 +81,3 @@ test.describe("rota do cron", () => {
     expect((await request.get("/api/cron/fila", { headers: { authorization: "Bearer chute" } })).status()).toBe(401);
   });
 });
-

@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { CONTACT_EMAIL } from "@/lib/site";
-import { escapeHtml, orderConfirmationEmail, passwordResetEmail, serviceRequestAlertEmail } from "@/services/notifications/templates";
+import {
+  escapeHtml,
+  orderConfirmationEmail,
+  passwordResetEmail,
+  serviceRequestAlertEmail,
+} from "@/services/notifications/templates";
 
 const SITE = "https://loja.dev";
 
@@ -40,7 +45,10 @@ describe("e-mail de compra", () => {
   });
 
   it("sem preço unitário (notificação montada por código antigo), não quebra", () => {
-    const old = orderConfirmationEmail({ orderNumber: "DYS-1", customerName: "A", totalCents: 100, items: [{ name: "X", quantity: 1 }] }, SITE);
+    const old = orderConfirmationEmail(
+      { orderNumber: "DYS-1", customerName: "A", totalCents: 100, items: [{ name: "X", quantity: 1 }] },
+      SITE,
+    );
     assert.ok(!old.html.includes("undefined") && !old.html.includes("NaN"));
   });
 });
@@ -67,7 +75,12 @@ describe("e-mail de orçamento", () => {
 
   it("o formulário é público: o que a pessoa digitou nunca vira marcação no e-mail", () => {
     const email = serviceRequestAlertEmail(
-      { ...input, name: '<img src=x onerror="alert(1)">', details: "</p><script>roubar()</script>", email: 'a@b.c" onclick="x' },
+      {
+        ...input,
+        name: '<img src=x onerror="alert(1)">',
+        details: "</p><script>roubar()</script>",
+        email: 'a@b.c" onclick="x',
+      },
       SITE,
     );
     assert.ok(!email.html.includes("<script>"));
@@ -99,6 +112,9 @@ describe("e-mail de redefinição de senha", () => {
 
 describe("escape", () => {
   it("cobre os cinco caracteres de HTML", () => {
-    assert.equal(escapeHtml(`<a href="x" title='y'>&</a>`), "&lt;a href=&quot;x&quot; title=&#39;y&#39;&gt;&amp;&lt;/a&gt;");
+    assert.equal(
+      escapeHtml(`<a href="x" title='y'>&</a>`),
+      "&lt;a href=&quot;x&quot; title=&#39;y&#39;&gt;&amp;&lt;/a&gt;",
+    );
   });
 });

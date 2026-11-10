@@ -29,7 +29,10 @@ export default async function AboutPage() {
   const stripeEnabled = getStripePublishableKey() != null;
 
   const commitments = [
-    { title: "Orçamento sem custo", text: "Todo serviço começa com um orçamento por escrito, com prazo e preço, antes de qualquer intervenção." },
+    {
+      title: "Orçamento sem custo",
+      text: "Todo serviço começa com um orçamento por escrito, com prazo e preço, antes de qualquer intervenção.",
+    },
     {
       title: "Frete grátis",
       text: `Em compras a partir de ${formatPriceCents(FREE_SHIPPING_MIN_CENTS)}. Abaixo disso, frete fixo de ${formatPriceCents(FLAT_SHIPPING_CENTS)}.`,
@@ -38,9 +41,18 @@ export default async function AboutPage() {
       title: `Até ${INSTALLMENT_COUNT}x sem juros`,
       text: `No cartão, em compras a partir de ${formatPriceCents(INSTALLMENT_MIN_CENTS)}. Também Pix e boleto.`,
     },
-    { title: "Pedido acompanhado", text: "Cada etapa da compra aparece na página do pedido: estoque, pagamento, confirmação e aviso por e-mail." },
-    { title: "Nada fica pela metade", text: "Se o pagamento é recusado, o pedido é desfeito por inteiro: o estoque volta e nada é cobrado." },
-    { title: "Seus dados são seus", text: "Você baixa tudo o que a loja guarda sobre você ou exclui a conta, a qualquer momento." },
+    {
+      title: "Pedido acompanhado",
+      text: "Cada etapa da compra aparece na página do pedido: estoque, pagamento, confirmação e aviso por e-mail.",
+    },
+    {
+      title: "Nada fica pela metade",
+      text: "Se o pagamento é recusado, o pedido é desfeito por inteiro: o estoque volta e nada é cobrado.",
+    },
+    {
+      title: "Seus dados são seus",
+      text: "Você baixa tudo o que a loja guarda sobre você ou exclui a conta, a qualquer momento.",
+    },
   ];
 
   return (
@@ -64,7 +76,10 @@ export default async function AboutPage() {
             <ul className="flex flex-wrap gap-2">
               {categories.map((category) => (
                 <li key={category.slug}>
-                  <Link href={`/categoria/${category.slug}`} className="dys-label dys-label--notice hover:border-foreground hover:text-foreground">
+                  <Link
+                    href={`/categoria/${category.slug}`}
+                    className="dys-label dys-label--notice hover:border-foreground hover:text-foreground"
+                  >
                     {category.name}
                   </Link>
                 </li>
@@ -79,7 +94,10 @@ export default async function AboutPage() {
             <ul className="flex flex-col gap-3">
               {SERVICES.map((service) => (
                 <li key={service.kind}>
-                  <Link href={`/servicos?servico=${service.kind}#orcamento`} className="font-medium text-foreground underline underline-offset-4 hover:text-signal-text">
+                  <Link
+                    href={`/servicos?servico=${service.kind}#orcamento`}
+                    className="font-medium text-foreground underline underline-offset-4 hover:text-signal-text"
+                  >
                     {service.name}
                   </Link>
                   <p className="mt-0.5 text-sm text-foreground-muted">{service.summary}</p>
@@ -143,13 +161,26 @@ export default async function AboutPage() {
             </a>
           </p>
           <div className="mt-2 flex flex-wrap gap-x-6 gap-y-2">
-            <Link href="/portfolio" className="label text-foreground underline underline-offset-4 hover:text-signal-text">
+            <Link
+              href="/portfolio"
+              className="label text-foreground underline underline-offset-4 hover:text-signal-text"
+            >
               Portfólio
             </Link>
-            <a href={PROFILE.linkedin} target="_blank" rel="noreferrer" className="label text-foreground underline underline-offset-4 hover:text-signal-text">
+            <a
+              href={PROFILE.linkedin}
+              target="_blank"
+              rel="noreferrer"
+              className="label text-foreground underline underline-offset-4 hover:text-signal-text"
+            >
               LinkedIn
             </a>
-            <a href={PROFILE.github} target="_blank" rel="noreferrer" className="label text-foreground underline underline-offset-4 hover:text-signal-text">
+            <a
+              href={PROFILE.github}
+              target="_blank"
+              rel="noreferrer"
+              className="label text-foreground underline underline-offset-4 hover:text-signal-text"
+            >
               GitHub
             </a>
           </div>
@@ -169,14 +200,19 @@ export default async function AboutPage() {
                 Entre
               </Link>{" "}
               com a conta demo{" "}
-              <code className="bg-background-elevated px-1.5 py-0.5 font-mono text-xs text-foreground">{DEMO_ACCOUNT_EMAIL}</code> /{" "}
-              <code className="bg-background-elevated px-1.5 py-0.5 font-mono text-xs text-foreground">cliente123</code> (ou crie a sua).
+              <code className="bg-background-elevated px-1.5 py-0.5 font-mono text-xs text-foreground">
+                {DEMO_ACCOUNT_EMAIL}
+              </code>{" "}
+              /{" "}
+              <code className="bg-background-elevated px-1.5 py-0.5 font-mono text-xs text-foreground">cliente123</code>{" "}
+              (ou crie a sua).
             </li>
             <li>
               Coloque uma peça no carrinho e confirme a aquisição.
               {stripeEnabled ? (
                 <>
-                  {" "}No cartão (Stripe em modo de teste), use{" "}
+                  {" "}
+                  No cartão (Stripe em modo de teste), use{" "}
                   <span className="font-mono text-foreground">4242 4242 4242 4242</span> para aprovar ou{" "}
                   <span className="font-mono text-foreground">4000 0000 0000 0002</span> para ver a recusa.
                 </>
@@ -184,8 +220,8 @@ export default async function AboutPage() {
             </li>
             {simulationEnabled ? (
               <li>
-                No checkout, o <strong className="text-foreground">modo demonstração</strong> deixa você escolher o que o
-                pagamento responde, para ver o pedido ser desfeito quando ele falha.
+                No checkout, o <strong className="text-foreground">modo demonstração</strong> deixa você escolher o que
+                o pagamento responde, para ver o pedido ser desfeito quando ele falha.
               </li>
             ) : null}
             <li>Na página do pedido, acompanhe cada etapa.</li>

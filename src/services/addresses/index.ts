@@ -113,11 +113,10 @@ export async function deleteAddress(
 
   const usage = await addressUsageCount(executor, addressId);
   if (usage > 0) {
-    throw new PermanentError(
-      "address_in_use",
-      "Este endereço está em um pedido e não pode ser removido.",
-      { addressId, usage },
-    );
+    throw new PermanentError("address_in_use", "Este endereço está em um pedido e não pode ser removido.", {
+      addressId,
+      usage,
+    });
   }
 
   await executor.delete(addresses).where(eq(addresses.id, addressId));

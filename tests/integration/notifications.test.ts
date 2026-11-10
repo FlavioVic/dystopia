@@ -30,7 +30,11 @@ function sandbox(response: { status: number; body: unknown }): DeliveryDeps & { 
     calls.push(init);
     return new Response(JSON.stringify(response.body), { status: response.status });
   };
-  return { email: { apiKey: "re_test", from: "Dystopia <onboarding@resend.dev>", redirectTo: "dono@exemplo.dev" }, fetch, calls };
+  return {
+    email: { apiKey: "re_test", from: "Dystopia <onboarding@resend.dev>", redirectTo: "dono@exemplo.dev" },
+    fetch,
+    calls,
+  };
 }
 
 async function notification(id: string) {
@@ -63,7 +67,10 @@ describe("notificação — entrega", () => {
     const sentBody = JSON.parse(String(deps.calls[0].body));
     assert.deepEqual(sentBody.to, ["dono@exemplo.dev"]);
     assert.equal(sentBody.subject, "[demo → comprador@exemplo.dev] Aquisição DYS-2026-000001 registrada");
-    assert.equal((deps.calls[0].headers as Record<string, string>)["Idempotency-Key"], "order-confirmation:DYS-2026-000001");
+    assert.equal(
+      (deps.calls[0].headers as Record<string, string>)["Idempotency-Key"],
+      "order-confirmation:DYS-2026-000001",
+    );
 
     const row = await notification(notificationId);
     assert.equal(row?.status, "sent");
@@ -74,7 +81,11 @@ describe("notificação — entrega", () => {
   });
 
   it("manda o HTML do template gravado com a notificação (e o texto junto)", async () => {
-    const { notificationId } = await sendOrderConfirmation(db, { ...order, paymentMethod: "pix", items: [{ name: "Action Figure", quantity: 1, unitPriceCents: 12_990 }] });
+    const { notificationId } = await sendOrderConfirmation(db, {
+      ...order,
+      paymentMethod: "pix",
+      items: [{ name: "Action Figure", quantity: 1, unitPriceCents: 12_990 }],
+    });
     const deps = sandbox({ status: 200, body: { id: "msg_7" } });
     await deliverNotification(db, notificationId, { deps });
 

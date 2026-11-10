@@ -7,7 +7,15 @@
  * volta para a fila de trabalho com as tentativas zeradas.
  */
 
-import { declareQueue, getBroker, names, publishEnvelope, readEnvelope, HEADER_ERROR, HEADER_FAILED_AT } from "./broker";
+import {
+  declareQueue,
+  getBroker,
+  names,
+  publishEnvelope,
+  readEnvelope,
+  HEADER_ERROR,
+  HEADER_FAILED_AT,
+} from "./broker";
 
 export type DeadLetter = {
   id: string;
@@ -58,7 +66,10 @@ export async function peekDeadLetters(queue: string, limit = 20): Promise<DeadLe
  * `messageId`, só aquela (as outras voltam para DLQ intactas). Retorna quantas
  * foram reprocessadas.
  */
-export async function replayDeadLetters(queue: string, options: { messageId?: string; limit?: number } = {}): Promise<number> {
+export async function replayDeadLetters(
+  queue: string,
+  options: { messageId?: string; limit?: number } = {},
+): Promise<number> {
   const broker = await getBroker();
   await declareQueue(broker, queue);
   const channel = await broker.connection.createChannel();

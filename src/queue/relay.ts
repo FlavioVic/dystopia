@@ -74,7 +74,11 @@ export async function relayOutbox(
           attempts: 0,
           maxAttempts: row.maxAttempts,
         };
-        await publishEnvelope(broker, envelope, row.delayMs > 0 ? { to: "retry", delayMs: row.delayMs } : { to: "work" });
+        await publishEnvelope(
+          broker,
+          envelope,
+          row.delayMs > 0 ? { to: "retry", delayMs: row.delayMs } : { to: "work" },
+        );
       }
       await broker.publisher.waitForConfirms();
     } catch (error) {
@@ -96,7 +100,12 @@ export async function relayOutbox(
     await tx
       .update(outbox)
       .set({ publishedAt: new Date(), lastError: null })
-      .where(inArray(outbox.id, rows.map((row) => row.id)));
+      .where(
+        inArray(
+          outbox.id,
+          rows.map((row) => row.id),
+        ),
+      );
     return { published: rows.length, failed: 0 };
   });
 
@@ -170,7 +179,10 @@ export function createRelay(
         // Nível error de propósito (é a linha que um alerta de log filtra),
         // mas uma vez só por queda.
         if (!state) {
-          logger.error("outbox inacessível; as outras seguem publicando", { outbox: name, error: rootCauseMessage(error) });
+          logger.error("outbox inacessível; as outras seguem publicando", {
+            outbox: name,
+            error: rootCauseMessage(error),
+          });
         }
       }
     }

@@ -40,7 +40,10 @@ describe("alertas da operação", () => {
       { ...healthyQueue, outboxesDown: [{ name: "pagamentos", error: "getaddrinfo ENOTFOUND base" }] },
       healthySagas,
     );
-    assert.deepEqual(one.map((a) => [a.id, a.level]), [["outbox-down", "critical"]]);
+    assert.deepEqual(
+      one.map((a) => [a.id, a.level]),
+      [["outbox-down", "critical"]],
+    );
     assert.match(one[0].title, /^Banco da outbox pagamentos sem resposta$/);
 
     const two = computeAlerts(
@@ -58,17 +61,27 @@ describe("alertas da operação", () => {
 
   it("outbox só é atrasada se a mensagem mais velha passou do limite", () => {
     const outbox = (oldestPendingAgeMs: number) => ({ pending: 3, oldestPendingAgeMs, failing: 0 });
-    assert.deepEqual(computeAlerts({ ...healthyQueue, outbox: outbox(400) }, healthySagas), [], "ciclo normal do relay");
+    assert.deepEqual(
+      computeAlerts({ ...healthyQueue, outbox: outbox(400) }, healthySagas),
+      [],
+      "ciclo normal do relay",
+    );
 
     const late = computeAlerts({ ...healthyQueue, outbox: outbox(90_000) }, healthySagas);
-    assert.deepEqual(late.map((a) => a.id), ["outbox-lag"]);
+    assert.deepEqual(
+      late.map((a) => a.id),
+      ["outbox-lag"],
+    );
     assert.match(late[0].title, /1 min/);
   });
 
   it("o limite de atraso é configurável", () => {
     const outbox = { pending: 1, oldestPendingAgeMs: 5_000, failing: 0 };
     const alerts = computeAlerts({ ...healthyQueue, outbox }, healthySagas, { outboxLagMs: 2_000 });
-    assert.deepEqual(alerts.map((a) => a.id), ["outbox-lag"]);
+    assert.deepEqual(
+      alerts.map((a) => a.id),
+      ["outbox-lag"],
+    );
   });
 
   it("saga sem progresso é aviso, não crítico (a reconciliação ainda pode resolver)", () => {

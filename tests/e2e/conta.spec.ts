@@ -14,7 +14,9 @@ test.describe("acesso", () => {
   test("conta demo (senha pública): não é excluída, não avalia e avisa para não usar dado real", async ({ page }) => {
     await logIn(page, "cliente@dystopia.dev", "cliente123");
     await expect(page).toHaveURL(/\/conta/);
-    await expect(page.getByText("A conta de demonstração é de todos os visitantes e não pode ser excluída.")).toBeVisible();
+    await expect(
+      page.getByText("A conta de demonstração é de todos os visitantes e não pode ser excluída."),
+    ).toBeVisible();
     await expect(page.getByRole("button", { name: "Excluir minha conta" })).toHaveCount(0);
 
     await page.goto("/conta/enderecos");
@@ -38,7 +40,9 @@ test.describe("acesso", () => {
     await expect(page.getByRole("heading", { name: "Comando" })).toHaveCount(0);
   });
 
-  test("esqueci a senha: link no login, mesma resposta para qualquer e-mail, link inválido oferece outro", async ({ page }) => {
+  test("esqueci a senha: link no login, mesma resposta para qualquer e-mail, link inválido oferece outro", async ({
+    page,
+  }) => {
     await page.goto("/entrar");
     await page.getByRole("link", { name: "Esqueci minha senha" }).click();
     await expect(page).toHaveURL(/\/entrar\/esqueci/);
@@ -61,9 +65,11 @@ test.describe("acesso", () => {
         await page.goto(path);
         // Mede com a Michroma carregada: com a fonte reserva a largura é outra.
         await page.evaluate(() => document.fonts.ready);
-        const lines = await page.getByRole("heading", { level: 1 }).evaluate((el) =>
-          Math.round(el.getBoundingClientRect().height / parseFloat(getComputedStyle(el).lineHeight)),
-        );
+        const lines = await page
+          .getByRole("heading", { level: 1 })
+          .evaluate((el) =>
+            Math.round(el.getBoundingClientRect().height / parseFloat(getComputedStyle(el).lineHeight)),
+          );
         expect(lines, `${path} em ${width}px`).toBe(1);
       }
     }
@@ -158,7 +164,10 @@ test.describe("conta do cliente", () => {
 
     // O nome sai do texto da tela (Salvar → Salvo); o estado também vai no aria-pressed.
     await page.getByRole("button", { name: "Salvar nos favoritos" }).first().click();
-    await expect(page.getByRole("button", { name: "Salvo nos favoritos" }).first()).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByRole("button", { name: "Salvo nos favoritos" }).first()).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
 
     // Título único: o produto do catálogo acumula avaliações de outras rodadas e
     // do outro tamanho de tela (rodam juntos).

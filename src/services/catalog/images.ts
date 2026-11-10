@@ -26,7 +26,12 @@ function cleanAlt(altText: string | null | undefined): string | null {
 
 export async function listProductImages(executor: Executor, productId: string): Promise<ProductImage[]> {
   return executor
-    .select({ id: productImages.id, url: productImages.url, altText: productImages.altText, position: productImages.position })
+    .select({
+      id: productImages.id,
+      url: productImages.url,
+      altText: productImages.altText,
+      position: productImages.position,
+    })
     .from(productImages)
     .where(eq(productImages.productId, productId))
     .orderBy(asc(productImages.position), asc(productImages.id));
@@ -43,16 +48,28 @@ export async function addProductImage(
   input: { url: string; altText?: string | null },
 ): Promise<ProductImage> {
   return executor.transaction(async (tx) => {
-    const [product] = await tx.select({ id: products.id }).from(products).where(eq(products.id, productId)).for("update");
+    const [product] = await tx
+      .select({ id: products.id })
+      .from(products)
+      .where(eq(products.id, productId))
+      .for("update");
     if (!product) throw new PermanentError("product_not_found", "Produto não encontrado.");
     const current = await listProductImages(tx, productId);
     if (current.length >= MAX_PRODUCT_IMAGES) {
-      throw new PermanentError("too_many_images", `Limite de ${MAX_PRODUCT_IMAGES} fotos por produto. Remova uma antes de enviar outra.`);
+      throw new PermanentError(
+        "too_many_images",
+        `Limite de ${MAX_PRODUCT_IMAGES} fotos por produto. Remova uma antes de enviar outra.`,
+      );
     }
     const [created] = await tx
       .insert(productImages)
       .values({ productId, url: input.url, altText: cleanAlt(input.altText), position: current.length })
-      .returning({ id: productImages.id, url: productImages.url, altText: productImages.altText, position: productImages.position });
+      .returning({
+        id: productImages.id,
+        url: productImages.url,
+        altText: productImages.altText,
+        position: productImages.position,
+      });
     return created;
   });
 }
@@ -71,7 +88,10 @@ export type ImageMove = "first" | "up" | "down";
 /** Reordena e devolve a nova ordem; `false` se a foto não existe. */
 export async function moveProductImage(executor: Executor, imageId: string, move: ImageMove): Promise<boolean> {
   return executor.transaction(async (tx) => {
-    const image = await tx.query.productImages.findFirst({ where: eq(productImages.id, imageId), columns: { productId: true } });
+    const image = await tx.query.productImages.findFirst({
+      where: eq(productImages.id, imageId),
+      columns: { productId: true },
+    });
     if (!image) return false;
     const order = (await listProductImages(tx, image.productId)).map((i) => i.id);
     const from = order.indexOf(imageId);
@@ -90,7 +110,10 @@ export async function removeProductImage(executor: Executor, imageId: string): P
       .where(eq(productImages.id, imageId))
       .returning({ url: productImages.url, productId: productImages.productId });
     if (!removed) return null;
-    await renumber(tx, (await listProductImages(tx, removed.productId)).map((i) => i.id));
+    await renumber(
+      tx,
+      (await listProductImages(tx, removed.productId)).map((i) => i.id),
+    );
     return { url: removed.url };
   });
 }

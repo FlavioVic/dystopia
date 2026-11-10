@@ -42,9 +42,11 @@ describe("conversão de preço", () => {
 
 describe("validação do formulário de produto", () => {
   it("aceita um formulário completo e normaliza os valores", () => {
-    const values = valuesOf(parseProductForm(
-      form({ brand: "Dystopia Labs", compareAt: "119,90", isActive: "on", isFeatured: "on", slug: "CANECA-X" }),
-    ));
+    const values = valuesOf(
+      parseProductForm(
+        form({ brand: "Dystopia Labs", compareAt: "119,90", isActive: "on", isFeatured: "on", slug: "CANECA-X" }),
+      ),
+    );
     assert.equal(values.slug, "caneca-x", "slug vira minúsculo");
     assert.equal(values.priceCents, 7_990);
     assert.equal(values.compareAtPriceCents, 11_990);

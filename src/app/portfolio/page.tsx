@@ -8,7 +8,8 @@ import { canonical } from "@/lib/seo";
 
 export const metadata: Metadata = {
   title: "Portfólio",
-  description: "Projetos de Flávio Victor: e-commerce com SAGA, SaaS de links, BI com IA, laboratório de segurança e mais.",
+  description:
+    "Projetos de Flávio Victor: e-commerce com SAGA, SaaS de links, BI com IA, laboratório de segurança e mais.",
   alternates: canonical("/portfolio"),
 };
 
@@ -63,7 +64,9 @@ export default function PortfolioPage() {
                       {p.year} / {p.kind}
                     </span>
                   </div>
-                  <h2 className="display-2 break-words text-[26px] leading-[34px] sm:text-[36px] sm:leading-[44px]">{p.name}</h2>
+                  <h2 className="display-2 break-words text-[26px] leading-[34px] sm:text-[36px] sm:leading-[44px]">
+                    {p.name}
+                  </h2>
                   <p className="text-base leading-relaxed text-foreground-muted">{p.summary}</p>
                   <ul className="flex flex-col gap-2 border-t border-border-faint pt-5">
                     {p.highlights.map((h) => (

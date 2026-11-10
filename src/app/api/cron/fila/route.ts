@@ -23,6 +23,11 @@ function authorized(request: Request): boolean {
 
 export async function GET(request: Request): Promise<Response> {
   if (!authorized(request)) return Response.json({ error: "unauthorized" }, { status: 401 });
-  const report = await runInlineWorker({ budgetMs: 50_000, waitForScheduled: true, reconcile: true, housekeeping: true });
+  const report = await runInlineWorker({
+    budgetMs: 50_000,
+    waitForScheduled: true,
+    reconcile: true,
+    housekeeping: true,
+  });
   return Response.json(report);
 }

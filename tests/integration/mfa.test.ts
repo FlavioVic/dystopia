@@ -27,7 +27,10 @@ beforeEach(resetDatabase);
 after(closeDatabase);
 
 async function createAdmin(email = "admin@exemplo.dev"): Promise<string> {
-  const [user] = await db.insert(users).values({ name: "Admin", email, passwordHash: "x", role: "admin" }).returning({ id: users.id });
+  const [user] = await db
+    .insert(users)
+    .values({ name: "Admin", email, passwordHash: "x", role: "admin" })
+    .returning({ id: users.id });
   return user.id;
 }
 
@@ -50,7 +53,12 @@ describe("MFA (TOTP)", () => {
     const secret = await beginEnrollment(db, userId);
     const [row] = await db.select().from(mfaCredentials);
     assert.match(row.secret, /^v1\./);
-    for (const plain of [base32Encode(secret), secret.toString("hex"), secret.toString("base64"), secret.toString("base64url")]) {
+    for (const plain of [
+      base32Encode(secret),
+      secret.toString("hex"),
+      secret.toString("base64"),
+      secret.toString("base64url"),
+    ]) {
       assert.ok(!row.secret.includes(plain), "segredo em claro no banco");
     }
   });
@@ -69,7 +77,11 @@ describe("MFA (TOTP)", () => {
     assert.equal(codes?.length, RECOVERY_CODE_COUNT);
     assert.equal(new Set(codes).size, RECOVERY_CODE_COUNT);
     for (const code of codes!) assert.match(code, /^[A-Z2-7]{4}(-[A-Z2-7]{4}){3}$/);
-    assert.deepEqual(await getMfaStatus(db, userId), { enabled: true, confirmedAt: now, recoveryCodesLeft: RECOVERY_CODE_COUNT });
+    assert.deepEqual(await getMfaStatus(db, userId), {
+      enabled: true,
+      confirmedAt: now,
+      recoveryCodesLeft: RECOVERY_CODE_COUNT,
+    });
   });
 
   it("QR gerado de novo antes de confirmar troca o segredo: o celular com o QR velho não confirma", async () => {
@@ -85,12 +97,18 @@ describe("MFA (TOTP)", () => {
 
   it("depois de confirmado, não dá para recadastrar por cima (quem roubou a sessão não troca o autenticador)", async () => {
     const { userId } = await enrolledAdmin(at(BASE_STEP));
-    await assert.rejects(beginEnrollment(db, userId), (error) => error instanceof PermanentError && error.code === "mfa_already_enabled");
+    await assert.rejects(
+      beginEnrollment(db, userId),
+      (error) => error instanceof PermanentError && error.code === "mfa_already_enabled",
+    );
   });
 
   it("confirmar sem ter gerado o QR é erro de regra", async () => {
     const userId = await createAdmin();
-    await assert.rejects(confirmEnrollment(db, userId, "123456"), (error) => error instanceof PermanentError && error.code === "mfa_not_started");
+    await assert.rejects(
+      confirmEnrollment(db, userId, "123456"),
+      (error) => error instanceof PermanentError && error.code === "mfa_not_started",
+    );
   });
 
   it("login: código certo entra; o mesmo código de novo não (nem dentro dos 30 s)", async () => {
@@ -129,10 +147,16 @@ describe("MFA (TOTP)", () => {
       recoveryCodesLeft: RECOVERY_CODE_COUNT - 1,
     });
     assert.equal(await verifySecondFactor(db, userId, first), null, "já usado");
-    assert.deepEqual(await verifySecondFactor(db, userId, second), { method: "recovery", recoveryCodesLeft: RECOVERY_CODE_COUNT - 2 });
+    assert.deepEqual(await verifySecondFactor(db, userId, second), {
+      method: "recovery",
+      recoveryCodesLeft: RECOVERY_CODE_COUNT - 2,
+    });
 
     const rows = await db.select().from(mfaRecoveryCodes).where(eq(mfaRecoveryCodes.userId, userId));
-    assert.ok(rows.every((row) => !codes.includes(row.codeHash)), "só hash no banco");
+    assert.ok(
+      rows.every((row) => !codes.includes(row.codeHash)),
+      "só hash no banco",
+    );
   });
 
   it("código de recuperação de outra conta não serve", async () => {
@@ -145,7 +169,11 @@ describe("MFA (TOTP)", () => {
     const { userId, secret, codes } = await enrolledAdmin(at(BASE_STEP));
     const later = at(BASE_STEP + 2);
 
-    assert.equal(await regenerateRecoveryCodes(db, userId, codes[0], later), null, "código de recuperação não gera outros");
+    assert.equal(
+      await regenerateRecoveryCodes(db, userId, codes[0], later),
+      null,
+      "código de recuperação não gera outros",
+    );
     const fresh = await regenerateRecoveryCodes(db, userId, totp(secret, later), later);
     assert.equal(fresh?.length, RECOVERY_CODE_COUNT);
     assert.equal(await verifySecondFactor(db, userId, codes[0]), null, "antigo parou de valer");
@@ -162,7 +190,11 @@ describe("MFA (TOTP)", () => {
     assert.equal(await removeAuthenticator(db, userId, codes[0]), true);
     assert.equal(await hasConfirmedMfa(db, userId), false, "painel fecha até o cadastro novo");
     assert.equal((await db.select().from(mfaRecoveryCodes)).length, 0, "códigos antigos somem");
-    assert.equal(await verifySecondFactor(db, userId, totp(secret, at(BASE_STEP + 2)), at(BASE_STEP + 2)), null, "o celular velho não serve");
+    assert.equal(
+      await verifySecondFactor(db, userId, totp(secret, at(BASE_STEP + 2)), at(BASE_STEP + 2)),
+      null,
+      "o celular velho não serve",
+    );
 
     const fresh = await beginEnrollment(db, userId);
     assert.ok(await confirmEnrollment(db, userId, totp(fresh, at(BASE_STEP + 3)), at(BASE_STEP + 3)));

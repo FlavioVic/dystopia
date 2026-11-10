@@ -56,10 +56,12 @@ const migrateAll = () => migrate(drizzle(pool), { migrationsFolder: path.join(RO
 
 /** Categoria + produto mínimos (os carrinhos e pedidos precisam). */
 async function seedProduct(): Promise<string> {
-  const { rows: [category] } = await pool.query(
-    "insert into categories (name, slug) values ('C', 'c') returning id",
-  );
-  const { rows: [product] } = await pool.query(
+  const {
+    rows: [category],
+  } = await pool.query("insert into categories (name, slug) values ('C', 'c') returning id");
+  const {
+    rows: [product],
+  } = await pool.query(
     `insert into products (category_id, name, slug, description, sku, price_cents, stock_quantity)
      values ($1, 'P', 'p', 'd', 'SKU-1', 1000, 10) returning id`,
     [category.id],
@@ -81,7 +83,12 @@ describe("migration 0006 — fila em tabela → outbox", () => {
     await recreateDatabase();
     await migrateUntil("0006");
 
-    const replyTo = { type: "saga.reply", queue: "default", payload: { sagaId: "s-1", step: "authorize-payment", phase: "invoke" }, dedupeKey: "k" };
+    const replyTo = {
+      type: "saga.reply",
+      queue: "default",
+      payload: { sagaId: "s-1", step: "authorize-payment", phase: "invoke" },
+      dedupeKey: "k",
+    };
     await pool.query(
       `insert into jobs (queue, type, payload, status, run_at, max_attempts) values
         ('payments', 'payments.authorize', $1, 'queued', now(), 3),
@@ -111,7 +118,9 @@ describe("migration 0006 — fila em tabela → outbox", () => {
     const retry = rows.find((row) => row.type === "saga.reply");
     assert.ok(retry.delay_ms > 25_000 && retry.delay_ms <= 30_000, "retry agendado mantém o atraso");
 
-    const { rows: [jobs] } = await pool.query("select to_regclass('jobs') as t");
+    const {
+      rows: [jobs],
+    } = await pool.query("select to_regclass('jobs') as t");
     assert.equal(jobs.t, null, "a tabela antiga foi apagada");
   });
 });
@@ -121,7 +130,9 @@ describe("migration 0007 — carrinho sem linha duplicada", () => {
     await recreateDatabase();
     await migrateUntil("0007");
     const productId = await seedProduct();
-    const { rows: [cart] } = await pool.query("insert into carts (session_token) values ('t') returning id");
+    const {
+      rows: [cart],
+    } = await pool.query("insert into carts (session_token) values ('t') returning id");
     await pool.query(
       `insert into cart_items (cart_id, product_id, variant_id, quantity, unit_price_cents, created_at) values
         ($1, $2, null, 2, 1000, now() - interval '3 minutes'),
@@ -135,7 +146,10 @@ describe("migration 0007 — carrinho sem linha duplicada", () => {
     const { rows } = await pool.query("select quantity from cart_items");
     assert.deepEqual(rows, [{ quantity: 10 }]);
     await assert.rejects(
-      pool.query("insert into cart_items (cart_id, product_id, variant_id, quantity, unit_price_cents) values ($1, $2, null, 1, 1000)", [cart.id, productId]),
+      pool.query(
+        "insert into cart_items (cart_id, product_id, variant_id, quantity, unit_price_cents) values ($1, $2, null, 1, 1000)",
+        [cart.id, productId],
+      ),
       /cart_items_cart_product_variant_unique/,
       "variant_id NULL agora conta como repetido",
     );
@@ -146,10 +160,12 @@ describe("migration 0013 — eventos do pedido", () => {
   it("pedidos antigos ganham `placed` e o status atual; o cancelado leva o motivo da saga", async () => {
     await recreateDatabase();
     await migrateUntil("0013");
-    const { rows: [user] } = await pool.query(
-      "insert into users (email, password_hash, name) values ('a@b.dev', 'h', 'A') returning id",
-    );
-    const { rows: [address] } = await pool.query(
+    const {
+      rows: [user],
+    } = await pool.query("insert into users (email, password_hash, name) values ('a@b.dev', 'h', 'A') returning id");
+    const {
+      rows: [address],
+    } = await pool.query(
       `insert into addresses (user_id, recipient_name, street, number, neighborhood, city, state, zip_code)
        values ($1, 'A', 'Rua', '1', 'Centro', 'SP', 'SP', '01000-000') returning id`,
       [user.id],
@@ -174,11 +190,17 @@ describe("migration 0013 — eventos do pedido", () => {
     await migrateAll();
 
     const events = async (orderId: string) =>
-      (await pool.query("select type, data from order_events where order_id = $1 order by occurred_at", [orderId])).rows.map(
-        (row) => [row.type, row.data],
-      );
-    assert.deepEqual(await events(paid), [["placed", {}], ["paid", {}]]);
-    assert.deepEqual(await events(cancelled), [["placed", {}], ["cancelled", { reason: "payment_declined" }]]);
+      (
+        await pool.query("select type, data from order_events where order_id = $1 order by occurred_at", [orderId])
+      ).rows.map((row) => [row.type, row.data]);
+    assert.deepEqual(await events(paid), [
+      ["placed", {}],
+      ["paid", {}],
+    ]);
+    assert.deepEqual(await events(cancelled), [
+      ["placed", {}],
+      ["cancelled", { reason: "payment_declined" }],
+    ]);
     assert.deepEqual(await events(pending), [["placed", {}]], "pendente só foi recebido");
   });
 });
@@ -187,10 +209,12 @@ describe("migration 0014 — resumo do pagamento no pedido", () => {
   it("o pedido ganha o resumo da cobrança mais recente da tabela antiga; sem cobrança, fica vazio", async () => {
     await recreateDatabase();
     await migrateUntil("0014");
-    const { rows: [user] } = await pool.query(
-      "insert into users (email, password_hash, name) values ('a@b.dev', 'h', 'A') returning id",
-    );
-    const { rows: [address] } = await pool.query(
+    const {
+      rows: [user],
+    } = await pool.query("insert into users (email, password_hash, name) values ('a@b.dev', 'h', 'A') returning id");
+    const {
+      rows: [address],
+    } = await pool.query(
       `insert into addresses (user_id, recipient_name, street, number, neighborhood, city, state, zip_code)
        values ($1, 'A', 'Rua', '1', 'Centro', 'SP', 'SP', '01000-000') returning id`,
       [user.id],

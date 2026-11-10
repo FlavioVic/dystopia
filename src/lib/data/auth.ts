@@ -83,4 +83,3 @@ export async function requireAdmin(): Promise<CurrentUser> {
 export const getPasswordResetLinkValidity = cache(async (token: string | undefined): Promise<boolean> =>
   token ? isPasswordResetLinkValid(token) : false,
 );
-

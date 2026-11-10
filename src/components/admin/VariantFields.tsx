@@ -86,12 +86,7 @@ function Field({
       <label htmlFor={`variant-${name}-${rest.defaultValue ?? "new"}`} className={variantLabel}>
         {label}
       </label>
-      <input
-        id={`variant-${name}-${rest.defaultValue ?? "new"}`}
-        name={name}
-        className={variantInput}
-        {...rest}
-      />
+      <input id={`variant-${name}-${rest.defaultValue ?? "new"}`} name={name} className={variantInput} {...rest} />
       {error ? <span className="text-[11px] text-foreground">{error}</span> : null}
     </div>
   );

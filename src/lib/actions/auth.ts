@@ -19,11 +19,13 @@ import { claimGuestCart } from "@/services/carts";
 import { hasConfirmedMfa, verifySecondFactor } from "@/services/mfa";
 import { consumeRateLimit, type RateLimitRule } from "@/services/rate-limit";
 
-export type AuthState = {
-  errors?: { name?: string; email?: string; password?: string };
-  message?: string;
-  values?: { name?: string; email?: string };
-} | undefined;
+export type AuthState =
+  | {
+      errors?: { name?: string; email?: string; password?: string };
+      message?: string;
+      values?: { name?: string; email?: string };
+    }
+  | undefined;
 
 // Cadastro: por IP. O número muda por variável só para a stack de teste
 // (vários cadastros do mesmo IP); o padrão é o de produção. O limite do login
@@ -112,7 +114,8 @@ export async function verifyLoginCode(_prev: MfaLoginState, formData: FormData):
 
   // Por conta, não por IP: quem tem a senha troca de IP à vontade. 6 dígitos
   // são 1 milhão de chances; com o limite, chutar leva anos.
-  const limited = (await limitAction("mfa", `user:${pending.id}`)) ?? (await limitAction("mfaDaily", `user:${pending.id}`));
+  const limited =
+    (await limitAction("mfa", `user:${pending.id}`)) ?? (await limitAction("mfaDaily", `user:${pending.id}`));
   if (limited) return { message: limited };
 
   const result = await verifySecondFactor(db, pending.id, String(formData.get("code") ?? ""));

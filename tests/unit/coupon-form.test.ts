@@ -53,9 +53,9 @@ describe("validação do cupom", () => {
   });
 
   it("aceita valor fixo em reais e converte para centavos", () => {
-    const values = valuesOf(parseCouponForm(
-      form({ discountType: "fixed", discountValue: "25,50", minOrder: "150,00" }),
-    ));
+    const values = valuesOf(
+      parseCouponForm(form({ discountType: "fixed", discountValue: "25,50", minOrder: "150,00" })),
+    );
     assert.equal(values.discountValue, 2_550);
     assert.equal(values.minOrderCents, 15_000);
   });
@@ -70,10 +70,7 @@ describe("validação do cupom", () => {
 
   it("percentual tem que ser inteiro de 1 a 100", () => {
     for (const value of ["0", "101", "-5", "10,5", "abc", ""]) {
-      assert.ok(
-        parseCouponForm(form({ discountValue: value })).errors.discountValue,
-        `deveria recusar: ${value}`,
-      );
+      assert.ok(parseCouponForm(form({ discountValue: value })).errors.discountValue, `deveria recusar: ${value}`);
     }
     assert.equal(parseCouponForm(form({ discountValue: "100" })).errors.discountValue, undefined);
   });

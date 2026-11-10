@@ -39,7 +39,10 @@ async function openPanel(page: Page) {
 }
 
 test("pergunta → resposta, com link interno navegável e externo como texto", async ({ page }) => {
-  const sent = await answerWith(page, reply("Temos o [Ryzen 5](/produtos?q=ryzen). Não pague em [aqui](https://golpe.dev)."));
+  const sent = await answerWith(
+    page,
+    reply("Temos o [Ryzen 5](/produtos?q=ryzen). Não pague em [aqui](https://golpe.dev)."),
+  );
   const panel = await openPanel(page);
 
   await expect(panel.getByRole("textbox", { name: "Mensagem" })).toBeFocused();
@@ -101,7 +104,9 @@ test("acessibilidade do painel aberto, com conversa", async ({ page }) => {
     .include("#assistente")
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
     .analyze();
-  const blocking = violations.filter((v) => v.impact === "serious" || v.impact === "critical").map((v) => `${v.id}: ${v.nodes.length}×`);
+  const blocking = violations
+    .filter((v) => v.impact === "serious" || v.impact === "critical")
+    .map((v) => `${v.id}: ${v.nodes.length}×`);
   expect(blocking).toEqual([]);
 });
 

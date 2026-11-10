@@ -63,7 +63,9 @@ async function expectOrderPage(page: Page) {
     await expect(page).toHaveURL(/\/pedido\/DYS-/, { timeout: 30_000 });
   } catch (error) {
     const shown = (await page.getByRole("alert").allInnerTexts()).map((text) => text.trim()).filter(Boolean);
-    throw new Error(`continuou no checkout; na tela: ${shown.join(" | ") || "nenhuma mensagem de erro"}`, { cause: error });
+    throw new Error(`continuou no checkout; na tela: ${shown.join(" | ") || "nenhuma mensagem de erro"}`, {
+      cause: error,
+    });
   }
 }
 

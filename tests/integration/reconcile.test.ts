@@ -26,7 +26,10 @@ const past = (ms: number) => new Date(Date.now() - ms);
 async function loseMessages(sagaId: string) {
   await db.delete(outbox);
   await purgeQueues(ALL_QUEUES);
-  await db.update(sagas).set({ updatedAt: past(120_000) }).where(eq(sagas.id, sagaId));
+  await db
+    .update(sagas)
+    .set({ updatedAt: past(120_000) })
+    .where(eq(sagas.id, sagaId));
 }
 
 describe("reconciliação", () => {
@@ -112,7 +115,10 @@ describe("reconciliação", () => {
     const fixture = await seedCheckoutFixture({ stock: 5, quantity: 1 });
     const checkout = await startCheckout(fixture);
     assert.equal((await runSagaInline(checkout.sagaId)).status, "waiting");
-    await db.update(sagas).set({ updatedAt: past(120_000) }).where(eq(sagas.id, checkout.sagaId));
+    await db
+      .update(sagas)
+      .set({ updatedAt: past(120_000) })
+      .where(eq(sagas.id, checkout.sagaId));
 
     // Pagamentos fora do ar: o comando está na fila dele, a saga espera. Não é
     // saga parada — reenfileirar o avanço a cada 30 s só faria barulho.

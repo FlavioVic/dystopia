@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { valuesOf } from "../helpers/form";
-import { parseForgotPasswordForm, parseLoginForm, parseResetPasswordForm, parseSignupForm } from "@/lib/validation/account";
+import {
+  parseForgotPasswordForm,
+  parseLoginForm,
+  parseResetPasswordForm,
+  parseSignupForm,
+} from "@/lib/validation/account";
 
 function form(values: Record<string, string>): FormData {
   const data = new FormData();
@@ -11,9 +16,9 @@ function form(values: Record<string, string>): FormData {
 
 describe("validação de conta", () => {
   it("cadastro válido sai normalizado", () => {
-    const values = valuesOf(parseSignupForm(
-      form({ name: "  Ana  ", email: "  Ana@Exemplo.DEV ", password: "12345678" }),
-    ));
+    const values = valuesOf(
+      parseSignupForm(form({ name: "  Ana  ", email: "  Ana@Exemplo.DEV ", password: "12345678" })),
+    );
     assert.deepEqual(values, { name: "Ana", email: "ana@exemplo.dev", password: "12345678" });
   });
 
@@ -57,7 +62,9 @@ describe("validação de conta", () => {
     const ok = { token: "t", password: "senha-nova-1", confirm: "senha-nova-1" };
     assert.equal(parseResetPasswordForm(form(ok)).ok, true);
     assert.deepEqual(Object.keys(parseResetPasswordForm(form({ ...ok, confirm: "outra-senha" })).errors), ["confirm"]);
-    assert.deepEqual(Object.keys(parseResetPasswordForm(form({ ...ok, password: "curta", confirm: "curta" })).errors), ["password"]);
+    assert.deepEqual(Object.keys(parseResetPasswordForm(form({ ...ok, password: "curta", confirm: "curta" })).errors), [
+      "password",
+    ]);
     assert.deepEqual(Object.keys(parseResetPasswordForm(form({ ...ok, token: "" })).errors), ["token"]);
   });
 });

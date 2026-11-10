@@ -26,7 +26,6 @@ export type AuthorizeInput = {
   paymentToken?: string;
 };
 
-
 type PaymentRow = typeof payments.$inferSelect;
 
 /** O que a resposta leva: o resumo que o pedido guarda do lado dele. */

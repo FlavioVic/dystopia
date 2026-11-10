@@ -31,17 +31,13 @@ export function CouponForm({
   mode: "create" | "edit";
 }) {
   const [state, formAction, pending] = useActionState(action, undefined);
-  const [discountType, setDiscountType] = useState<"percentage" | "fixed">(
-    defaults.discountType ?? "percentage",
-  );
+  const [discountType, setDiscountType] = useState<"percentage" | "fixed">(defaults.discountType ?? "percentage");
   const errors = state?.errors ?? {};
 
   return (
     <form action={formAction} className="flex flex-col gap-5">
       {state?.message ? (
-        <p className="rounded-lg border border-signal bg-signal px-3 py-2 text-sm text-on-signal">
-          {state.message}
-        </p>
+        <p className="rounded-lg border border-signal bg-signal px-3 py-2 text-sm text-on-signal">{state.message}</p>
       ) : null}
 
       <div className="grid gap-4 sm:grid-cols-2">
@@ -86,9 +82,7 @@ export function CouponForm({
             placeholder={discountType === "percentage" ? "10" : "25,00"}
             className={input}
           />
-          {errors.discountValue ? (
-            <span className="text-[11px] text-foreground">{errors.discountValue}</span>
-          ) : null}
+          {errors.discountValue ? <span className="text-[11px] text-foreground">{errors.discountValue}</span> : null}
         </div>
 
         <div className="flex flex-col gap-1">
@@ -106,9 +100,7 @@ export function CouponForm({
           <input id="maxUsage" name="maxUsage" defaultValue={defaults.maxUsage} className={input} />
           {errors.maxUsage ? <span className="text-[11px] text-foreground">{errors.maxUsage}</span> : null}
           {mode === "edit" && defaults.usageCount != null ? (
-            <span className="text-[11px] text-foreground-muted">
-              já usado {defaults.usageCount} vez(es)
-            </span>
+            <span className="text-[11px] text-foreground-muted">já usado {defaults.usageCount} vez(es)</span>
           ) : null}
         </div>
 
@@ -116,13 +108,7 @@ export function CouponForm({
           <label htmlFor="validFrom" className={label}>
             Válido de
           </label>
-          <input
-            id="validFrom"
-            name="validFrom"
-            type="date"
-            defaultValue={defaults.validFrom}
-            className={input}
-          />
+          <input id="validFrom" name="validFrom" type="date" defaultValue={defaults.validFrom} className={input} />
           {errors.validFrom ? <span className="text-[11px] text-foreground">{errors.validFrom}</span> : null}
         </div>
 
@@ -130,13 +116,7 @@ export function CouponForm({
           <label htmlFor="validUntil" className={label}>
             Válido até (opcional)
           </label>
-          <input
-            id="validUntil"
-            name="validUntil"
-            type="date"
-            defaultValue={defaults.validUntil}
-            className={input}
-          />
+          <input id="validUntil" name="validUntil" type="date" defaultValue={defaults.validUntil} className={input} />
           {errors.validUntil ? <span className="text-[11px] text-foreground">{errors.validUntil}</span> : null}
         </div>
 

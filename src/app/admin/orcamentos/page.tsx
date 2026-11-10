@@ -32,12 +32,17 @@ export default async function AdminServiceRequests() {
               </div>
               <div className="flex flex-col gap-1 text-sm lg:col-span-3">
                 <span className="font-semibold">{r.name}</span>
-                <a href={`mailto:${r.email}?subject=${encodeURIComponent(`Orçamento ${r.protocol}`)}`} className="text-foreground-muted underline underline-offset-4 hover:text-foreground">
+                <a
+                  href={`mailto:${r.email}?subject=${encodeURIComponent(`Orçamento ${r.protocol}`)}`}
+                  className="text-foreground-muted underline underline-offset-4 hover:text-foreground"
+                >
                   {r.email}
                 </a>
                 {r.phone ? <span className="font-mono text-xs text-foreground-muted">{r.phone}</span> : null}
               </div>
-              <p className="whitespace-pre-line text-sm leading-relaxed text-foreground-muted lg:col-span-4">{r.details}</p>
+              <p className="whitespace-pre-line text-sm leading-relaxed text-foreground-muted lg:col-span-4">
+                {r.details}
+              </p>
               <div className="lg:col-span-2">
                 <ServiceRequestStatus id={r.id} status={r.status} />
               </div>

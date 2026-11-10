@@ -94,10 +94,7 @@ describe("produto", () => {
   it("editar pegando o slug de outro produto é recusado", async () => {
     const fixture = await seedCheckoutFixture();
     const primeiro = await createProduct(db, productInput(fixture.categoryId));
-    const segundo = await createProduct(
-      db,
-      productInput(fixture.categoryId, { slug: "outro", sku: "SKU-OUTRO" }),
-    );
+    const segundo = await createProduct(db, productInput(fixture.categoryId, { slug: "outro", sku: "SKU-OUTRO" }));
 
     await assert.rejects(
       () =>

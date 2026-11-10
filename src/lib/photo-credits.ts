@@ -45,7 +45,8 @@ export const PRODUCT_PHOTOS: Record<string, PhotoCredit> = {
     author: "FritzchensFritz",
     license: "CC0",
     licenseUrl: "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
-    source: "https://commons.wikimedia.org/wiki/File:AMD@4nmCCD(6nmIOD)@Zen5@Granite_Ridge@Ryzen_5_9600X@100-000001405_BY_2429SUY_9AEQ579S40073_DSC01876.jpg",
+    source:
+      "https://commons.wikimedia.org/wiki/File:AMD@4nmCCD(6nmIOD)@Zen5@Granite_Ridge@Ryzen_5_9600X@100-000001405_BY_2429SUY_9AEQ579S40073_DSC01876.jpg",
   },
   "ssd-990-pro-nvme": {
     file: "/images/photos/ssd-990-pro-nvme.webp",

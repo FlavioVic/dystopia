@@ -155,9 +155,7 @@ export function CheckoutForm({
                     <span className="min-w-0">
                       <span className="flex flex-wrap items-center gap-2 text-sm font-medium">
                         {address.label}
-                        {address.isDefault ? (
-                          <span className="dys-label dys-label--notice">Padrão</span>
-                        ) : null}
+                        {address.isDefault ? <span className="dys-label dys-label--notice">Padrão</span> : null}
                       </span>
                       <span className="block text-[11px] text-foreground-muted">{address.recipientName}</span>
                       <span className="block text-[11px] text-foreground-muted">{address.line}</span>
@@ -180,21 +178,30 @@ export function CheckoutForm({
             ) : null}
 
             {/* O servidor recebe só o id; endereço novo vai nos campos abaixo. */}
-            {addressChoice !== "new" ? (
-              <input type="hidden" name="addressId" value={addressChoice} />
-            ) : null}
+            {addressChoice !== "new" ? <input type="hidden" name="addressId" value={addressChoice} /> : null}
 
-            <div
-              className={`mt-4 grid grid-cols-2 gap-3 sm:grid-cols-6 ${addressChoice === "new" ? "" : "hidden"}`}
-            >
-              <Field className="sm:col-span-6" label="Destinatário" name="recipientName" defaultValue={defaultName} error={err.recipientName} />
+            <div className={`mt-4 grid grid-cols-2 gap-3 sm:grid-cols-6 ${addressChoice === "new" ? "" : "hidden"}`}>
+              <Field
+                className="sm:col-span-6"
+                label="Destinatário"
+                name="recipientName"
+                defaultValue={defaultName}
+                error={err.recipientName}
+              />
               <Field className="sm:col-span-2" label="CEP" name="zipCode" placeholder="00000-000" error={err.zipCode} />
               <Field className="sm:col-span-4" label="Rua" name="street" error={err.street} />
               <Field className="sm:col-span-2" label="Número" name="number" error={err.number} />
               <Field className="sm:col-span-4" label="Complemento (opcional)" name="complement" />
               <Field className="sm:col-span-3" label="Bairro" name="neighborhood" error={err.neighborhood} />
               <Field className="sm:col-span-2" label="Cidade" name="city" error={err.city} />
-              <Field className="sm:col-span-1" label="UF" name="state" placeholder="SP" maxLength={2} error={err.state} />
+              <Field
+                className="sm:col-span-1"
+                label="UF"
+                name="state"
+                placeholder="SP"
+                maxLength={2}
+                error={err.state}
+              />
             </div>
           </section>
 
@@ -239,9 +246,7 @@ export function CheckoutForm({
 
           {simulationEnabled ? (
             <section className="rounded-2xl border border-dashed border-foreground bg-background-elevated p-5">
-              <h2 className="label text-foreground-muted">
-                Modo demonstração
-              </h2>
+              <h2 className="label text-foreground-muted">Modo demonstração</h2>
               <p className="mt-1 text-xs text-foreground-muted">
                 Escolha o que o gateway simulado responde e veja, na página do pedido, a saga reagir.
               </p>
@@ -272,9 +277,7 @@ export function CheckoutForm({
         {/* Resumo */}
         <aside className="lg:sticky lg:top-24 lg:self-start">
           <div className="border border-border-faint bg-background-elevated p-6">
-            <h2 className="label text-foreground-muted">
-              Resumo ({lines.reduce((n, l) => n + l.quantity, 0)})
-            </h2>
+            <h2 className="label text-foreground-muted">Resumo ({lines.reduce((n, l) => n + l.quantity, 0)})</h2>
 
             <ul className="mt-4 flex flex-col gap-3">
               {lines.map((l) => (
@@ -319,7 +322,9 @@ export function CheckoutForm({
                 </button>
               </div>
               {coupon ? (
-                <p className={`mt-1.5 text-xs ${coupon.ok ? "text-foreground" : "text-foreground"}`}>{coupon.message}</p>
+                <p className={`mt-1.5 text-xs ${coupon.ok ? "text-foreground" : "text-foreground"}`}>
+                  {coupon.message}
+                </p>
               ) : null}
               {/* Vai o cupom APLICADO (o do resumo), não o que está digitado. */}
               <input type="hidden" name="couponCode" value={appliedCode ?? ""} />
@@ -329,7 +334,11 @@ export function CheckoutForm({
             <dl className="mt-4 flex flex-col gap-2 border-t border-border pt-4 text-sm">
               <Row label="Subtotal" value={formatPriceCents(subtotalCents)} />
               {discount > 0 ? <Row label="Desconto" value={`- ${formatPriceCents(discount)}`} accent="deal" /> : null}
-              <Row label="Frete" value={shipping === 0 ? "Sem custo" : formatPriceCents(shipping)} accent={shipping === 0 ? "deal" : undefined} />
+              <Row
+                label="Frete"
+                value={shipping === 0 ? "Sem custo" : formatPriceCents(shipping)}
+                accent={shipping === 0 ? "deal" : undefined}
+              />
               <div className="mt-1 flex items-baseline justify-between border-t border-border pt-3">
                 <dt className="text-base font-semibold">Total</dt>
                 <dd className="font-mono text-xl font-bold text-accent tabular-nums">{formatPriceCents(total)}</dd>

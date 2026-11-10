@@ -5,7 +5,9 @@ import { buildSystemPrompt } from "@/lib/assistant/prompt";
 import type { ChatMessage, ChatReply, ChatTool } from "@/lib/assistant/provider";
 import { CONTACT_EMAIL } from "@/lib/site";
 
-const tools: ChatTool[] = [{ type: "function", function: { name: "buscar_produtos", description: "d", parameters: {} } }];
+const tools: ChatTool[] = [
+  { type: "function", function: { name: "buscar_produtos", description: "d", parameters: {} } },
+];
 
 /** Modelo falso: responde a fila de respostas e grava o que recebeu. */
 function scriptedModel(replies: ChatReply[]) {
@@ -72,7 +74,10 @@ describe("laço do assistente", () => {
   });
 
   it("modelo que pede ferramenta sem parar é cortado no teto e obrigado a responder", async () => {
-    const loop = Array.from({ length: MAX_TOOL_ROUNDS }, (_, i) => ({ content: null, toolCalls: [toolCall(`c${i}`, "{}")] }));
+    const loop = Array.from({ length: MAX_TOOL_ROUNDS }, (_, i) => ({
+      content: null,
+      toolCalls: [toolCall(`c${i}`, "{}")],
+    }));
     const model = scriptedModel([...loop, { content: "Encerrado.", toolCalls: [toolCall("extra", "{}")] }]);
     let executed = 0;
     const result = await answer({
@@ -109,7 +114,13 @@ describe("laço do assistente", () => {
 
   it("resposta vazia vira uma frase útil, não um balão em branco", async () => {
     const model = scriptedModel([{ content: "   ", toolCalls: [] }]);
-    const result = await answer({ systemPrompt: "s", history: [{ role: "user", content: "x" }], tools, complete: model.complete, runTool: async () => ({}) });
+    const result = await answer({
+      systemPrompt: "s",
+      history: [{ role: "user", content: "x" }],
+      tools,
+      complete: model.complete,
+      runTool: async () => ({}),
+    });
     assert.match(result.reply, /Tente perguntar de outro jeito/);
   });
 });

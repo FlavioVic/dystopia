@@ -542,11 +542,7 @@ async function bumpStepAttempts(
     .where(and(eq(sagaSteps.sagaId, sagaId), eq(sagaSteps.name, name)));
 }
 
-async function writeSaga(
-  tx: Transaction,
-  sagaId: string,
-  values: Partial<typeof sagas.$inferInsert>,
-): Promise<void> {
+async function writeSaga(tx: Transaction, sagaId: string, values: Partial<typeof sagas.$inferInsert>): Promise<void> {
   await tx.update(sagas).set(values).where(eq(sagas.id, sagaId));
 }
 

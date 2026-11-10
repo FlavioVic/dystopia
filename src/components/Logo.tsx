@@ -17,7 +17,12 @@ function a11y(title?: string) {
 }
 
 /** Emblema. `size` em px (mínimo 16). */
-export function Emblem({ size = 48, stencil = false, className, title }: MarkProps & { size?: number; stencil?: boolean }) {
+export function Emblem({
+  size = 48,
+  stencil = false,
+  className,
+  title,
+}: MarkProps & { size?: number; stencil?: boolean }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" className={className} {...a11y(title)}>
       <path d={stencil ? GATE_STENCIL_PATH : GATE_PATH} fill="currentColor" />
@@ -68,7 +73,15 @@ export function Lockup({ size = 32, className, title = "DYSTOPIA" }: MarkProps &
 }
 
 /** O lockup como link para a home (cabeçalho, rodapé). */
-export function Logo({ href = "/", size = 28, className = "" }: { href?: string | null; size?: number; className?: string }) {
+export function Logo({
+  href = "/",
+  size = 28,
+  className = "",
+}: {
+  href?: string | null;
+  size?: number;
+  className?: string;
+}) {
   const mark = <Lockup size={size} className={`shrink-0 text-foreground ${className}`} />;
   if (href === null) return mark;
   return (

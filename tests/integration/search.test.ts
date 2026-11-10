@@ -16,9 +16,30 @@ before(async () => {
   const [category] = await db.insert(categories).values({ name: "Peças", slug: "pecas" }).returning();
   const base = { categoryId: category.id, priceCents: 1_000, stockQuantity: 5 };
   await db.insert(products).values([
-    { ...base, name: "Memória Fury Beast DDR5", slug: "fury", sku: "MEM-1", brand: "Kingston", description: "Módulo de memória." },
-    { ...base, name: "Processador Ryzen 5 9600X", slug: "ryzen", sku: "CPU-1", brand: "AMD", description: "Seis núcleos." },
-    { ...base, name: "Placa de vídeo RTX 5060", slug: "rtx", sku: "GPU-1", brand: "NVIDIA", description: "Ótima com processador Ryzen." },
+    {
+      ...base,
+      name: "Memória Fury Beast DDR5",
+      slug: "fury",
+      sku: "MEM-1",
+      brand: "Kingston",
+      description: "Módulo de memória.",
+    },
+    {
+      ...base,
+      name: "Processador Ryzen 5 9600X",
+      slug: "ryzen",
+      sku: "CPU-1",
+      brand: "AMD",
+      description: "Seis núcleos.",
+    },
+    {
+      ...base,
+      name: "Placa de vídeo RTX 5060",
+      slug: "rtx",
+      sku: "GPU-1",
+      brand: "NVIDIA",
+      description: "Ótima com processador Ryzen.",
+    },
     { ...base, name: "Gabinete inativo Ryzen", slug: "inativo", sku: "GAB-1", description: "x", isActive: false },
   ]);
 });
@@ -42,7 +63,11 @@ describe("busca de produtos", () => {
 
   it("nome pesa mais que descrição", async () => {
     const found = await names("ryzen");
-    assert.deepEqual(found, ["Processador Ryzen 5 9600X", "Placa de vídeo RTX 5060"], "o que só cita na descrição vem depois");
+    assert.deepEqual(
+      found,
+      ["Processador Ryzen 5 9600X", "Placa de vídeo RTX 5060"],
+      "o que só cita na descrição vem depois",
+    );
   });
 
   it("marca e SKU também são buscáveis; produto inativo não aparece", async () => {
@@ -56,7 +81,10 @@ describe("busca de produtos", () => {
     const second = await searchProducts("ryzen", parsePage("2", 1));
     assert.equal(first.total, 2);
     assert.equal(second.total, 2);
-    assert.deepEqual([first.items[0].name, second.items[0].name], ["Processador Ryzen 5 9600X", "Placa de vídeo RTX 5060"]);
+    assert.deepEqual(
+      [first.items[0].name, second.items[0].name],
+      ["Processador Ryzen 5 9600X", "Placa de vídeo RTX 5060"],
+    );
   });
 
   it("entrada hostil não quebra a consulta", async () => {

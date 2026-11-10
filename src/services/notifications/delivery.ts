@@ -19,7 +19,14 @@ import { createLogger } from "@/lib/logger";
 import type { QueueMessage } from "@/queue";
 import { errorMessage, isRetryable, PermanentError } from "@/shared/errors";
 import { NOTIFICATION_DELIVER } from "./index";
-import { addressFor, emailConfigFromEnv, RESEND_PROVIDER, resendSend, type EmailConfig, type FetchLike } from "./resend";
+import {
+  addressFor,
+  emailConfigFromEnv,
+  RESEND_PROVIDER,
+  resendSend,
+  type EmailConfig,
+  type FetchLike,
+} from "./resend";
 
 const logger = createLogger("notifications");
 export const SIMULATED_PROVIDER = "simulado";
@@ -56,7 +63,13 @@ export async function deliverNotification(
   try {
     const messageId = await resendSend(
       deps.email,
-      { to, subject, text: row.body, html: row.html ?? renderHtml(row.subject, row.body), idempotencyKey: row.dedupeKey },
+      {
+        to,
+        subject,
+        text: row.body,
+        html: row.html ?? renderHtml(row.subject, row.body),
+        idempotencyKey: row.dedupeKey,
+      },
       deps.fetch,
     );
     await markSent(executor, row.id, { provider: RESEND_PROVIDER, deliveredTo: to, messageId });

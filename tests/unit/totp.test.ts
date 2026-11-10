@@ -39,7 +39,18 @@ describe("TOTP (RFC 6238)", () => {
   });
 
   it("HOTP bate com o Apêndice D do RFC 4226", () => {
-    const expected = ["755224", "287082", "359152", "969429", "338314", "254676", "287922", "162583", "399871", "520489"];
+    const expected = [
+      "755224",
+      "287082",
+      "359152",
+      "969429",
+      "338314",
+      "254676",
+      "287922",
+      "162583",
+      "399871",
+      "520489",
+    ];
     expected.forEach((code, counter) => assert.equal(hotp(RFC_SECRET, counter), code, `contador ${counter}`));
   });
 
@@ -81,7 +92,9 @@ describe("TOTP (RFC 6238)", () => {
   });
 
   it("o QR leva issuer, conta e segredo no formato otpauth://", () => {
-    const uri = new URL(otpauthUri({ secret: Buffer.from("foobar"), account: "admin@dystopia.dev", issuer: "DYSTOPIA" }));
+    const uri = new URL(
+      otpauthUri({ secret: Buffer.from("foobar"), account: "admin@dystopia.dev", issuer: "DYSTOPIA" }),
+    );
     assert.equal(uri.protocol, "otpauth:");
     assert.equal(uri.host, "totp");
     assert.equal(decodeURIComponent(uri.pathname), "/DYSTOPIA:admin@dystopia.dev");

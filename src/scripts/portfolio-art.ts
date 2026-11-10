@@ -59,8 +59,14 @@ function arrow(a: Arrow): string {
 
 function frame(code: string, title: string, subtitle: string, body: string): string {
   const grid =
-    Array.from({ length: Math.ceil(W / 64) }, (_, i) => `<line x1="${i * 64}" y1="0" x2="${i * 64}" y2="${H}" stroke="${FAINT}"/>`).join("") +
-    Array.from({ length: Math.ceil(H / 64) }, (_, i) => `<line x1="0" y1="${i * 64}" x2="${W}" y2="${i * 64}" stroke="${FAINT}"/>`).join("");
+    Array.from(
+      { length: Math.ceil(W / 64) },
+      (_, i) => `<line x1="${i * 64}" y1="0" x2="${i * 64}" y2="${H}" stroke="${FAINT}"/>`,
+    ).join("") +
+    Array.from(
+      { length: Math.ceil(H / 64) },
+      (_, i) => `<line x1="0" y1="${i * 64}" x2="${W}" y2="${i * 64}" stroke="${FAINT}"/>`,
+    ).join("");
   const corner = (d: string) => `<path d="${d}" fill="none" stroke="${STEEL}" stroke-width="3"/>`;
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">
 <rect width="${W}" height="${H}" fill="${OBSIDIAN}"/>
@@ -81,12 +87,41 @@ const PROJECTS: Record<string, string> = {
     "GameStore BI",
     "Pergunta em português → SQL gerado por IA → resultado na hora.",
     [
-      box({ x: 80, y: 260, w: 360, h: 190, title: "Angular 18 (SPA)", lines: ["consulta em linguagem natural", "tabela / JSON / SQL", "histórico"] }),
-      box({ x: 540, y: 260, w: 360, h: 190, title: "FastAPI", lines: ["/api/v1/query", "/api/v1/segments", "validador de SQL seguro"], accent: true }),
+      box({
+        x: 80,
+        y: 260,
+        w: 360,
+        h: 190,
+        title: "Angular 18 (SPA)",
+        lines: ["consulta em linguagem natural", "tabela / JSON / SQL", "histórico"],
+      }),
+      box({
+        x: 540,
+        y: 260,
+        w: 360,
+        h: 190,
+        title: "FastAPI",
+        lines: ["/api/v1/query", "/api/v1/segments", "validador de SQL seguro"],
+        accent: true,
+      }),
       box({ x: 1000, y: 230, w: 360, h: 150, title: "Google Gemini", lines: ["NL → SQL"] }),
       box({ x: 1000, y: 420, w: 360, h: 150, title: "KMeans (RFM)", lines: ["VIP · Fiel · Casual · Inativo"] }),
-      box({ x: 540, y: 560, w: 360, h: 170, title: "PostgreSQL 15", lines: ["products · orders", "customers · segments"] }),
-      box({ x: 80, y: 560, w: 360, h: 170, title: "Arquitetura limpa", lines: ["ports & adapters", "casos de uso isolados"] }),
+      box({
+        x: 540,
+        y: 560,
+        w: 360,
+        h: 170,
+        title: "PostgreSQL 15",
+        lines: ["products · orders", "customers · segments"],
+      }),
+      box({
+        x: 80,
+        y: 560,
+        w: 360,
+        h: 170,
+        title: "Arquitetura limpa",
+        lines: ["ports & adapters", "casos de uso isolados"],
+      }),
       arrow({ from: [440, 355], to: [540, 355], label: "REST" }),
       arrow({ from: [900, 320], to: [1000, 305] }),
       arrow({ from: [900, 400], to: [1000, 495] }),
@@ -98,7 +133,15 @@ const PROJECTS: Record<string, string> = {
     "Bridgekeeper",
     "Laboratório de Gestão de Segurança da Informação: ataque e defesa.",
     [
-      box({ x: 80, y: 270, w: 330, h: 200, title: "Red Team", lines: ["reconhecimento", "exploração da API", "evidências"], accent: true }),
+      box({
+        x: 80,
+        y: 270,
+        w: 330,
+        h: 200,
+        title: "Red Team",
+        lines: ["reconhecimento", "exploração da API", "evidências"],
+        accent: true,
+      }),
       box({ x: 560, y: 270, w: 330, h: 200, title: "NGINX (proxy)", lines: ["proxy reverso", "logs de acesso"] }),
       box({ x: 1030, y: 270, w: 330, h: 200, title: "API Node.js / TS", lines: ["/orders", "dados de seed"] }),
       box({ x: 560, y: 570, w: 330, h: 170, title: "Volume de logs", lines: ["formato compartilhado"] }),
@@ -115,8 +158,23 @@ const PROJECTS: Record<string, string> = {
     "Corretor de texto",
     "Correção ortográfica e gramatical em pt-BR que aprende com o usuário.",
     [
-      box({ x: 80, y: 280, w: 380, h: 220, title: "Interface web", lines: ["Jinja2 + FastAPI", "texto de entrada", "sugestão / correção manual"] }),
-      box({ x: 560, y: 280, w: 380, h: 220, title: "LanguageTool pt-BR", lines: ["regras gramaticais", "carregado no startup"], accent: true }),
+      box({
+        x: 80,
+        y: 280,
+        w: 380,
+        h: 220,
+        title: "Interface web",
+        lines: ["Jinja2 + FastAPI", "texto de entrada", "sugestão / correção manual"],
+      }),
+      box({
+        x: 560,
+        y: 280,
+        w: 380,
+        h: 220,
+        title: "LanguageTool pt-BR",
+        lines: ["regras gramaticais", "carregado no startup"],
+        accent: true,
+      }),
       box({ x: 1040, y: 280, w: 320, h: 220, title: "Histórico", lines: ["correções confirmadas", "historico.json"] }),
       arrow({ from: [460, 390], to: [560, 390], label: "texto" }),
       arrow({ from: [940, 390], to: [1040, 390], label: "confirma" }),
