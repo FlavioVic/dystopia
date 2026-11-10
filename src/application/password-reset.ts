@@ -36,6 +36,12 @@ export const PASSWORD_RESET_LIMITS = {
   // O número muda por variável só na stack de teste (vários pedidos do mesmo IP).
   ip: { limit: limitFromEnv("PASSWORD_RESET_LIMIT_PER_HOUR", 5), windowSeconds: 60 * 60 },
   email: { limit: 3, windowSeconds: 60 * 60 },
+  // Troca da senha pelo link (`resetPasswordWithLink`): a borda pública que
+  // GASTA o token. O link tem 256 bits de acaso (adivinhar é inviável), mas
+  // sem limite aqui a rota viraria um oráculo de "este token vale?" sem teto —
+  // OWASP pede anti-automação em todo passo de recuperação. Um pouco acima do
+  // pedido: quem erra a senha nova (vazada, não confere) tenta de novo no mesmo link.
+  submit: { limit: limitFromEnv("PASSWORD_RESET_SUBMIT_LIMIT_PER_HOUR", 10), windowSeconds: 60 * 60 },
 } satisfies Record<string, RateLimitRule>;
 
 const sha256 = (value: string) => createHash("sha256").update(value).digest("hex");
@@ -43,6 +49,15 @@ const sha256 = (value: string) => createHash("sha256").update(value).digest("hex
 /** Antes da resposta: só o limite por IP, que não depende de a conta existir. */
 export function limitPasswordResetRequests(ip: string): Promise<RateLimitResult> {
   return consumeRateLimit(db, `password-reset:ip:${ip}`, PASSWORD_RESET_LIMITS.ip);
+}
+
+/**
+ * Limite por IP da TROCA pelo link (chave à parte do pedido: um não gasta a
+ * cota do outro). Segura a varredura de tokens antes de qualquer consulta ao
+ * banco ou ao Pwned Passwords.
+ */
+export function limitPasswordResetAttempts(ip: string): Promise<RateLimitResult> {
+  return consumeRateLimit(db, `password-reset-attempt:ip:${ip}`, PASSWORD_RESET_LIMITS.submit);
 }
 
 export type PasswordResetDeps = {
