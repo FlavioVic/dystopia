@@ -27,6 +27,9 @@ conta sozinho. Os detalhes de funcionamento estão em
 | 18 | [Limite de login por conta, com aparelho conhecido](#18-limite-de-login-por-conta-com-aparelho-conhecido) | O ataque distribuído esbarra; o dono não fica trancado |
 | 19 | [Recuperação de senha sem guardar o link](#19-recuperação-de-senha-sem-guardar-o-link) | O link é credencial: hash no banco e e-mail fora da outbox |
 | 20 | [Senha nova conferida contra vazamentos](#20-senha-nova-conferida-contra-vazamentos) | Pwned Passwords por k-anonimato; a senha nunca sai do servidor |
+| 21 | [Emblema 3D com three.js, contido e desktop-only](#21-emblema-3d-com-threejs-contido-e-desktop-only) | 3D no hero sem furar o LCP nem o mobile; fallback SVG |
+| 22 | [Transições de página com View Transitions nativas](#22-transições-de-página-com-view-transitions-nativas) | React 19, zero biblioteca, sem violar a CSP |
+| 23 | [Prettier sem reformatação em massa](#23-prettier-sem-reformatação-em-massa) | Config pronta; o diff gigante fica para um passo isolado |
 
 ---
 
@@ -536,6 +539,103 @@ lá (5 caracteres de um hash) não identifica nada.
 
 A revisão de segurança inteira, com os outros achados, está em
 [`SEGURANCA.md`](SEGURANCA.md).
+
+## 21. Emblema 3D com three.js, contido e desktop-only
+
+**Problema.** O hero da home é a primeira tela de um projeto de portfólio e
+precisa ter acabamento de produto. O emblema "The Gate" é a marca da loja; uma
+versão em relevo, que reage ao ponteiro, é o tipo de detalhe que separa "site
+de estudo" de "site de mercado". Mas 3D na web tem três riscos conhecidos: pesa
+no bundle, briga com o LCP e pode virar enfeite neon que atropela a identidade.
+
+**Decisão.** Um emblema em 3D (`src/components/hero/GateScene.tsx`) com
+**three.js** e **`@react-three/fiber`**, exibido só no hero, com três cercas:
+
+- **Fiel à identidade, não um enfeite.** Monocromático (folhas em bone, aro em
+  steel) sobre obsidian, matéria fosca, **sem glow, sem cor de luz, sem reflexo
+  de ambiente** (`flat` tone mapping, só luz branca direcional). A geometria é a
+  mesma do emblema 2D e o portão **nasce fechado e não abre** — o único
+  movimento é o parallax mecânico amortecido do ponteiro ("entra, para"). O
+  vermelho fica reservado à ação, então o relevo é neutro, como o SVG.
+- **Progressivo e contido** (`HeroEmblem.tsx`). Entra por `next/dynamic` com
+  `ssr: false` — fora do HTML inicial, não disputa o LCP — e só monta no
+  **desktop (lg+) com WebGL e sem `prefers-reduced-motion`**. Fora disso fica o
+  `EmblemSting` (SVG), que também é o fallback de carregamento. **No celular o
+  chunk pesado (three ≈ 232 KB gzip) nem é baixado.**
+- **Custo ocioso zero.** `frameloop` sob demanda (renderiza a entrada, assenta e
+  para) e pausa fora da tela por `IntersectionObserver`.
+
+**Alternativas.**
+- *Imagem/vídeo pré-renderizado do emblema*: barato, mas estático — perde o
+  parallax e a sensação de objeto, que é o ponto.
+- *3D em toda viewport, inclusive celular*: o custo de GPU e o LCP no mobile não
+  se pagam numa peça decorativa; por isso o corte em desktop-only.
+- *WebGL direto, sem react-three/fiber*: menos uma dependência, mas muito mais
+  código imperativo de cena/loop para o mesmo resultado; r3f mantém a cena
+  declarativa e descartável.
+
+**Preço.** Duas dependências novas (`three`, `@react-three/fiber`; `@types/three`
+em dev) e **~2 pontos de Lighthouse Perf / +0,5 s de LCP no desktop** (medido
+com render por software, o pior caso; em GPU real é menos — e ainda "bom",
+< 2,5 s). O bundle inicial e o mobile ficam intactos, porque o 3D é carregado
+sob demanda só onde aparece.
+
+## 22. Transições de página com View Transitions nativas
+
+**Problema.** Navegar entre as páginas da loja (vitrine → produto → carrinho →
+checkout) sem transição corta seco demais para o acabamento que o resto da
+vitrine tem. A reação usual seria uma biblioteca de animação (framer-motion e
+afins).
+
+**Decisão.** O `<ViewTransition>` **nativo do React 19** (export estável neste
+Next 16), num componente fino (`src/components/PageTransition.tsx`) que envolve
+o conteúdo de cada página. Na navegação, o conteúdo antigo sai com um corte seco
+e o novo assenta no lugar; o cabeçalho e o rodapé ficam fixos (a CSS zera a
+animação do `root`). O movimento **some inteiro em `prefers-reduced-motion`**.
+
+**Alternativas.**
+- *`framer-motion` (ou similar)*: peso de biblioteca a mais e, pior, risco de
+  injetar `<script>`/`<style>` inline que violem a **CSP de `nonce` +
+  `strict-dynamic`** do projeto. As View Transitions são do navegador — nenhum
+  inline, nada a liberar na CSP.
+- *Sem transição*: honesto, mas abaixo do acabamento do resto da vitrine.
+
+**Preço.** Zero dependência. O recorte do movimento mora em
+`globals.css` (pseudo-elementos `::view-transition-*`), que a regra global de
+`prefers-reduced-motion` não alcança sozinha, então o "desligar" é refeito ali à
+mão — um detalhe a lembrar ao mexer na animação.
+
+## 23. Prettier sem reformatação em massa
+
+**Problema.** O projeto não tinha formatador declarado: o estilo era mantido no
+olho, e um colaborador novo (ou outra IDE) não tinha como reproduzi-lo. O
+reflexo seria rodar `prettier --write .` e commitar — mas isso reformata ~200
+arquivos (linhas que o autor quebrou à mão e o Prettier recolheria), um diff
+ingovernável que poluiria todo o trabalho em paralelo.
+
+**Decisão.** Adotar o **Prettier** com a config **calibrada para casar com o
+estilo que o código já usa** (`.prettierrc.json`: `printWidth: 120`, aspas
+duplas, `trailingComma: all`, `semi`, `tabWidth: 2`) — módulos curtos e limpos
+(`money.ts`, `pagination.ts`, `shipping.ts`, `catalog-rules.ts`) saem
+**byte-idênticos** do Prettier. Junto vêm `.editorconfig` (espaço/LF/charset
+entre editores), `.prettierignore` (protege o gerado — `drizzle/`,
+`drizzle-payments/`, `*.md` com quebra manual, `infra/`, `public/`,
+`package-lock.json`) e os scripts `format` / `format:check`. **A reformatação em
+massa ficou de propósito como passo seguinte, isolado num commit só** (`npm run
+format`).
+
+**Alternativas.**
+- *`prettier --write .` agora*: o diff gigante atravessaria os PRs em andamento.
+- *Não ter formatador*: mantém o estilo refém da disciplina de quem escreve;
+  sem rede para contribuição.
+- *Flags de tipo mais estritas junto* (`exactOptionalPropertyTypes`,
+  `noUncheckedIndexedAccess`): avaliadas e **adiadas** — 29 e ~309 erros
+  respectivamente; cada uma é um PR de endurecimento próprio (ver o backlog
+  P1–P6 em [`ARQUITETURA.md`](ARQUITETURA.md)).
+
+**Preço.** Uma dependência de dev e uma assimetria temporária: a config está
+pronta, mas o código só fica 100% dentro dela quando o commit de reformatação em
+massa rodar.
 
 ## Perguntas prováveis
 
