@@ -24,7 +24,10 @@ const Q = "teste-isolamento";
 const storeOutbox: NamedOutbox = { name: "loja", database: db };
 
 // Ninguém escuta na porta 1: conexão recusada na hora, sem esperar timeout.
-const deadPool = new Pool({ connectionString: "postgres://ninguem:x@127.0.0.1:1/nada", connectionTimeoutMillis: 1_000 });
+const deadPool = new Pool({
+  connectionString: "postgres://ninguem:x@127.0.0.1:1/nada",
+  connectionTimeoutMillis: 1_000,
+});
 const deadOutbox: NamedOutbox = { name: "pagamentos", database: drizzle(deadPool) };
 
 beforeEach(async () => {

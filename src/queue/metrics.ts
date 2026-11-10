@@ -48,7 +48,9 @@ export async function getOutboxMetrics(
     .select({
       pending: sql<number>`count(*)::int`,
       failing: sql<number>`count(*) filter (where ${outbox.publishAttempts} > 0)::int`,
-      oldestMs: sql<number | null>`(extract(epoch from (${now.toISOString()}::timestamptz - min(${outbox.createdAt}))) * 1000)::bigint`,
+      oldestMs: sql<
+        number | null
+      >`(extract(epoch from (${now.toISOString()}::timestamptz - min(${outbox.createdAt}))) * 1000)::bigint`,
     })
     .from(outbox)
     .where(sql`${outbox.publishedAt} is null`);

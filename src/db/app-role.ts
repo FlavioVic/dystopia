@@ -65,13 +65,16 @@ export async function ensureAppRole(
 
   if (options.password !== undefined) {
     // O Neon exige 60 bits de entropia na senha de papel criado por SQL.
-    if (options.password.length < 16) throw new Error("a senha do papel do app precisa de 16+ caracteres (openssl rand -base64 24)");
+    if (options.password.length < 16)
+      throw new Error("a senha do papel do app precisa de 16+ caracteres (openssl rand -base64 24)");
     const password = client.escapeLiteral(options.password);
     // Atributos explícitos na criação: nada de superusuário, criar
     // banco/papel, replicação ou furar RLS.
-    await client.query(created
-      ? `create role ${role} login nosuperuser nocreatedb nocreaterole noreplication nobypassrls password ${password}`
-      : `alter role ${role} with login password ${password}`);
+    await client.query(
+      created
+        ? `create role ${role} login nosuperuser nocreatedb nocreaterole noreplication nobypassrls password ${password}`
+        : `alter role ${role} with login password ${password}`,
+    );
   } else if (created) {
     throw new Error(`o papel ${name} não existe: rode com APP_DB_PASSWORD para criá-lo`);
   }
@@ -95,6 +98,8 @@ export async function grantAppRole(client: ClientBase, roleName: string = APP_RO
   await client.query(`grant select, insert, update, delete on all tables in schema public to ${role}`);
   await client.query(`grant usage, select on all sequences in schema public to ${role}`);
   // Tabelas das próximas migrations (criadas por quem roda isto) já nascem liberadas.
-  await client.query(`alter default privileges in schema public grant select, insert, update, delete on tables to ${role}`);
+  await client.query(
+    `alter default privileges in schema public grant select, insert, update, delete on tables to ${role}`,
+  );
   await client.query(`alter default privileges in schema public grant usage, select on sequences to ${role}`);
 }

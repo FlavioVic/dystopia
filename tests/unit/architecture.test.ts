@@ -122,11 +122,7 @@ describe("fronteiras da arquitetura", () => {
       for (const specifier of importsOf(file)) {
         if (!specifier.startsWith("@/services/")) continue;
         const target = specifier.split("/")[2];
-        assert.equal(
-          target,
-          owner,
-          `${file} importa ${specifier} — serviços só se encontram via saga`,
-        );
+        assert.equal(target, owner, `${file} importa ${specifier} — serviços só se encontram via saga`);
       }
     }
   });
@@ -166,10 +162,7 @@ describe("fronteiras da arquitetura", () => {
   it("a fila não depende de uma saga específica", () => {
     for (const file of sourceFiles("src/queue")) {
       for (const specifier of importsOf(file)) {
-        assert.ok(
-          !specifier.startsWith("@/saga/definitions"),
-          `${file} importa ${specifier} — a fila é genérica`,
-        );
+        assert.ok(!specifier.startsWith("@/saga/definitions"), `${file} importa ${specifier} — a fila é genérica`);
       }
     }
   });
@@ -258,10 +251,7 @@ describe("fronteiras da arquitetura", () => {
 
   it("o orquestrador não conhece a definição concreta (só o registry)", () => {
     for (const specifier of importsOf("src/saga/orchestrator.ts")) {
-      assert.ok(
-        !specifier.includes("definitions/"),
-        `orchestrator importa ${specifier} — deve passar pelo registry`,
-      );
+      assert.ok(!specifier.includes("definitions/"), `orchestrator importa ${specifier} — deve passar pelo registry`);
     }
   });
 });

@@ -44,8 +44,14 @@ export async function registerAccount(
  * Conta do e-mail, ou `null`. Uso interno (limite de login, redefinição de
  * senha) — a resposta a quem pediu nunca pode depender disto.
  */
-export async function findAccountByEmail(executor: Executor, email: string): Promise<{ id: string; name: string } | null> {
-  const user = await executor.query.users.findFirst({ where: eq(users.email, email), columns: { id: true, name: true } });
+export async function findAccountByEmail(
+  executor: Executor,
+  email: string,
+): Promise<{ id: string; name: string } | null> {
+  const user = await executor.query.users.findFirst({
+    where: eq(users.email, email),
+    columns: { id: true, name: true },
+  });
   return user ?? null;
 }
 

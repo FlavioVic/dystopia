@@ -27,7 +27,10 @@ beforeEach(resetDatabase);
 after(closeDatabase);
 
 async function createUser(email = "ana@exemplo.dev", role: "customer" | "admin" = "customer"): Promise<string> {
-  const [user] = await db.insert(users).values({ name: "Ana", email, passwordHash: "x", role }).returning({ id: users.id });
+  const [user] = await db
+    .insert(users)
+    .values({ name: "Ana", email, passwordHash: "x", role })
+    .returning({ id: users.id });
   return user.id;
 }
 
@@ -61,7 +64,10 @@ describe("sessões", () => {
     const { token, expiresAt } = await createSession(db, { userId, mfaPending: false }, now);
     assert.equal(expiresAt.getTime() - now.getTime(), SESSION_TTL_SECONDS * 1000);
 
-    await db.update(sessions).set({ expiresAt: new Date(Date.now() - 1000) }).where(eq(sessions.id, hashSessionToken(token)));
+    await db
+      .update(sessions)
+      .set({ expiresAt: new Date(Date.now() - 1000) })
+      .where(eq(sessions.id, hashSessionToken(token)));
     assert.equal(await currentUser(token), null);
   });
 
@@ -83,7 +89,7 @@ describe("sessões", () => {
     assert.equal(await completeMfa(db, token, now), null, "sessão já completa não completa de novo");
   });
 
-  it("\"sair dos outros aparelhos\" mantém só a sessão atual", async () => {
+  it('"sair dos outros aparelhos" mantém só a sessão atual', async () => {
     const userId = await createUser();
     const otherUser = await createUser("bia@exemplo.dev");
     const here = await createSession(db, { userId, mfaPending: false });
@@ -104,21 +110,30 @@ describe("sessões", () => {
     await createSession(db, { userId, mfaPending: false });
     await createSession(db, { userId, mfaPending: true });
     const expired = await createSession(db, { userId, mfaPending: false });
-    await db.update(sessions).set({ expiresAt: new Date(Date.now() - 1000) }).where(eq(sessions.id, hashSessionToken(expired.token)));
+    await db
+      .update(sessions)
+      .set({ expiresAt: new Date(Date.now() - 1000) })
+      .where(eq(sessions.id, hashSessionToken(expired.token)));
     assert.equal(await countActiveSessions(db, userId), 1);
   });
 
   it("vencidas somem: na faxina e no próximo login da pessoa", async () => {
     const userId = await createUser();
     const old = await createSession(db, { userId, mfaPending: false });
-    await db.update(sessions).set({ expiresAt: new Date(Date.now() - 1000) }).where(eq(sessions.id, hashSessionToken(old.token)));
+    await db
+      .update(sessions)
+      .set({ expiresAt: new Date(Date.now() - 1000) })
+      .where(eq(sessions.id, hashSessionToken(old.token)));
 
     await createSession(db, { userId, mfaPending: false });
     assert.equal((await db.select().from(sessions)).length, 1, "o login novo levou a vencida");
 
     const other = await createUser("bia@exemplo.dev");
     const stale = await createSession(db, { userId: other, mfaPending: false });
-    await db.update(sessions).set({ expiresAt: new Date(Date.now() - 1000) }).where(eq(sessions.id, hashSessionToken(stale.token)));
+    await db
+      .update(sessions)
+      .set({ expiresAt: new Date(Date.now() - 1000) })
+      .where(eq(sessions.id, hashSessionToken(stale.token)));
     assert.equal(await pruneExpiredSessions(db), 1);
     assert.equal((await db.select().from(sessions)).length, 1);
   });

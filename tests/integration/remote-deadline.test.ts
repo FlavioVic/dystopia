@@ -79,7 +79,10 @@ describe("passo remoto — prazo", () => {
     assert.equal(saga.status, "completed");
     const order = await db.query.orders.findFirst({ where: eq(orders.id, checkout.orderId) });
     assert.equal(order?.status, "paid");
-    assert.equal((await paymentsDb.query.payments.findMany({ where: eq(payments.orderId, checkout.orderId) })).length, 1);
+    assert.equal(
+      (await paymentsDb.query.payments.findMany({ where: eq(payments.orderId, checkout.orderId) })).length,
+      1,
+    );
   });
 
   it("resposta perdida: a consulta acha a cobrança e a saga conclui sem cobrar de novo", async () => {

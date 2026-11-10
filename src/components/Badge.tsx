@@ -17,9 +17,7 @@ export function Badge({
   className?: string;
 }) {
   return (
-    <span
-      className={`label inline-flex items-center gap-1 px-2 py-0.5 ${variants[variant]} ${className}`}
-    >
+    <span className={`label inline-flex items-center gap-1 px-2 py-0.5 ${variants[variant]} ${className}`}>
       {children}
     </span>
   );

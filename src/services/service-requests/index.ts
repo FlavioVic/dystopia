@@ -56,7 +56,8 @@ export async function createServiceRequest(
         return row;
       });
     } catch (error) {
-      const code = (error as { code?: string; cause?: { code?: string } }).code ??
+      const code =
+        (error as { code?: string; cause?: { code?: string } }).code ??
         (error as { cause?: { code?: string } }).cause?.code;
       if (code !== UNIQUE_VIOLATION) throw error;
     }

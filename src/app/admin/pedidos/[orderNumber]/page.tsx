@@ -43,9 +43,7 @@ export default async function AdminOrderDetail(props: PageProps<"/admin/pedidos/
             {ORDER_STATUS_LABELS[order.status as OrderStatus] ?? order.status}
           </span>
         </div>
-        <span className="text-sm text-foreground-muted">
-          {new Date(order.createdAt).toLocaleString("pt-BR")}
-        </span>
+        <span className="text-sm text-foreground-muted">{new Date(order.createdAt).toLocaleString("pt-BR")}</span>
       </div>
 
       <div className="mt-5 grid gap-5 lg:grid-cols-2">
@@ -57,9 +55,7 @@ export default async function AdminOrderDetail(props: PageProps<"/admin/pedidos/
         </div>
 
         <div className="rounded-xl border border-border bg-background-elevated p-4">
-          <h3 className="label text-foreground-muted">
-            Orquestração (saga)
-          </h3>
+          <h3 className="label text-foreground-muted">Orquestração (saga)</h3>
           <div className="mt-3">
             {saga ? (
               <SagaTimeline
@@ -73,9 +69,7 @@ export default async function AdminOrderDetail(props: PageProps<"/admin/pedidos/
                 }))}
               />
             ) : (
-              <p className="text-sm text-foreground-muted">
-                Pedido anterior à orquestração (sem saga registrada).
-              </p>
+              <p className="text-sm text-foreground-muted">Pedido anterior à orquestração (sem saga registrada).</p>
             )}
           </div>
         </div>
@@ -88,22 +82,35 @@ export default async function AdminOrderDetail(props: PageProps<"/admin/pedidos/
               <li key={it.id} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
                 <span className="min-w-0">
                   <span className="line-clamp-1">{it.productNameSnapshot}</span>
-                  <span className="text-xs text-foreground-muted">{it.quantity} × {formatPriceCents(it.unitPriceCents)}</span>
+                  <span className="text-xs text-foreground-muted">
+                    {it.quantity} × {formatPriceCents(it.unitPriceCents)}
+                  </span>
                 </span>
                 <span className="font-mono tabular-nums">{formatPriceCents(it.totalCents)}</span>
               </li>
             ))}
           </ul>
           <dl className="flex flex-col gap-1.5 border-t border-border px-4 py-4 text-sm">
-            <div className="flex justify-between"><dt className="text-foreground-muted">Subtotal</dt><dd className="font-mono tabular-nums">{formatPriceCents(order.subtotalCents)}</dd></div>
+            <div className="flex justify-between">
+              <dt className="text-foreground-muted">Subtotal</dt>
+              <dd className="font-mono tabular-nums">{formatPriceCents(order.subtotalCents)}</dd>
+            </div>
             {order.discountCents > 0 ? (
               <div className="flex justify-between">
                 <dt className="text-foreground-muted">Desconto{order.coupon ? ` (${order.coupon.code})` : ""}</dt>
                 <dd className="font-mono tabular-nums text-foreground">- {formatPriceCents(order.discountCents)}</dd>
               </div>
             ) : null}
-            <div className="flex justify-between"><dt className="text-foreground-muted">Frete</dt><dd className="font-mono tabular-nums">{order.shippingCents === 0 ? "Grátis" : formatPriceCents(order.shippingCents)}</dd></div>
-            <div className="mt-1 flex justify-between border-t border-border pt-2 text-base font-semibold"><dt>Total</dt><dd className="font-mono tabular-nums text-accent">{formatPriceCents(order.totalCents)}</dd></div>
+            <div className="flex justify-between">
+              <dt className="text-foreground-muted">Frete</dt>
+              <dd className="font-mono tabular-nums">
+                {order.shippingCents === 0 ? "Grátis" : formatPriceCents(order.shippingCents)}
+              </dd>
+            </div>
+            <div className="mt-1 flex justify-between border-t border-border pt-2 text-base font-semibold">
+              <dt>Total</dt>
+              <dd className="font-mono tabular-nums text-accent">{formatPriceCents(order.totalCents)}</dd>
+            </div>
           </dl>
         </div>
 
@@ -127,7 +134,7 @@ export default async function AdminOrderDetail(props: PageProps<"/admin/pedidos/
           </div>
           <div className="rounded-xl border border-border p-4">
             <h3 className="label text-foreground-muted">Pagamento</h3>
-            <p className="mt-2 font-medium">{payment ? methodLabel[payment.method] ?? payment.method : "—"}</p>
+            <p className="mt-2 font-medium">{payment ? (methodLabel[payment.method] ?? payment.method) : "—"}</p>
             <p className="text-foreground-muted">{payment ? `${payment.provider} · ${payment.status}` : ""}</p>
           </div>
         </aside>

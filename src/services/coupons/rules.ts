@@ -19,13 +19,7 @@ export type CouponLike = {
   isActive: boolean;
 };
 
-export type CouponRejection =
-  | "not_found"
-  | "inactive"
-  | "not_started"
-  | "expired"
-  | "exhausted"
-  | "min_order";
+export type CouponRejection = "not_found" | "inactive" | "not_started" | "expired" | "exhausted" | "min_order";
 
 export type CouponEvaluation =
   | { ok: true; couponId: string; code: string; discountCents: number }

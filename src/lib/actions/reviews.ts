@@ -19,7 +19,8 @@ import { isUuid } from "@/lib/validation/action-input";
 import { parseReviewForm } from "@/lib/validation/review";
 import { deleteReview as removeReview, upsertReview } from "@/services/reviews";
 
-const DEMO_REVIEW_MESSAGE = "A conta de demonstração não publica avaliações: o texto sairia em nome de todos os visitantes.";
+const DEMO_REVIEW_MESSAGE =
+  "A conta de demonstração não publica avaliações: o texto sairia em nome de todos os visitantes.";
 
 export type ReviewState =
   | {

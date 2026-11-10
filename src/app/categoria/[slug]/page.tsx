@@ -48,7 +48,12 @@ export default async function CategoryPage(props: PageProps<"/categoria/[slug]">
         ) : (
           <p className="mt-12 text-base text-foreground-muted">Nenhum item registrado nesta categoria.</p>
         )}
-        <Pagination basePath={`/categoria/${category.slug}`} page={page.page} total={total} pageSize={STORE_PAGE_SIZE} />
+        <Pagination
+          basePath={`/categoria/${category.slug}`}
+          page={page.page}
+          total={total}
+          pageSize={STORE_PAGE_SIZE}
+        />
       </div>
     </PageTransition>
   );

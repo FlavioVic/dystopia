@@ -133,7 +133,10 @@ describe("saga de checkout — caminho feliz", () => {
     // A resposta da cobrança nasce no banco de PAGAMENTOS, junto com a cobrança
     // (cada serviço tem a própria caixa de saída).
     const paymentsOutbox = await paymentsDb.query.outbox.findMany();
-    assert.deepEqual(paymentsOutbox.map((row) => row.type), ["saga.reply"]);
+    assert.deepEqual(
+      paymentsOutbox.map((row) => row.type),
+      ["saga.reply"],
+    );
     const delivered = await db.query.notifications.findFirst({ where: eq(notifications.id, sent[0].id) });
     assert.equal(delivered?.status, "sent");
     assert.equal(delivered?.provider, "simulado", "sem RESEND_API_KEY a entrega é simulada");
@@ -446,9 +449,11 @@ describe("saga de checkout — idempotência e concorrência", () => {
       "pagamento não duplicou",
     );
     assert.equal(
-      (await db.query.notifications.findMany({
-        where: eq(notifications.correlationId, checkout.orderNumber),
-      })).length,
+      (
+        await db.query.notifications.findMany({
+          where: eq(notifications.correlationId, checkout.orderNumber),
+        })
+      ).length,
       1,
       "notificação não duplicou",
     );

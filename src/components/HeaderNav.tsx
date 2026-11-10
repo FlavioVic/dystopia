@@ -27,7 +27,10 @@ function StoreSearch() {
         aria-label="Buscar no inventário"
         className="w-full min-w-0 border border-r-0 border-border bg-background px-3 py-2 text-sm text-foreground outline-none placeholder:text-foreground-muted focus:border-foreground"
       />
-      <button type="submit" className="label bg-primary px-4 text-primary-foreground transition-colors hover:bg-primary-hover">
+      <button
+        type="submit"
+        className="label bg-primary px-4 text-primary-foreground transition-colors hover:bg-primary-hover"
+      >
         Buscar
       </button>
     </form>
@@ -71,7 +74,9 @@ export function HeaderNav({ categories }: { categories: Category[] }) {
 
   const linkClass = (active: boolean) =>
     `display-4 relative py-2 text-[12px] tracking-[0.16em] transition-colors after:absolute after:inset-x-0 after:-bottom-[15px] after:h-[2px] after:origin-left after:bg-primary after:transition-transform after:duration-300 ${
-      active ? "text-foreground after:scale-x-100" : "text-foreground-muted after:scale-x-0 hover:text-foreground hover:after:scale-x-100"
+      active
+        ? "text-foreground after:scale-x-100"
+        : "text-foreground-muted after:scale-x-0 hover:text-foreground hover:after:scale-x-100"
     }`;
 
   return (
@@ -93,7 +98,10 @@ export function HeaderNav({ categories }: { categories: Category[] }) {
             className={`${linkClass(storeActive || storeOpen)} flex items-center gap-2`}
           >
             Loja
-            <span aria-hidden="true" className={`inline-block transition-transform duration-200 ${storeOpen ? "rotate-180" : ""}`}>
+            <span
+              aria-hidden="true"
+              className={`inline-block transition-transform duration-200 ${storeOpen ? "rotate-180" : ""}`}
+            >
               ▾
             </span>
           </button>
@@ -105,7 +113,9 @@ export function HeaderNav({ categories }: { categories: Category[] }) {
             }`}
           >
             <div className="h-[2px] w-12 bg-primary" aria-hidden="true" />
-            <p className="label mt-4 text-foreground-muted">Inventário / {String(categories.length).padStart(2, "0")} categorias</p>
+            <p className="label mt-4 text-foreground-muted">
+              Inventário / {String(categories.length).padStart(2, "0")} categorias
+            </p>
             <ul className="mt-4 grid grid-cols-2 gap-x-6">
               {categories.map((c) => (
                 <li key={c.slug}>
@@ -114,7 +124,10 @@ export function HeaderNav({ categories }: { categories: Category[] }) {
                     className="group flex items-center justify-between border-b border-border-faint py-2.5 text-sm text-foreground-muted transition-colors hover:text-foreground"
                   >
                     {c.name}
-                    <span aria-hidden="true" className="text-signal-text opacity-0 transition-all duration-200 group-hover:translate-x-1 group-hover:opacity-100">
+                    <span
+                      aria-hidden="true"
+                      className="text-signal-text opacity-0 transition-all duration-200 group-hover:translate-x-1 group-hover:opacity-100"
+                    >
                       →
                     </span>
                   </Link>
@@ -145,9 +158,13 @@ export function HeaderNav({ categories }: { categories: Category[] }) {
           className="label flex items-center gap-2 border border-border px-3 py-2 text-foreground"
         >
           <span className="flex w-4 flex-col gap-[3px]" aria-hidden="true">
-            <span className={`h-[2px] bg-foreground transition-transform ${mobileOpen ? "translate-y-[5px] rotate-45" : ""}`} />
+            <span
+              className={`h-[2px] bg-foreground transition-transform ${mobileOpen ? "translate-y-[5px] rotate-45" : ""}`}
+            />
             <span className={`h-[2px] bg-foreground transition-opacity ${mobileOpen ? "opacity-0" : ""}`} />
-            <span className={`h-[2px] bg-foreground transition-transform ${mobileOpen ? "-translate-y-[5px] -rotate-45" : ""}`} />
+            <span
+              className={`h-[2px] bg-foreground transition-transform ${mobileOpen ? "-translate-y-[5px] -rotate-45" : ""}`}
+            />
           </span>
           {/* Em 320 px a palavra não cabe junto dos atalhos; o leitor de tela ainda a lê. */}
           <span className="max-[359px]:sr-only">Menu</span>
@@ -173,7 +190,10 @@ export function HeaderNav({ categories }: { categories: Category[] }) {
           <ul className="mt-3 grid grid-cols-2 gap-x-4">
             {categories.map((c) => (
               <li key={c.slug}>
-                <Link href={`/categoria/${c.slug}`} className="block border-b border-border-faint py-2.5 text-sm text-foreground-muted">
+                <Link
+                  href={`/categoria/${c.slug}`}
+                  className="block border-b border-border-faint py-2.5 text-sm text-foreground-muted"
+                >
                   {c.name}
                 </Link>
               </li>

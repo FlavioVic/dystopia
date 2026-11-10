@@ -75,7 +75,11 @@ export async function sendPasswordResetLink(
 ): Promise<"sent" | "no-account" | "demo" | "limited"> {
   if (email === DEMO_ACCOUNT_EMAIL) return "demo";
 
-  const perEmail = await consumeRateLimit(db, `password-reset:email:${sha256(email).slice(0, 32)}`, PASSWORD_RESET_LIMITS.email);
+  const perEmail = await consumeRateLimit(
+    db,
+    `password-reset:email:${sha256(email).slice(0, 32)}`,
+    PASSWORD_RESET_LIMITS.email,
+  );
   if (!perEmail.allowed) return "limited";
 
   const account = await findAccountByEmail(db, email);

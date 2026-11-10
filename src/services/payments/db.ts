@@ -15,7 +15,9 @@ if (!url) {
   throw new Error("PAYMENTS_DATABASE_URL não está definida: pagamentos tem banco próprio. Veja o .env.example.");
 }
 if (sameDatabase(url, process.env.DATABASE_URL)) {
-  throw new Error("PAYMENTS_DATABASE_URL aponta para o mesmo banco da loja (DATABASE_URL): pagamentos precisa de banco próprio.");
+  throw new Error(
+    "PAYMENTS_DATABASE_URL aponta para o mesmo banco da loja (DATABASE_URL): pagamentos precisa de banco próprio.",
+  );
 }
 
 const pool = new Pool({

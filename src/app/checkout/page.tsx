@@ -30,26 +30,26 @@ export default async function CheckoutPage() {
     <PageTransition>
       <CheckoutForm
         defaultName={user.name}
-      savedAddresses={addresses.map((address) => ({
-        id: address.id,
-        label: address.label,
-        recipientName: address.recipientName,
-        line: formatAddress(address),
-        isDefault: address.isDefault,
-      }))}
-      subtotalCents={cart.subtotalCents}
-      simulationEnabled={isCheckoutSimulationEnabled()}
-      stripePublishableKey={getStripePublishableKey()}
-      demoAccount={isDemoAccount(user.email)}
-      lines={cart.lines.map((l) => ({
-        itemId: l.itemId,
-        name: l.name,
-        variantName: l.variantName,
-        quantity: l.quantity,
-        unitPriceCents: l.unitPriceCents,
-        lineTotalCents: l.lineTotalCents,
-        imageUrl: l.imageUrl,
-      }))}
+        savedAddresses={addresses.map((address) => ({
+          id: address.id,
+          label: address.label,
+          recipientName: address.recipientName,
+          line: formatAddress(address),
+          isDefault: address.isDefault,
+        }))}
+        subtotalCents={cart.subtotalCents}
+        simulationEnabled={isCheckoutSimulationEnabled()}
+        stripePublishableKey={getStripePublishableKey()}
+        demoAccount={isDemoAccount(user.email)}
+        lines={cart.lines.map((l) => ({
+          itemId: l.itemId,
+          name: l.name,
+          variantName: l.variantName,
+          quantity: l.quantity,
+          unitPriceCents: l.unitPriceCents,
+          lineTotalCents: l.lineTotalCents,
+          imageUrl: l.imageUrl,
+        }))}
       />
     </PageTransition>
   );

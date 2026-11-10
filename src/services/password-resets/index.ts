@@ -35,7 +35,11 @@ export async function createPasswordReset(
 }
 
 /** Dono do link, se ele ainda vale (sem gastar). */
-export async function findPasswordReset(executor: Executor, token: string, now = new Date()): Promise<{ userId: string } | null> {
+export async function findPasswordReset(
+  executor: Executor,
+  token: string,
+  now = new Date(),
+): Promise<{ userId: string } | null> {
   const [row] = await executor
     .select({ userId: passwordResets.userId })
     .from(passwordResets)
@@ -44,7 +48,11 @@ export async function findPasswordReset(executor: Executor, token: string, now =
 }
 
 /** Gasta o link: devolve o dono uma vez só; depois (ou vencido), `null`. */
-export async function consumePasswordReset(executor: Executor, token: string, now = new Date()): Promise<{ userId: string } | null> {
+export async function consumePasswordReset(
+  executor: Executor,
+  token: string,
+  now = new Date(),
+): Promise<{ userId: string } | null> {
   const [row] = await executor
     .delete(passwordResets)
     .where(and(eq(passwordResets.id, hashResetToken(token)), gt(passwordResets.expiresAt, now)))

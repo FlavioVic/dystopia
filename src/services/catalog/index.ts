@@ -73,11 +73,7 @@ export async function createProduct(
   return { productId: created.id };
 }
 
-export async function updateProduct(
-  executor: Executor,
-  productId: string,
-  input: ProductWriteInput,
-): Promise<void> {
+export async function updateProduct(executor: Executor, productId: string, input: ProductWriteInput): Promise<void> {
   await assertProductUniqueness(executor, input, productId);
   await executor
     .update(products)
@@ -100,9 +96,7 @@ export async function setProductFlag(
   await executor
     .update(products)
     .set(
-      flag === "isActive"
-        ? { isActive: value, updatedAt: new Date() }
-        : { isFeatured: value, updatedAt: new Date() },
+      flag === "isActive" ? { isActive: value, updatedAt: new Date() } : { isFeatured: value, updatedAt: new Date() },
     )
     .where(eq(products.id, productId));
 
@@ -141,11 +135,7 @@ export async function createVariant(
   return { variantId: created.id };
 }
 
-export async function updateVariant(
-  executor: Executor,
-  variantId: string,
-  input: VariantWriteInput,
-): Promise<void> {
+export async function updateVariant(executor: Executor, variantId: string, input: VariantWriteInput): Promise<void> {
   const variant = await executor.query.productVariants.findFirst({
     where: eq(productVariants.id, variantId),
     columns: { id: true },
@@ -156,10 +146,7 @@ export async function updateVariant(
   await executor.update(productVariants).set(input).where(eq(productVariants.id, variantId));
 }
 
-export async function deleteVariant(
-  executor: Executor,
-  variantId: string,
-): Promise<{ deleted: boolean }> {
+export async function deleteVariant(executor: Executor, variantId: string): Promise<{ deleted: boolean }> {
   const removed = await executor
     .delete(productVariants)
     .where(eq(productVariants.id, variantId))
@@ -167,11 +154,7 @@ export async function deleteVariant(
   return { deleted: removed.length > 0 };
 }
 
-async function assertVariantSkuFree(
-  executor: Executor,
-  sku: string,
-  ignoreVariantId?: string,
-): Promise<void> {
+async function assertVariantSkuFree(executor: Executor, sku: string, ignoreVariantId?: string): Promise<void> {
   const existing = await executor.query.productVariants.findFirst({
     where: ignoreVariantId
       ? and(eq(productVariants.sku, sku), ne(productVariants.id, ignoreVariantId))

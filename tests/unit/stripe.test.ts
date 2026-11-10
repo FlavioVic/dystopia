@@ -49,7 +49,12 @@ describe("config do Stripe", () => {
 });
 
 describe("cobrança no Stripe", () => {
-  const input = { amountCents: 17_982, paymentMethodId: "pm_card_visa", idempotencyKey: "order:DYS-1:payment", orderId: "o1" };
+  const input = {
+    amountCents: 17_982,
+    paymentMethodId: "pm_card_visa",
+    idempotencyKey: "order:DYS-1:payment",
+    orderId: "o1",
+  };
 
   it("cria e confirma o PaymentIntent em BRL, com a chave de idempotência do pedido", async () => {
     const fetch = fakeFetch({ status: 200, body: { id: "pi_123", status: "succeeded" } });
@@ -119,7 +124,10 @@ describe("estorno no Stripe", () => {
   });
 
   it("já estornado conta como sucesso (compensação idempotente)", async () => {
-    const fetch = fakeFetch({ status: 400, body: { error: { type: "invalid_request_error", code: "charge_already_refunded" } } });
+    const fetch = fakeFetch({
+      status: 400,
+      body: { error: { type: "invalid_request_error", code: "charge_already_refunded" } },
+    });
     assert.deepEqual(await stripeRefund(config, { paymentIntentId: "pi_123", idempotencyKey: "k" }, fetch), {
       reversed: true,
     });
@@ -128,7 +136,11 @@ describe("estorno no Stripe", () => {
 
 describe("roteamento do gateway", () => {
   const base = { amountCents: 5_000, method: "credit_card", idempotencyKey: "order:DYS-2:payment" };
-  const withStripe = (fetch: FetchLike, allowTestTokens = true): GatewayDeps => ({ stripe: config, fetch, allowTestTokens });
+  const withStripe = (fetch: FetchLike, allowTestTokens = true): GatewayDeps => ({
+    stripe: config,
+    fetch,
+    allowTestTokens,
+  });
 
   it("cartão tokenizado vai para o Stripe", async () => {
     const fetch = fakeFetch({ status: 200, body: { id: "pi_9", status: "succeeded" } });
@@ -179,7 +191,10 @@ describe("roteamento do gateway", () => {
 
   it("estorno vai para o provedor que cobrou", async () => {
     const fetch = fakeFetch({ status: 200, body: { id: "re_2" } });
-    await reverse({ transactionId: "pi_9", provider: "stripe", idempotencyKey: "order:DYS-2:payment" }, withStripe(fetch));
+    await reverse(
+      { transactionId: "pi_9", provider: "stripe", idempotencyKey: "order:DYS-2:payment" },
+      withStripe(fetch),
+    );
     assert.equal(fetch.calls.length, 1);
     assert.equal(header(fetch.calls[0], "Idempotency-Key"), "order:DYS-2:payment:refund");
 

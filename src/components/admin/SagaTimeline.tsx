@@ -13,13 +13,7 @@ export type SagaTimelineStep = {
  * cliente vê o andamento pelos eventos do pedido (`OrderTimeline`), não pelo
  * log interno da orquestração.
  */
-export function SagaTimeline({
-  steps,
-  showErrors = false,
-}: {
-  steps: SagaTimelineStep[];
-  showErrors?: boolean;
-}) {
+export function SagaTimeline({ steps, showErrors = false }: { steps: SagaTimelineStep[]; showErrors?: boolean }) {
   if (steps.length === 0) {
     return <p className="text-sm text-foreground-muted">A orquestração ainda não começou.</p>;
   }
@@ -29,7 +23,9 @@ export function SagaTimeline({
       {steps.map((step, index) => (
         <li key={step.id} className="flex items-start gap-3 text-sm">
           {/* Índice do passo em mono; o estado vai em palavra ao lado. */}
-          <span className={`serial mt-0.5 flex h-6 w-8 shrink-0 items-center justify-center border ${sagaStepStatusClass(step.status)}`}>
+          <span
+            className={`serial mt-0.5 flex h-6 w-8 shrink-0 items-center justify-center border ${sagaStepStatusClass(step.status)}`}
+          >
             {String(index + 1).padStart(2, "0")}
           </span>
           <span className="min-w-0 flex-1">

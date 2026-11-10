@@ -73,7 +73,9 @@ describe("chamada ao provedor", () => {
   });
 
   it("devolve as ferramentas que o modelo pediu", async () => {
-    const toolCalls = [{ id: "c1", type: "function", function: { name: "buscar_produtos", arguments: '{"termo":"ssd"}' } }];
+    const toolCalls = [
+      { id: "c1", type: "function", function: { name: "buscar_produtos", arguments: '{"termo":"ssd"}' } },
+    ];
     const { impl } = fakeFetch(() => json({ choices: [{ message: { content: null, tool_calls: toolCalls } }] }));
     const reply = await createChatCompletion(config, impl)([{ role: "user", content: "ssd?" }], []);
     assert.deepEqual(reply, { content: null, toolCalls });

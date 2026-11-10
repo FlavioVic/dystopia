@@ -36,9 +36,15 @@ export function ProductCard({ product, priority = false }: { product: ProductCar
   const installment = installmentText(product.priceCents);
 
   return (
-    <article className={`sweep group relative flex flex-col bg-background transition-colors hover:bg-background-elevated ${gridCell}`}>
+    <article
+      className={`sweep group relative flex flex-col bg-background transition-colors hover:bg-background-elevated ${gridCell}`}
+    >
       {/* Nome no próprio link: produto sem imagem deixaria um link vazio para o leitor de tela. */}
-      <Link href={`/produto/${product.slug}`} aria-label={product.name} className="relative block aspect-square overflow-hidden">
+      <Link
+        href={`/produto/${product.slug}`}
+        aria-label={product.name}
+        className="relative block aspect-square overflow-hidden"
+      >
         {image ? (
           <Image
             src={image.url}
@@ -81,7 +87,9 @@ export function ProductCard({ product, priority = false }: { product: ProductCar
           </h3>
         </Link>
 
-        {product.ratingCount > 0 ? <StarRating rating={Number(product.ratingAverage)} count={product.ratingCount} /> : null}
+        {product.ratingCount > 0 ? (
+          <StarRating rating={Number(product.ratingAverage)} count={product.ratingCount} />
+        ) : null}
 
         <div className="mt-1 flex flex-col gap-1">
           {product.compareAtPriceCents ? (

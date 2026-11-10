@@ -90,7 +90,10 @@ describe("usuário do app (menor privilégio)", () => {
 
   it("recusa senha curta e nome de papel com SQL dentro", async () => {
     await assert.rejects(applyAppRole(owner, { role: ROLE, password: "curta" }), /16\+ caracteres/);
-    await assert.rejects(applyAppRole(owner, { role: 'x"; drop table users; --', password: PASSWORD }), /nome de papel inválido/);
+    await assert.rejects(
+      applyAppRole(owner, { role: 'x"; drop table users; --', password: PASSWORD }),
+      /nome de papel inválido/,
+    );
   });
 });
 
@@ -123,7 +126,9 @@ describe("papel do app com dono que não é superusuário (como no Neon)", () =>
 
   it("cria o papel e depois troca a senha, sem pedir atributo de superusuário", async () => {
     assert.deepEqual(await ensureAppRole(neonOwner, { role: NEON_APP, password: PASSWORD }), { created: true });
-    assert.deepEqual(await ensureAppRole(neonOwner, { role: NEON_APP, password: `${PASSWORD}-nova` }), { created: false });
+    assert.deepEqual(await ensureAppRole(neonOwner, { role: NEON_APP, password: `${PASSWORD}-nova` }), {
+      created: false,
+    });
 
     const url = new URL(process.env.DATABASE_URL!);
     url.username = NEON_APP;

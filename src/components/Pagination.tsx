@@ -30,7 +30,9 @@ export function Pagination({
   };
 
   // Primeira, última e as vizinhas da atual; o resto vira reticências.
-  const shown = [...new Set([1, page - 1, page, page + 1, pages])].filter((n) => n >= 1 && n <= pages).sort((a, b) => a - b);
+  const shown = [...new Set([1, page - 1, page, page + 1, pages])]
+    .filter((n) => n >= 1 && n <= pages)
+    .sort((a, b) => a - b);
   const cell = "label inline-flex min-w-10 items-center justify-center border px-3 py-2";
 
   return (

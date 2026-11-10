@@ -119,7 +119,10 @@ describe("login: limite por conta", () => {
     const rounds = LOGIN_LIMITS.accountDaily.limit / ACCOUNT_LIMIT;
     for (let round = 0; round < rounds; round++) {
       const results = await attack(EMAIL, ACCOUNT_LIMIT);
-      assert.ok(results.every((r) => r.status === "invalid"), `rodada ${round}`);
+      assert.ok(
+        results.every((r) => r.status === "invalid"),
+        `rodada ${round}`,
+      );
       // O tempo corre 16 minutos: a janela curta vence, a diária não.
       await db
         .update(rateLimits)

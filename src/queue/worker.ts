@@ -329,10 +329,7 @@ export function startWorker(options: WorkerOptions): WorkerHandle {
 }
 
 function startPeriodic(options: WorkerOptions, workerId: string, relay: () => Promise<unknown>): NodeJS.Timeout[] {
-  const tasks = [
-    { name: "relay", everyMs: options.relayEveryMs ?? 500, run: relay },
-    ...(options.periodic ?? []),
-  ];
+  const tasks = [{ name: "relay", everyMs: options.relayEveryMs ?? 500, run: relay }, ...(options.periodic ?? [])];
   return tasks.map((task) => {
     let busy = false;
     return setInterval(() => {
@@ -340,7 +337,9 @@ function startPeriodic(options: WorkerOptions, workerId: string, relay: () => Pr
       busy = true;
       task
         .run()
-        .catch((error) => logger.warn(`tarefa periódica falhou: ${task.name}`, { workerId, error: errorMessage(error) }))
+        .catch((error) =>
+          logger.warn(`tarefa periódica falhou: ${task.name}`, { workerId, error: errorMessage(error) }),
+        )
         .finally(() => {
           busy = false;
         });

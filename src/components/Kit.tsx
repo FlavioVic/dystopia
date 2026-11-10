@@ -82,8 +82,12 @@ export function PageHeader({
       <p className="label text-foreground-muted">{label}</p>
       {/* Palavra longa ("PROCESSADORES") na fonte larga não cabe em 320 px a 26 px: a
           fonte acompanha a largura e, em último caso, a palavra quebra. */}
-      <h1 className="display-2 mt-4 break-words text-[clamp(18px,6.4vw,26px)] leading-[1.3] sm:text-[40px] sm:leading-[48px]">{title}</h1>
-      {description ? <div className="mt-4 max-w-2xl text-base leading-relaxed text-foreground-muted">{description}</div> : null}
+      <h1 className="display-2 mt-4 break-words text-[clamp(18px,6.4vw,26px)] leading-[1.3] sm:text-[40px] sm:leading-[48px]">
+        {title}
+      </h1>
+      {description ? (
+        <div className="mt-4 max-w-2xl text-base leading-relaxed text-foreground-muted">{description}</div>
+      ) : null}
       {meta ? <div className="label mt-6 text-foreground-muted">{meta}</div> : null}
     </div>
   );
@@ -117,7 +121,9 @@ export function Sector({
   const edge = tone === "graphite" ? "border-y border-border-faint" : "";
   return (
     <section id={id} className={`scroll-mt-24 ${surface} ${edge}`}>
-      <div className={`mx-auto w-full ${narrow ? "max-w-4xl" : "max-w-site"} px-4 ${compact ? "py-10 sm:py-12" : "py-16 sm:py-20"} sm:px-6 lg:px-8 ${className}`}>
+      <div
+        className={`mx-auto w-full ${narrow ? "max-w-4xl" : "max-w-site"} px-4 ${compact ? "py-10 sm:py-12" : "py-16 sm:py-20"} sm:px-6 lg:px-8 ${className}`}
+      >
         {children}
       </div>
     </section>

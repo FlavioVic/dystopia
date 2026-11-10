@@ -3,12 +3,7 @@
 import Image from "next/image";
 import { useActionState, useState, useTransition } from "react";
 import { FormAlert, buttonCompact, buttonPrimary, fieldLabelClass, inputClass } from "@/components/Kit";
-import {
-  deleteProductImage,
-  reorderProductImage,
-  saveProductImageAlt,
-  type ImageFormState,
-} from "@/lib/actions/admin";
+import { deleteProductImage, reorderProductImage, saveProductImageAlt, type ImageFormState } from "@/lib/actions/admin";
 
 type GalleryImage = { id: string; url: string; altText: string | null };
 
@@ -91,7 +86,12 @@ function ImageRow({ image, index, last }: { image: GalleryImage; index: number; 
         {error ? <FormAlert>{error}</FormAlert> : null}
         <div className="flex flex-wrap gap-2">
           {index > 0 ? (
-            <button type="button" disabled={pending} onClick={() => run(() => reorderProductImage(image.id, "first"))} className={buttonCompact}>
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() => run(() => reorderProductImage(image.id, "first"))}
+              className={buttonCompact}
+            >
               Tornar principal
             </button>
           ) : null}
@@ -115,7 +115,12 @@ function ImageRow({ image, index, last }: { image: GalleryImage; index: number; 
           </button>
           {confirming ? (
             <>
-              <button type="button" disabled={pending} onClick={() => run(() => deleteProductImage(image.id))} className={`${buttonCompact} border-signal`}>
+              <button
+                type="button"
+                disabled={pending}
+                onClick={() => run(() => deleteProductImage(image.id))}
+                className={`${buttonCompact} border-signal`}
+              >
                 Confirmar remoção
               </button>
               <button type="button" onClick={() => setConfirming(false)} className={buttonCompact}>
@@ -137,7 +142,11 @@ function UploadForm({ action }: { action: (prev: ImageFormState, formData: FormD
   const [state, formAction, pending] = useActionState<ImageFormState, FormData>(action, undefined);
   return (
     // `key` muda só a cada envio certo: o formulário volta vazio para a próxima foto.
-    <form key={state?.sentAt ?? "upload"} action={formAction} className="flex flex-col gap-3 border border-dashed border-border p-3">
+    <form
+      key={state?.sentAt ?? "upload"}
+      action={formAction}
+      className="flex flex-col gap-3 border border-dashed border-border p-3"
+    >
       <p className={fieldLabelClass}>Nova imagem</p>
       {state?.message ? <FormAlert>{state.message}</FormAlert> : null}
       <div className="flex flex-col gap-1.5">
@@ -157,7 +166,13 @@ function UploadForm({ action }: { action: (prev: ImageFormState, formData: FormD
         <label htmlFor="image-alt" className={fieldLabelClass}>
           Descrição (texto alternativo)
         </label>
-        <input id="image-alt" name="altText" maxLength={160} placeholder="Ex.: Cooler AK400 visto de frente" className={inputClass} />
+        <input
+          id="image-alt"
+          name="altText"
+          maxLength={160}
+          placeholder="Ex.: Cooler AK400 visto de frente"
+          className={inputClass}
+        />
       </div>
       <button type="submit" disabled={pending} className={`self-start ${buttonPrimary}`}>
         {pending ? "Enviando…" : "Enviar imagem"}

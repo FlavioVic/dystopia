@@ -62,7 +62,10 @@ const resetPasswordSchema = z
     password: newPassword,
     confirm: z.string(),
   })
-  .refine((values) => values.password === values.confirm, { path: ["confirm"], message: "As duas senhas não são iguais." });
+  .refine((values) => values.password === values.confirm, {
+    path: ["confirm"],
+    message: "As duas senhas não são iguais.",
+  });
 
 /** Senha nova pelo link: a mesma regra do cadastro, digitada duas vezes. */
 export function parseResetPasswordForm(formData: FormData) {

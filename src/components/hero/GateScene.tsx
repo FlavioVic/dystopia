@@ -22,7 +22,14 @@ const STEEL = "#6e7176";
 // Unidades do emblema (viewBox 24): raio do círculo das folhas e meia-fenda.
 const LEAF_R = 7;
 const SEAM = 1.5;
-const EXTRUDE = { depth: 1.0, bevelEnabled: true, bevelThickness: 0.16, bevelSize: 0.16, bevelSegments: 2, curveSegments: 72 } as const;
+const EXTRUDE = {
+  depth: 1.0,
+  bevelEnabled: true,
+  bevelThickness: 0.16,
+  bevelSize: 0.16,
+  bevelSegments: 2,
+  curveSegments: 72,
+} as const;
 
 function ringGeometry() {
   const shape = new THREE.Shape();
@@ -68,7 +75,10 @@ function Gate() {
   const left = useMemo(() => leafGeometry("left"), []);
   const right = useMemo(() => leafGeometry("right"), []);
   const boneMat = useMemo(() => new THREE.MeshStandardMaterial({ color: BONE, roughness: 0.52, metalness: 0.0 }), []);
-  const steelMat = useMemo(() => new THREE.MeshStandardMaterial({ color: STEEL, roughness: 0.42, metalness: 0.08 }), []);
+  const steelMat = useMemo(
+    () => new THREE.MeshStandardMaterial({ color: STEEL, roughness: 0.42, metalness: 0.08 }),
+    [],
+  );
 
   useFrame((state) => {
     const g = rig.current;

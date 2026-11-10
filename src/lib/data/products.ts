@@ -62,7 +62,6 @@ export const listActiveProducts = cache(async (page: Page) => {
   return { items, total };
 });
 
-
 /** Só o que o sitemap precisa — não o catálogo inteiro com imagens. */
 export const getProductSitemapEntries = cache(async () =>
   db.select({ slug: products.slug, updatedAt: products.updatedAt }).from(products).where(activeProduct),
@@ -168,11 +167,7 @@ export const getProductBySlug = cache(async (slug: string) => {
 
 export const getRelatedProducts = cache(async (categoryId: string, excludeProductId: string, limit = 4) => {
   return db.query.products.findMany({
-    where: and(
-      eq(products.categoryId, categoryId),
-      eq(products.isActive, true),
-      ne(products.id, excludeProductId),
-    ),
+    where: and(eq(products.categoryId, categoryId), eq(products.isActive, true), ne(products.id, excludeProductId)),
     with: { images: { orderBy: (i, { asc }) => [asc(i.position)] } },
     limit,
   });

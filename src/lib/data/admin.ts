@@ -31,7 +31,11 @@ const orderListingWith = {
 
 /** Os mais recentes (painel). */
 export const getRecentOrders = cache(async (limit: number) =>
-  db.query.orders.findMany({ with: orderListingWith, orderBy: (o, { desc }) => [desc(o.createdAt), desc(o.id)], limit }),
+  db.query.orders.findMany({
+    with: orderListingWith,
+    orderBy: (o, { desc }) => [desc(o.createdAt), desc(o.id)],
+    limit,
+  }),
 );
 
 /** Uma página de pedidos, mais o total. */
@@ -98,10 +102,7 @@ export const getCouponForEdit = cache(async (id: string) => {
 });
 
 export const getCategoriesSimple = cache(async () => {
-  return db
-    .select({ id: categories.id, name: categories.name })
-    .from(categories)
-    .orderBy(categories.name);
+  return db.select({ id: categories.id, name: categories.name }).from(categories).orderBy(categories.name);
 });
 
 /** Pedidos de orçamento, do mais novo para o mais antigo. */

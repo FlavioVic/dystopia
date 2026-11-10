@@ -21,7 +21,10 @@ export function RecoveryCodes({ codes }: { codes: string[] }) {
         Guarde estes códigos fora do celular (gerenciador de senhas, papel). Cada um entra uma vez no lugar do código do
         autenticador. Eles não aparecem de novo.
       </p>
-      <ol aria-label="Códigos de recuperação" className="grid grid-cols-1 gap-x-6 gap-y-1.5 font-mono text-sm sm:grid-cols-2">
+      <ol
+        aria-label="Códigos de recuperação"
+        className="grid grid-cols-1 gap-x-6 gap-y-1.5 font-mono text-sm sm:grid-cols-2"
+      >
         {codes.map((code) => (
           <li key={code}>{code}</li>
         ))}

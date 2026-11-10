@@ -79,7 +79,16 @@ export async function exportAccountData(userId: string) {
       // confirma o endereço, e quem criasse conta com o e-mail de outra pessoa
       // levaria os orçamentos que ela mandou sem login.
       where: eq(serviceRequests.userId, userId),
-      columns: { protocol: true, kind: true, name: true, email: true, phone: true, details: true, status: true, createdAt: true },
+      columns: {
+        protocol: true,
+        kind: true,
+        name: true,
+        email: true,
+        phone: true,
+        details: true,
+        status: true,
+        createdAt: true,
+      },
     }),
     // Só quando entrou e até quando vale: o hash do token não é dado da pessoa e não sai daqui.
     db.query.sessions.findMany({
@@ -125,7 +134,10 @@ async function deleteAccountData(executor: Executor, userId: string): Promise<{ 
     throw new PermanentError("admin_account", "Conta de administrador não pode ser excluída por aqui.");
   }
   if (isDemoAccount(user.email)) {
-    throw new PermanentError("demo_account", "A conta de demonstração é de todos os visitantes e não pode ser excluída.");
+    throw new PermanentError(
+      "demo_account",
+      "A conta de demonstração é de todos os visitantes e não pode ser excluída.",
+    );
   }
 
   const userOrders = await executor
@@ -141,19 +153,39 @@ async function deleteAccountData(executor: Executor, userId: string): Promise<{ 
     .where(eq(serviceRequests.userId, userId));
 
   const correlations = [...userOrders.map((o) => o.orderNumber), ...requests.map((r) => r.protocol)];
-  if (correlations.length > 0) await executor.delete(notifications).where(inArray(notifications.correlationId, correlations));
+  if (correlations.length > 0)
+    await executor.delete(notifications).where(inArray(notifications.correlationId, correlations));
 
   if (userOrders.length > 0) {
-    await executor.delete(sagas).where(inArray(sagas.correlationId, userOrders.map((o) => o.orderNumber)));
+    await executor.delete(sagas).where(
+      inArray(
+        sagas.correlationId,
+        userOrders.map((o) => o.orderNumber),
+      ),
+    );
     // Itens e eventos caem em cascata. A cobrança fica no banco de
     // pagamentos: registro financeiro sem dado pessoal (valor, meio, id da
     // transação) — o vínculo com a pessoa some junto com o pedido.
-    await executor.delete(orders).where(inArray(orders.id, userOrders.map((o) => o.id)));
+    await executor.delete(orders).where(
+      inArray(
+        orders.id,
+        userOrders.map((o) => o.id),
+      ),
+    );
   }
-  if (requests.length > 0) await executor.delete(serviceRequests).where(inArray(serviceRequests.id, requests.map((r) => r.id)));
+  if (requests.length > 0)
+    await executor.delete(serviceRequests).where(
+      inArray(
+        serviceRequests.id,
+        requests.map((r) => r.id),
+      ),
+    );
 
   // Avaliação some em cascata com o usuário, mas a média do produto não: recalcula.
-  const reviewed = await executor.select({ productId: reviews.productId }).from(reviews).where(eq(reviews.userId, userId));
+  const reviewed = await executor
+    .select({ productId: reviews.productId })
+    .from(reviews)
+    .where(eq(reviews.userId, userId));
   await executor.delete(reviews).where(eq(reviews.userId, userId));
   for (const { productId } of reviewed) await recalculateProductRating(executor, productId);
 

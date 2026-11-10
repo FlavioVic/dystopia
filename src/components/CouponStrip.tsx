@@ -15,9 +15,7 @@ type Coupon = {
 function CouponCard({ coupon }: { coupon: Coupon }) {
   const [copied, setCopied] = useState(false);
   const value =
-    coupon.discountType === "percentage"
-      ? `${coupon.discountValue}%`
-      : formatPriceCents(coupon.discountValue);
+    coupon.discountType === "percentage" ? `${coupon.discountValue}%` : formatPriceCents(coupon.discountValue);
 
   function copy() {
     navigator.clipboard?.writeText(coupon.code).then(
@@ -36,7 +34,7 @@ function CouponCard({ coupon }: { coupon: Coupon }) {
         <p className="label mt-1 truncate text-foreground-muted">
           {coupon.minOrderCents > 0
             ? `Acima de ${formatPriceCents(coupon.minOrderCents)}`
-            : coupon.description ?? "Sem mínimo"}
+            : (coupon.description ?? "Sem mínimo")}
         </p>
       </div>
       <button

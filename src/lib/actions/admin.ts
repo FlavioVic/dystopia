@@ -69,10 +69,7 @@ export async function updateOrderStatus(orderId: string, status: string): Promis
   return { ok: true };
 }
 
-export async function toggleProductFlag(
-  id: string,
-  flag: "isActive" | "isFeatured",
-): Promise<SimpleResult> {
+export async function toggleProductFlag(id: string, flag: "isActive" | "isFeatured"): Promise<SimpleResult> {
   await ensureAdmin();
   try {
     await catalog.setProductFlag(db, id, flag);
@@ -84,11 +81,7 @@ export async function toggleProductFlag(
   return { ok: true };
 }
 
-export async function updateProduct(
-  id: string,
-  _prev: AdminFormState,
-  formData: FormData,
-): Promise<AdminFormState> {
+export async function updateProduct(id: string, _prev: AdminFormState, formData: FormData): Promise<AdminFormState> {
   await ensureAdmin();
   const parsed = parseProductForm(formData);
   if (!parsed.ok) return { errors: parsed.errors };
@@ -103,10 +96,7 @@ export async function updateProduct(
   redirect("/admin/produtos");
 }
 
-export async function createProduct(
-  _prev: AdminFormState,
-  formData: FormData,
-): Promise<AdminFormState> {
+export async function createProduct(_prev: AdminFormState, formData: FormData): Promise<AdminFormState> {
   await ensureAdmin();
   const parsed = parseProductForm(formData);
   if (!parsed.ok) return { errors: parsed.errors };
@@ -179,10 +169,7 @@ export async function removeVariant(variantId: string): Promise<SimpleResult> {
 // Cupons
 // ---------------------------------------------------------------------------
 
-export async function createCoupon(
-  _prev: AdminFormState,
-  formData: FormData,
-): Promise<AdminFormState> {
+export async function createCoupon(_prev: AdminFormState, formData: FormData): Promise<AdminFormState> {
   await ensureAdmin();
   const parsed = parseCouponForm(formData);
   if (!parsed.ok) return { errors: parsed.errors };
@@ -290,10 +277,15 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
  * Envia uma foto para a galeria. O produto é conferido ANTES de gravar o
  * arquivo; se o banco falhar depois, o arquivo é apagado (sem órfão no Blob).
  */
-export async function uploadProductImage(productId: string, _prev: ImageFormState, formData: FormData): Promise<ImageFormState> {
+export async function uploadProductImage(
+  productId: string,
+  _prev: ImageFormState,
+  formData: FormData,
+): Promise<ImageFormState> {
   await ensureAdmin();
   const storage = mediaStorageFromEnv();
-  if (!storage) return { message: "Armazenamento de imagens não configurado. Crie o Blob store na Vercel (docs/DEPLOY.md)." };
+  if (!storage)
+    return { message: "Armazenamento de imagens não configurado. Crie o Blob store na Vercel (docs/DEPLOY.md)." };
   if (!UUID.test(productId)) return { message: "Produto não encontrado." };
   const product = await db.query.products.findFirst({ where: eq(products.id, productId), columns: { id: true } });
   if (!product) return { message: "Produto não encontrado." };
@@ -322,7 +314,11 @@ export async function uploadProductImage(productId: string, _prev: ImageFormStat
   return { ok: true, sentAt: Date.now() };
 }
 
-export async function saveProductImageAlt(imageId: string, _prev: ImageFormState, formData: FormData): Promise<ImageFormState> {
+export async function saveProductImageAlt(
+  imageId: string,
+  _prev: ImageFormState,
+  formData: FormData,
+): Promise<ImageFormState> {
   await ensureAdmin();
   if (!UUID.test(imageId)) return { message: "Imagem não encontrada." };
   const saved = await catalog.updateProductImageAlt(db, imageId, String(formData.get("altText") ?? ""));
@@ -348,7 +344,9 @@ export async function deleteProductImage(imageId: string): Promise<SimpleResult>
   const removed = await catalog.removeProductImage(db, imageId);
   if (!removed) return { ok: false, error: "Imagem não encontrada." };
   // Falha ao apagar o arquivo não desfaz a remoção: a foto já saiu da loja.
-  await mediaStorageFromEnv()?.remove(removed.url).catch(() => undefined);
+  await mediaStorageFromEnv()
+    ?.remove(removed.url)
+    .catch(() => undefined);
   refresh();
   return { ok: true };
 }

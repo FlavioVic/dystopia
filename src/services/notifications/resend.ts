@@ -65,7 +65,11 @@ export type OutgoingEmail = {
 };
 
 /** Envia e devolve o id do Resend. */
-export async function resendSend(config: EmailConfig, email: OutgoingEmail, fetchImpl: FetchLike = fetch): Promise<string> {
+export async function resendSend(
+  config: EmailConfig,
+  email: OutgoingEmail,
+  fetchImpl: FetchLike = fetch,
+): Promise<string> {
   let response: Response;
   try {
     response = await fetchImpl(API, {

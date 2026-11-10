@@ -10,13 +10,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { coupons } from "@/db/schema";
 import { PermanentError } from "@/shared/errors";
-import {
-  consumeCoupon,
-  createCoupon,
-  resolveCoupon,
-  setCouponActive,
-  updateCoupon,
-} from "@/services/coupons";
+import { consumeCoupon, createCoupon, resolveCoupon, setCouponActive, updateCoupon } from "@/services/coupons";
 import { closeDatabase, resetDatabase } from "../helpers/db";
 
 beforeEach(resetDatabase);

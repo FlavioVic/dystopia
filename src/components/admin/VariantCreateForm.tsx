@@ -13,9 +13,7 @@ export function VariantCreateForm({
 
   return (
     <form action={formAction} className="rounded-xl border border-dashed border-border p-3">
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-foreground-muted">
-        Nova variante
-      </p>
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-foreground-muted">Nova variante</p>
 
       {state?.message ? (
         <p className="mt-2 rounded-lg border border-signal bg-signal px-2.5 py-1.5 text-xs text-on-signal">

@@ -54,8 +54,7 @@ export default async function OrderPage(props: PageProps<"/pedido/[orderNumber]"
     ? { method: order.paymentMethod, status: order.paymentStatus ?? "paid", provider: order.paymentProvider ?? "—" }
     : null;
 
-  const state =
-    order.status === "pending" ? "processing" : order.status === "cancelled" ? "failed" : "confirmed";
+  const state = order.status === "pending" ? "processing" : order.status === "cancelled" ? "failed" : "confirmed";
 
   // Voz da marca: declarativa, sem exclamação. O estado vai em palavra no rótulo.
   const header = {
@@ -117,9 +116,7 @@ export default async function OrderPage(props: PageProps<"/pedido/[orderNumber]"
           </div>
           {order.discountCents > 0 ? (
             <div className="flex justify-between">
-              <dt className="text-foreground-muted">
-                Desconto{order.coupon ? ` (${order.coupon.code})` : ""}
-              </dt>
+              <dt className="text-foreground-muted">Desconto{order.coupon ? ` (${order.coupon.code})` : ""}</dt>
               <dd className="font-mono font-semibold tabular-nums text-foreground">
                 - {formatPriceCents(order.discountCents)}
               </dd>
@@ -176,7 +173,7 @@ export default async function OrderPage(props: PageProps<"/pedido/[orderNumber]"
           {/* Sem resumo: ou a saga ainda não confirmou o pedido, ou a cobrança
               foi recusada (recusa não cobra nada — a cobrança é o pivô). */}
           <p className="mt-2 font-medium">
-            {payment ? methodLabel[payment.method] ?? payment.method : state === "failed" ? "Nenhuma cobrança" : "—"}
+            {payment ? (methodLabel[payment.method] ?? payment.method) : state === "failed" ? "Nenhuma cobrança" : "—"}
           </p>
           <p className="text-foreground-muted">
             {payment

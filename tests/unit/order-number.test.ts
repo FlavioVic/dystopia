@@ -9,15 +9,27 @@ describe("número do pedido", () => {
   });
 
   it("completa com zeros à esquerda", () => {
-    assert.equal(generateOrderNumber(new Date(2026, 0, 1), () => 0), "DYS-2026-000000");
-    assert.equal(generateOrderNumber(new Date(2026, 0, 1), () => 0.000007), "DYS-2026-000007");
+    assert.equal(
+      generateOrderNumber(new Date(2026, 0, 1), () => 0),
+      "DYS-2026-000000",
+    );
+    assert.equal(
+      generateOrderNumber(new Date(2026, 0, 1), () => 0.000007),
+      "DYS-2026-000007",
+    );
   });
 
   it("nunca estoura 6 dígitos", () => {
-    assert.equal(generateOrderNumber(new Date(2026, 0, 1), () => 0.9999999), "DYS-2026-999999");
+    assert.equal(
+      generateOrderNumber(new Date(2026, 0, 1), () => 0.9999999),
+      "DYS-2026-999999",
+    );
   });
 
   it("usa o ano da data informada", () => {
-    assert.match(generateOrderNumber(new Date(2031, 4, 5), () => 0.5), /^DYS-2031-/);
+    assert.match(
+      generateOrderNumber(new Date(2031, 4, 5), () => 0.5),
+      /^DYS-2031-/,
+    );
   });
 });

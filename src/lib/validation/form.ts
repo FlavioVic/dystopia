@@ -12,8 +12,7 @@ import { z } from "zod";
 import { toCents } from "@/lib/money";
 
 export type FormResult<T> =
-  | { ok: true; values: T; errors: Record<string, never> }
-  | { ok: false; errors: Record<string, string> };
+  { ok: true; values: T; errors: Record<string, never> } | { ok: false; errors: Record<string, string> };
 
 /** Os campos pedidos como texto ("" quando ausentes) — a entrada dos schemas. */
 export function formStrings<K extends string>(formData: FormData, keys: readonly K[]): Record<K, string> {

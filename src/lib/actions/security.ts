@@ -29,7 +29,12 @@ export async function signOutOtherDevices(): Promise<SessionsState> {
   const token = await readSessionToken();
   if (!user || !token) redirect("/entrar");
   const removed = await revokeOtherSessions(db, user.id, token);
-  return { message: removed === 0 ? "Nenhum outro aparelho estava conectado." : `${removed} ${removed === 1 ? "sessão encerrada" : "sessões encerradas"}.` };
+  return {
+    message:
+      removed === 0
+        ? "Nenhum outro aparelho estava conectado."
+        : `${removed} ${removed === 1 ? "sessão encerrada" : "sessões encerradas"}.`,
+  };
 }
 
 export type MfaStartState = { qrDataUrl: string; manualKey: string } | { message: string } | undefined;
@@ -55,7 +60,9 @@ export async function startMfaEnrollment(): Promise<MfaStartState> {
   const svg = await QRCode.toString(uri, { type: "svg", margin: 2, errorCorrectionLevel: "M" });
   return {
     qrDataUrl: `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`,
-    manualKey: base32Encode(secret).match(/.{1,4}/g)!.join(" "),
+    manualKey: base32Encode(secret)
+      .match(/.{1,4}/g)!
+      .join(" "),
   };
 }
 
@@ -77,7 +84,8 @@ export async function confirmMfaEnrollment(_prev: MfaConfirmState, formData: For
       currentSessionToken: token,
       code: String(formData.get("code") ?? ""),
     });
-    if (!codes) return { message: "Código não confere. Confira a hora do celular e digite o código que está na tela agora." };
+    if (!codes)
+      return { message: "Código não confere. Confira a hora do celular e digite o código que está na tela agora." };
     return { recoveryCodes: codes };
   } catch (error) {
     if (error instanceof PermanentError) return { message: error.message };

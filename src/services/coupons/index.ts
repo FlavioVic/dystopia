@@ -76,20 +76,13 @@ export type CouponWriteInput = {
   isActive: boolean;
 };
 
-export async function createCoupon(
-  executor: Executor,
-  input: CouponWriteInput,
-): Promise<{ couponId: string }> {
+export async function createCoupon(executor: Executor, input: CouponWriteInput): Promise<{ couponId: string }> {
   await assertCodeFree(executor, input.code);
   const [created] = await executor.insert(coupons).values(input).returning({ id: coupons.id });
   return { couponId: created.id };
 }
 
-export async function updateCoupon(
-  executor: Executor,
-  couponId: string,
-  input: CouponWriteInput,
-): Promise<void> {
+export async function updateCoupon(executor: Executor, couponId: string, input: CouponWriteInput): Promise<void> {
   const existing = await executor.query.coupons.findFirst({
     where: eq(coupons.id, couponId),
     columns: { id: true, usageCount: true },
@@ -109,10 +102,7 @@ export async function updateCoupon(
   await executor.update(coupons).set(input).where(eq(coupons.id, couponId));
 }
 
-export async function setCouponActive(
-  executor: Executor,
-  couponId: string,
-): Promise<{ isActive: boolean }> {
+export async function setCouponActive(executor: Executor, couponId: string): Promise<{ isActive: boolean }> {
   const coupon = await executor.query.coupons.findFirst({
     where: eq(coupons.id, couponId),
     columns: { isActive: true },
@@ -124,15 +114,9 @@ export async function setCouponActive(
   return { isActive };
 }
 
-async function assertCodeFree(
-  executor: Executor,
-  code: string,
-  ignoreCouponId?: string,
-): Promise<void> {
+async function assertCodeFree(executor: Executor, code: string, ignoreCouponId?: string): Promise<void> {
   const existing = await executor.query.coupons.findFirst({
-    where: ignoreCouponId
-      ? and(eq(coupons.code, code), ne(coupons.id, ignoreCouponId))
-      : eq(coupons.code, code),
+    where: ignoreCouponId ? and(eq(coupons.code, code), ne(coupons.id, ignoreCouponId)) : eq(coupons.code, code),
     columns: { id: true },
   });
   if (existing) {

@@ -64,7 +64,11 @@ describe("caso de uso: fechar a compra", () => {
     const [message] = await db.select().from(outbox);
     assert.equal(message?.type, "saga.advance");
     assert.equal(committed, 1);
-    assert.equal(await db.$count(addresses, eq(addresses.userId, fixture.userId)), 1, "endereço novo vai para a agenda");
+    assert.equal(
+      await db.$count(addresses, eq(addresses.userId, fixture.userId)),
+      1,
+      "endereço novo vai para a agenda",
+    );
   });
 
   it("carrinho vazio não grava nada nem avisa ninguém", async () => {

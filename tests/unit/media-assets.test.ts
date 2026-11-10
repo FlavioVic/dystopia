@@ -16,7 +16,10 @@ describe("fotos de produto", () => {
       assert.ok(slugs.has(slug), `${slug} não está no catálogo`);
       assert.ok(existsSync(file(photo.file)), `${photo.file} não existe`);
       assert.match(photo.license, /^(CC0|CC BY(-SA)? \d\.\d|Public domain)/, `${slug}: licença ${photo.license}`);
-      assert.ok(photo.author.length > 0 && photo.source.startsWith("https://commons.wikimedia.org/"), `${slug}: crédito incompleto`);
+      assert.ok(
+        photo.author.length > 0 && photo.source.startsWith("https://commons.wikimedia.org/"),
+        `${slug}: crédito incompleto`,
+      );
     }
   });
 });

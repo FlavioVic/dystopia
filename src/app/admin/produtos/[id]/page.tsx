@@ -50,8 +50,8 @@ export default async function EditProductPage(props: PageProps<"/admin/produtos/
           Imagens ({product.images.length}/{MAX_PRODUCT_IMAGES})
         </h3>
         <p className="mt-1 text-xs text-foreground-muted">
-          A primeira é a principal: aparece no card da loja e no topo da página do produto. Até{" "}
-          {MAX_PRODUCT_IMAGES} fotos; na loja, o cliente vê todas.
+          A primeira é a principal: aparece no card da loja e no topo da página do produto. Até {MAX_PRODUCT_IMAGES}{" "}
+          fotos; na loja, o cliente vê todas.
         </p>
         <div className="mt-4">
           <ProductImages
@@ -64,12 +64,9 @@ export default async function EditProductPage(props: PageProps<"/admin/produtos/
       </section>
 
       <section className="mt-10 border-t border-border pt-6">
-        <h3 className="label text-foreground-muted">
-          Variantes ({product.variants.length})
-        </h3>
+        <h3 className="label text-foreground-muted">Variantes ({product.variants.length})</h3>
         <p className="mt-1 text-xs text-foreground-muted">
-          Variante com preço vazio herda o preço do produto. O estoque da variante é o que a saga
-          reserva na compra.
+          Variante com preço vazio herda o preço do produto. O estoque da variante é o que a saga reserva na compra.
         </p>
 
         {product.variants.length > 0 ? (
@@ -90,9 +87,7 @@ export default async function EditProductPage(props: PageProps<"/admin/produtos/
             ))}
           </ul>
         ) : (
-          <p className="mt-4 text-sm text-foreground-muted">
-            Sem variantes — o produto é vendido como item único.
-          </p>
+          <p className="mt-4 text-sm text-foreground-muted">Sem variantes — o produto é vendido como item único.</p>
         )}
 
         <div className="mt-4">

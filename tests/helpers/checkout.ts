@@ -109,7 +109,9 @@ export async function startCheckout(
       totalCents,
       couponId,
       lines,
-      ...(options.simulate && options.simulate !== "approve" ? { paymentToken: TEST_PAYMENT_TOKENS[options.simulate] } : {}),
+      ...(options.simulate && options.simulate !== "approve"
+        ? { paymentToken: TEST_PAYMENT_TOKENS[options.simulate] }
+        : {}),
     };
 
     const { sagaId } = await startSaga(tx, {

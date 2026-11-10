@@ -24,7 +24,9 @@ export type ReconcileReport = {
   overdueRemoteSteps: number;
 };
 
-export async function reconcile(options: { now?: Date; limit?: number; idleMs?: number } = {}): Promise<ReconcileReport> {
+export async function reconcile(
+  options: { now?: Date; limit?: number; idleMs?: number } = {},
+): Promise<ReconcileReport> {
   const now = options.now ?? new Date();
 
   const releasedSagaLeases = await releaseExpiredLeases(now);

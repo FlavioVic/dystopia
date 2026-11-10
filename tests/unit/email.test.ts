@@ -6,7 +6,13 @@ import { sendEmailNow } from "@/services/notifications/direct";
 import { emailConfigFromEnv, resendSend, type FetchLike } from "@/services/notifications/resend";
 
 const config = { apiKey: "re_123", from: "Dystopia <onboarding@resend.dev>", redirectTo: "dono@exemplo.dev" };
-const email = { to: "dono@exemplo.dev", subject: "Oi", text: "texto", html: "<p>html</p>", idempotencyKey: "order-confirmation:DYS-1" };
+const email = {
+  to: "dono@exemplo.dev",
+  subject: "Oi",
+  text: "texto",
+  html: "<p>html</p>",
+  idempotencyKey: "order-confirmation:DYS-1",
+};
 
 function fakeFetch(response: { status: number; body: unknown } | Error) {
   const calls: Array<{ url: string; init: RequestInit }> = [];
@@ -59,12 +65,18 @@ describe("envio pelo Resend", () => {
   });
 
   it("indisponível tenta de novo; recusa e chave inválida não", async () => {
-    const cases: Array<[{ status: number; body: unknown } | Error, typeof PermanentError | typeof RetryableError, string]> = [
+    const cases: Array<
+      [{ status: number; body: unknown } | Error, typeof PermanentError | typeof RetryableError, string]
+    > = [
       [{ status: 500, body: {} }, RetryableError, "email_unavailable"],
       [{ status: 429, body: { name: "rate_limit_exceeded" } }, RetryableError, "email_unavailable"],
       [new TypeError("fetch failed"), RetryableError, "email_unavailable"],
       [{ status: 401, body: { name: "validation_error" } }, PermanentError, "email_misconfigured"],
-      [{ status: 403, body: { name: "validation_error", message: "só para o seu e-mail" } }, PermanentError, "email_rejected"],
+      [
+        { status: 403, body: { name: "validation_error", message: "só para o seu e-mail" } },
+        PermanentError,
+        "email_rejected",
+      ],
     ];
     for (const [response, type, code] of cases) {
       await assert.rejects(resendSend(config, email, fakeFetch(response)), (error: unknown) => {
@@ -86,7 +98,13 @@ describe("HTML do e-mail", () => {
 });
 
 describe("envio direto (e-mail que não pode ficar gravado)", () => {
-  const reset = { to: "ana@exemplo.dev", subject: "Redefinição de senha", text: "link", html: "<p>link</p>", idempotencyKey: "password-reset:1" };
+  const reset = {
+    to: "ana@exemplo.dev",
+    subject: "Redefinição de senha",
+    text: "link",
+    html: "<p>link</p>",
+    idempotencyKey: "password-reset:1",
+  };
 
   it("no sandbox vai para o dono do projeto, com o destinatário original no assunto", async () => {
     const fetch = fakeFetch({ status: 200, body: { id: "msg_2" } });
@@ -111,4 +129,3 @@ describe("envio direto (e-mail que não pode ficar gravado)", () => {
     await assert.rejects(sendEmailNow(reset, { email: config, fetch }), RetryableError);
   });
 });
-

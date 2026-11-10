@@ -34,7 +34,9 @@ const schema = z.object({
 
 export type AssistantRequest = { history: z.output<typeof turn>[] };
 
-export function parseAssistantRequest(body: unknown): { ok: true; value: AssistantRequest } | { ok: false; error: string } {
+export function parseAssistantRequest(
+  body: unknown,
+): { ok: true; value: AssistantRequest } | { ok: false; error: string } {
   const result = schema.safeParse(body);
   // A tela nunca monta um corpo inválido: quem chega aqui é chamada à mão, e
   // o detalhe do esquema não ajuda ninguém.

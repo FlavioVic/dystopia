@@ -56,16 +56,70 @@ export type SeedProduct = {
 };
 
 export const SEED_CATEGORIES: SeedCategory[] = [
-  { key: "gpu", name: "Placas de vídeo", slug: "placas-de-video", art: "gpu", description: "Processamento gráfico. Registro de série obrigatório." },
-  { key: "cpu", name: "Processadores", slug: "processadores", art: "cpu", description: "Unidades centrais de comando. AM5 e LGA1851." },
-  { key: "mobo", name: "Placas-mãe", slug: "placas-mae", art: "motherboard", description: "A base de toda a instalação." },
-  { key: "ram", name: "Memória RAM", slug: "memoria-ram", art: "ram", description: "Memória de trabalho. DDR5 e DDR4." },
-  { key: "ssd", name: "Armazenamento", slug: "armazenamento", art: "ssd", description: "Nada se perde. Tudo é arquivado." },
-  { key: "psu", name: "Fontes", slug: "fontes", art: "psu", description: "Alimentação certificada. Sem margem para falha." },
+  {
+    key: "gpu",
+    name: "Placas de vídeo",
+    slug: "placas-de-video",
+    art: "gpu",
+    description: "Processamento gráfico. Registro de série obrigatório.",
+  },
+  {
+    key: "cpu",
+    name: "Processadores",
+    slug: "processadores",
+    art: "cpu",
+    description: "Unidades centrais de comando. AM5 e LGA1851.",
+  },
+  {
+    key: "mobo",
+    name: "Placas-mãe",
+    slug: "placas-mae",
+    art: "motherboard",
+    description: "A base de toda a instalação.",
+  },
+  {
+    key: "ram",
+    name: "Memória RAM",
+    slug: "memoria-ram",
+    art: "ram",
+    description: "Memória de trabalho. DDR5 e DDR4.",
+  },
+  {
+    key: "ssd",
+    name: "Armazenamento",
+    slug: "armazenamento",
+    art: "ssd",
+    description: "Nada se perde. Tudo é arquivado.",
+  },
+  {
+    key: "psu",
+    name: "Fontes",
+    slug: "fontes",
+    art: "psu",
+    description: "Alimentação certificada. Sem margem para falha.",
+  },
   { key: "case", name: "Gabinetes", slug: "gabinetes", art: "case", description: "Contenção do equipamento." },
-  { key: "cool", name: "Refrigeração", slug: "refrigeracao", art: "cooler", description: "Controle térmico. Ar e líquido." },
-  { key: "mon", name: "Monitores", slug: "monitores", art: "monitor", description: "Vigilância em alta taxa de atualização." },
-  { key: "per", name: "Periféricos", slug: "perifericos", art: "keyboard", description: "Mouse, teclado e headset. Interfaces de comando." },
+  {
+    key: "cool",
+    name: "Refrigeração",
+    slug: "refrigeracao",
+    art: "cooler",
+    description: "Controle térmico. Ar e líquido.",
+  },
+  {
+    key: "mon",
+    name: "Monitores",
+    slug: "monitores",
+    art: "monitor",
+    description: "Vigilância em alta taxa de atualização.",
+  },
+  {
+    key: "per",
+    name: "Periféricos",
+    slug: "perifericos",
+    art: "keyboard",
+    description: "Mouse, teclado e headset. Interfaces de comando.",
+  },
 ];
 
 export const SEED_PRODUCTS: SeedProduct[] = [
@@ -313,7 +367,13 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     ],
     variants: [
       { name: "32 GB (2x16 GB)", sku: "DYS-H4001-32", attributes: { capacidade: "32 GB" }, stockQuantity: 40 },
-      { name: "64 GB (2x32 GB)", sku: "DYS-H4001-64", attributes: { capacidade: "64 GB" }, priceCents: 124990, stockQuantity: 15 },
+      {
+        name: "64 GB (2x32 GB)",
+        sku: "DYS-H4001-64",
+        attributes: { capacidade: "64 GB" },
+        priceCents: 124990,
+        stockQuantity: 15,
+      },
     ],
   },
   {
@@ -352,7 +412,13 @@ export const SEED_PRODUCTS: SeedProduct[] = [
     ],
     variants: [
       { name: "16 GB (2x8 GB)", sku: "DYS-H4003-16", attributes: { capacidade: "16 GB" }, stockQuantity: 30 },
-      { name: "32 GB (2x16 GB)", sku: "DYS-H4003-32", attributes: { capacidade: "32 GB" }, priceCents: 49990, stockQuantity: 25 },
+      {
+        name: "32 GB (2x16 GB)",
+        sku: "DYS-H4003-32",
+        attributes: { capacidade: "32 GB" },
+        priceCents: 49990,
+        stockQuantity: 25,
+      },
     ],
   },
 

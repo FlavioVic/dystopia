@@ -24,7 +24,7 @@ export async function generateMetadata(props: PageProps<"/produtos">): Promise<M
 export default async function ProductsPage(props: PageProps<"/produtos">) {
   const params = await props.searchParams;
   const raw = params.q;
-  const query = (Array.isArray(raw) ? raw[0] : raw ?? "").trim();
+  const query = (Array.isArray(raw) ? raw[0] : (raw ?? "")).trim();
 
   const page = parsePage(params.pagina, STORE_PAGE_SIZE);
   const { items: products, total } = query ? await searchProducts(query, page) : await listActiveProducts(page);

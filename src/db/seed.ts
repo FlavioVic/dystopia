@@ -13,16 +13,7 @@
 import "dotenv/config";
 import bcrypt from "bcryptjs";
 import { db } from "./index";
-import {
-  categories,
-  products,
-  productImages,
-  productVariants,
-  users,
-  addresses,
-  coupons,
-  reviews,
-} from "./schema";
+import { categories, products, productImages, productVariants, users, addresses, coupons, reviews } from "./schema";
 import { sql } from "drizzle-orm";
 import { PRODUCT_PHOTOS } from "@/lib/photo-credits";
 import { DEMO_ACCOUNT_EMAIL } from "@/lib/site";
@@ -205,7 +196,11 @@ async function main() {
   });
 
   console.log("⭐ Criando reviews de exemplo...");
-  const allProducts = await db.select().from(products).where(sql`${products.isFeatured}`).limit(5);
+  const allProducts = await db
+    .select()
+    .from(products)
+    .where(sql`${products.isFeatured}`)
+    .limit(5);
   for (const prod of allProducts) {
     await db.insert(reviews).values({
       productId: prod.id,

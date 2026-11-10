@@ -15,11 +15,12 @@ import type { UseCaseHooks } from "./hooks";
 
 // Entrada pública sem login: limite por IP para ninguém encher a caixa do
 // admin com pedido falso em loop. A chave é a mesma para os dois canais.
-const REQUEST_RULE: RateLimitRule = { limit: limitFromEnv("SERVICE_REQUEST_LIMIT_PER_HOUR", 5), windowSeconds: 60 * 60 };
+const REQUEST_RULE: RateLimitRule = {
+  limit: limitFromEnv("SERVICE_REQUEST_LIMIT_PER_HOUR", 5),
+  windowSeconds: 60 * 60,
+};
 
-export type SubmitServiceRequestResult =
-  | { ok: true; protocol: string }
-  | { ok: false; retryAfterSeconds: number };
+export type SubmitServiceRequestResult = { ok: true; protocol: string } | { ok: false; retryAfterSeconds: number };
 
 export type SubmitServiceRequestInput = {
   values: ServiceRequestValues;

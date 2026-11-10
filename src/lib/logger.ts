@@ -23,7 +23,9 @@ const SENSITIVE_FIELD = /pass(word)?|senha|secret|token|authorization|cookie|api
 
 function redact(fields?: LogFields): LogFields | undefined {
   if (!fields) return fields;
-  return Object.fromEntries(Object.entries(fields).map(([key, value]) => [key, SENSITIVE_FIELD.test(key) ? "[omitido]" : value]));
+  return Object.fromEntries(
+    Object.entries(fields).map(([key, value]) => [key, SENSITIVE_FIELD.test(key) ? "[omitido]" : value]),
+  );
 }
 
 function emit(level: LogLevel, scope: string, message: string, rawFields?: LogFields): void {

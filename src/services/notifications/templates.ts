@@ -29,7 +29,12 @@ const SANS = "'Inter Tight','Helvetica Neue',Helvetica,Arial,sans-serif";
 const MONO = "'IBM Plex Mono',SFMono-Regular,Menlo,Consolas,'Courier New',monospace";
 
 export const escapeHtml = (value: string) =>
-  value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 
 /** Rótulo técnico: mono, caixa alta, espaçado (a `.label` do site). */
 const label = (text: string, color = COLOR.muted) =>
@@ -89,7 +94,12 @@ function layout(input: {
 </table></td></tr></table></body></html>`;
 }
 
-const PAYMENT_LABELS: Record<string, string> = { pix: "Pix", boleto: "Boleto", credit_card: "Cartão", paypal: "PayPal" };
+const PAYMENT_LABELS: Record<string, string> = {
+  pix: "Pix",
+  boleto: "Boleto",
+  credit_card: "Cartão",
+  paypal: "PayPal",
+};
 
 export type OrderConfirmationEmailInput = {
   orderNumber: string;
@@ -103,7 +113,7 @@ export function orderConfirmationEmail(input: OrderConfirmationEmailInput, siteU
   // Voz da marca: declarativa, sem exclamação.
   const subject = `Aquisição ${input.orderNumber} registrada`;
   const orderUrl = `${siteUrl}/pedido/${encodeURIComponent(input.orderNumber)}`;
-  const payment = input.paymentMethod ? PAYMENT_LABELS[input.paymentMethod] ?? input.paymentMethod : null;
+  const payment = input.paymentMethod ? (PAYMENT_LABELS[input.paymentMethod] ?? input.paymentMethod) : null;
 
   const text = [
     `${input.customerName}.`,
@@ -153,7 +163,10 @@ export type ServiceRequestAlertEmailInput = {
   details: string;
 };
 
-export function serviceRequestAlertEmail(input: ServiceRequestAlertEmailInput, siteUrl: string = SITE_URL): EmailContent {
+export function serviceRequestAlertEmail(
+  input: ServiceRequestAlertEmailInput,
+  siteUrl: string = SITE_URL,
+): EmailContent {
   const subject = `Orçamento ${input.protocol}: ${input.serviceName}`;
   const adminUrl = `${siteUrl}/admin/orcamentos`;
 
@@ -174,7 +187,10 @@ export function serviceRequestAlertEmail(input: ServiceRequestAlertEmailInput, s
   const rows =
     row("Serviço", escapeHtml(input.serviceName), { first: true }) +
     row("Nome", escapeHtml(input.name)) +
-    row("E-mail", `<a href="${escapeHtml(mailto)}" style="color:${COLOR.bone};text-decoration:underline">${escapeHtml(input.email)}</a>`) +
+    row(
+      "E-mail",
+      `<a href="${escapeHtml(mailto)}" style="color:${COLOR.bone};text-decoration:underline">${escapeHtml(input.email)}</a>`,
+    ) +
     row("Telefone", escapeHtml(input.phone ?? "não informado"));
 
   const html = layout({

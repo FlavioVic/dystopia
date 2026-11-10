@@ -24,10 +24,21 @@ beforeEach(resetDatabase);
 after(closeDatabase);
 
 async function createProduct(): Promise<string> {
-  const [category] = await db.insert(categories).values({ name: "Refrigeração", slug: "refrigeracao" }).returning({ id: categories.id });
+  const [category] = await db
+    .insert(categories)
+    .values({ name: "Refrigeração", slug: "refrigeracao" })
+    .returning({ id: categories.id });
   const [product] = await db
     .insert(products)
-    .values({ name: "Cooler", slug: "cooler", sku: "SKU-1", categoryId: category.id, priceCents: 19990, stockQuantity: 5, description: "x" })
+    .values({
+      name: "Cooler",
+      slug: "cooler",
+      sku: "SKU-1",
+      categoryId: category.id,
+      priceCents: 19990,
+      stockQuantity: 5,
+      description: "x",
+    })
     .returning({ id: products.id });
   return product.id;
 }
@@ -40,7 +51,11 @@ describe("galeria do produto", () => {
     await addProductImage(db, productId, { url: "/a.webp", altText: "A" });
     await addProductImage(db, productId, { url: "/b.webp" });
     await addProductImage(db, productId, { url: "/c.webp" });
-    assert.deepEqual(await urls(productId), [["/a.webp", 0], ["/b.webp", 1], ["/c.webp", 2]]);
+    assert.deepEqual(await urls(productId), [
+      ["/a.webp", 0],
+      ["/b.webp", 1],
+      ["/c.webp", 2],
+    ]);
   });
 
   it("tornar principal, subir e descer reescrevem a ordem sem buraco", async () => {
@@ -50,15 +65,31 @@ describe("galeria do produto", () => {
     const c = await addProductImage(db, productId, { url: "/c.webp" });
 
     assert.equal(await moveProductImage(db, c.id, "first"), true);
-    assert.deepEqual(await urls(productId), [["/c.webp", 0], ["/a.webp", 1], ["/b.webp", 2]]);
+    assert.deepEqual(await urls(productId), [
+      ["/c.webp", 0],
+      ["/a.webp", 1],
+      ["/b.webp", 2],
+    ]);
     await moveProductImage(db, b.id, "up");
-    assert.deepEqual(await urls(productId), [["/c.webp", 0], ["/b.webp", 1], ["/a.webp", 2]]);
+    assert.deepEqual(await urls(productId), [
+      ["/c.webp", 0],
+      ["/b.webp", 1],
+      ["/a.webp", 2],
+    ]);
     await moveProductImage(db, c.id, "down");
-    assert.deepEqual(await urls(productId), [["/b.webp", 0], ["/c.webp", 1], ["/a.webp", 2]]);
+    assert.deepEqual(await urls(productId), [
+      ["/b.webp", 0],
+      ["/c.webp", 1],
+      ["/a.webp", 2],
+    ]);
     // Nas pontas, não sai do lugar.
     await moveProductImage(db, b.id, "up");
     await moveProductImage(db, a.id, "down");
-    assert.deepEqual(await urls(productId), [["/b.webp", 0], ["/c.webp", 1], ["/a.webp", 2]]);
+    assert.deepEqual(await urls(productId), [
+      ["/b.webp", 0],
+      ["/c.webp", 1],
+      ["/a.webp", 2],
+    ]);
   });
 
   it("remover devolve a URL (para apagar o arquivo) e fecha o buraco", async () => {
@@ -68,7 +99,10 @@ describe("galeria do produto", () => {
     await addProductImage(db, productId, { url: "/c.webp" });
 
     assert.deepEqual(await removeProductImage(db, a.id), { url: "/a.webp" });
-    assert.deepEqual(await urls(productId), [["/b.webp", 0], ["/c.webp", 1]]);
+    assert.deepEqual(await urls(productId), [
+      ["/b.webp", 0],
+      ["/c.webp", 1],
+    ]);
     assert.equal(await removeProductImage(db, a.id), null, "já removida");
   });
 
@@ -88,7 +122,8 @@ describe("galeria do produto", () => {
     for (let i = 0; i < MAX_PRODUCT_IMAGES; i += 1) await addProductImage(db, productId, { url: `/${i}.webp` });
     await assert.rejects(
       addProductImage(db, productId, { url: "/extra.webp" }),
-      (error) => error instanceof PermanentError && error.code === "too_many_images" && /Remova uma/.test(error.message),
+      (error) =>
+        error instanceof PermanentError && error.code === "too_many_images" && /Remova uma/.test(error.message),
     );
     assert.equal((await listProductImages(db, productId)).length, MAX_PRODUCT_IMAGES);
   });

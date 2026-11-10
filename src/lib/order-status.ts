@@ -14,7 +14,12 @@ export type OrderStatus = (typeof ORDER_STATUSES)[number];
  * Status que contam como receita: dinheiro aprovado e não devolvido. Pendente
  * ainda pode falhar; cancelado e reembolsado não ficaram com a loja.
  */
-export const REVENUE_STATUSES = ["paid", "processing", "shipped", "delivered"] as const satisfies readonly OrderStatus[];
+export const REVENUE_STATUSES = [
+  "paid",
+  "processing",
+  "shipped",
+  "delivered",
+] as const satisfies readonly OrderStatus[];
 
 export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   pending: "Pendente",

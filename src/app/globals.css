@@ -241,24 +241,59 @@
        empurrar a página para o lado. */
     overflow-wrap: break-word;
   }
-  .display-1 { font-size: 64px; line-height: 72px; letter-spacing: 0.1em; }
-  .display-2 { font-size: 40px; line-height: 48px; letter-spacing: 0.12em; }
-  .display-3 { font-size: 24px; line-height: 32px; letter-spacing: 0.14em; }
-  .display-4 { font-size: 14px; line-height: 20px; letter-spacing: 0.2em; }
+  .display-1 {
+    font-size: 64px;
+    line-height: 72px;
+    letter-spacing: 0.1em;
+  }
+  .display-2 {
+    font-size: 40px;
+    line-height: 48px;
+    letter-spacing: 0.12em;
+  }
+  .display-3 {
+    font-size: 24px;
+    line-height: 32px;
+    letter-spacing: 0.14em;
+  }
+  .display-4 {
+    font-size: 14px;
+    line-height: 20px;
+    letter-spacing: 0.2em;
+  }
   @media (max-width: 640px) {
-    .display-1 { font-size: 34px; line-height: 42px; letter-spacing: 0.08em; }
-    .display-2 { font-size: 26px; line-height: 34px; letter-spacing: 0.1em; }
+    .display-1 {
+      font-size: 34px;
+      line-height: 42px;
+      letter-spacing: 0.08em;
+    }
+    .display-2 {
+      font-size: 26px;
+      line-height: 34px;
+      letter-spacing: 0.1em;
+    }
   }
   /* display-2 em coluna estreita (login, cadastro: 352px no desktop, 288px num
      celular de 320). "IDENTIFICAÇÃO" na Michroma mede 501px em 40px e quebrava
      no meio da palavra; medido, cabe com 28px no desktop, 26px a partir de
      360px e 22px abaixo. Vem depois do .display-2 para ganhar dele. */
-  .display-2--narrow { font-size: 22px; line-height: 30px; letter-spacing: 0.08em; }
+  .display-2--narrow {
+    font-size: 22px;
+    line-height: 30px;
+    letter-spacing: 0.08em;
+  }
   @media (min-width: 360px) {
-    .display-2--narrow { font-size: 26px; line-height: 34px; letter-spacing: 0.1em; }
+    .display-2--narrow {
+      font-size: 26px;
+      line-height: 34px;
+      letter-spacing: 0.1em;
+    }
   }
   @media (min-width: 641px) {
-    .display-2--narrow { font-size: 28px; line-height: 36px; }
+    .display-2--narrow {
+      font-size: 28px;
+      line-height: 36px;
+    }
   }
 }
 
@@ -299,9 +334,20 @@
   white-space: nowrap;
   color: var(--foreground);
 }
-.dys-label--restricted { background: var(--signal); border-color: var(--signal); color: var(--on-signal); }
-.dys-label--classified { background: var(--foreground); color: var(--background); }
-.dys-label--notice { border-width: 1px; border-color: var(--border); color: var(--foreground-muted); }
+.dys-label--restricted {
+  background: var(--signal);
+  border-color: var(--signal);
+  color: var(--on-signal);
+}
+.dys-label--classified {
+  background: var(--foreground);
+  color: var(--background);
+}
+.dys-label--notice {
+  border-width: 1px;
+  border-color: var(--border);
+  color: var(--foreground-muted);
+}
 
 /* Moldura de cantoneiras: marca o que é controlado/inspecionado. Nunca caixa fechada. */
 .dys-frame {
@@ -321,18 +367,10 @@
 /* Faixa de perigo: só em borda/limiar físico, nunca como fundo. */
 .hazard {
   height: 12px;
-  background: repeating-linear-gradient(
-    -45deg,
-    var(--signal) 0 9px,
-    var(--bone) 9px 18px
-  );
+  background: repeating-linear-gradient(-45deg, var(--signal) 0 9px, var(--bone) 9px 18px);
 }
 .hazard--mono {
-  background: repeating-linear-gradient(
-    -45deg,
-    var(--foreground) 0 9px,
-    var(--background) 9px 18px
-  );
+  background: repeating-linear-gradient(-45deg, var(--foreground) 0 9px, var(--background) 9px 18px);
 }
 
 /* Grade modular de fundo (rule-faint) — só onde a página mostra a estrutura. */

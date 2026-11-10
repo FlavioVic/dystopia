@@ -23,9 +23,7 @@ export default async function AddressesPage() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="display-2 text-[26px] leading-[34px] sm:text-[32px] sm:leading-[40px]">Endereços</h1>
-          <p className="mt-1 text-sm text-foreground-muted">
-            Os endereços salvos aparecem como opção no checkout.
-          </p>
+          <p className="mt-1 text-sm text-foreground-muted">Os endereços salvos aparecem como opção no checkout.</p>
         </div>
         <Link href="/conta" className="text-sm text-foreground-muted hover:text-foreground">
           ← Minha conta
@@ -43,11 +41,7 @@ export default async function AddressesPage() {
               <div className="min-w-0 text-sm">
                 <p className="flex flex-wrap items-center gap-2 font-medium">
                   {address.label}
-                  {address.isDefault ? (
-                    <span className="dys-label dys-label--notice">
-                      padrão
-                    </span>
-                  ) : null}
+                  {address.isDefault ? <span className="dys-label dys-label--notice">padrão</span> : null}
                 </p>
                 <p className="text-foreground-muted">{address.recipientName}</p>
                 <p className="text-xs text-foreground-muted">{formatAddress(address)}</p>

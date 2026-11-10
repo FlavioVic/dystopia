@@ -12,11 +12,7 @@ import {
   getSagasOverview,
 } from "@/lib/data/orchestration";
 import { formatDuration, HEALTH_WINDOWS, parseHealthWindow, type HealthWindow } from "@/lib/observability";
-import {
-  sagaStatusClass,
-  sagaStepLabel,
-  SAGA_STATUS_LABELS,
-} from "@/lib/saga-ui";
+import { sagaStatusClass, sagaStepLabel, SAGA_STATUS_LABELS } from "@/lib/saga-ui";
 
 export const metadata: Metadata = { title: "Orquestração · Admin" };
 export const maxDuration = 30;
@@ -53,7 +49,9 @@ export default async function OrchestrationPage(props: PageProps<"/admin/orquest
   const brokerDown = queueMetrics.broker.status === "down";
 
   const finished =
-    (sagaMetrics.byStatus.completed ?? 0) + (sagaMetrics.byStatus.compensated ?? 0) + (sagaMetrics.byStatus.failed ?? 0);
+    (sagaMetrics.byStatus.completed ?? 0) +
+    (sagaMetrics.byStatus.compensated ?? 0) +
+    (sagaMetrics.byStatus.failed ?? 0);
   const needsAction = (sagaMetrics.byStatus.failed ?? 0) + (sagaMetrics.byStatus.halted ?? 0) + queueMetrics.dead;
 
   const cards = [
@@ -86,9 +84,7 @@ export default async function OrchestrationPage(props: PageProps<"/admin/orquest
     <div className="flex flex-col gap-8">
       <section>
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="label text-foreground-muted">
-            Saúde · últimas {HEALTH_WINDOWS[range].label}
-          </h2>
+          <h2 className="label text-foreground-muted">Saúde · últimas {HEALTH_WINDOWS[range].label}</h2>
           <nav className="flex gap-1 text-xs" aria-label="Janela das métricas">
             {(Object.keys(HEALTH_WINDOWS) as HealthWindow[]).map((key) => (
               <Link
@@ -115,7 +111,12 @@ export default async function OrchestrationPage(props: PageProps<"/admin/orquest
         </div>
 
         {sagaMetrics.steps.length > 0 ? (
-          <div tabIndex={0} role="region" aria-label="Passos da saga" className="mt-4 overflow-x-auto rounded-xl border border-border">
+          <div
+            tabIndex={0}
+            role="region"
+            aria-label="Passos da saga"
+            className="mt-4 overflow-x-auto rounded-xl border border-border"
+          >
             <table className="w-full min-w-[640px] text-sm">
               <thead className="border-b border-border bg-background-elevated text-left text-xs text-foreground-muted">
                 <tr>
@@ -123,7 +124,10 @@ export default async function OrchestrationPage(props: PageProps<"/admin/orquest
                   <th className="px-4 py-2.5 text-right font-medium">Execuções</th>
                   <th className="px-4 py-2.5 text-right font-medium">Com retry</th>
                   <th className="px-4 py-2.5 text-right font-medium">Falhas</th>
-                  <th className="px-4 py-2.5 text-right font-medium" title="Inclui a espera de backoff entre tentativas">
+                  <th
+                    className="px-4 py-2.5 text-right font-medium"
+                    title="Inclui a espera de backoff entre tentativas"
+                  >
                     p50 · p95
                   </th>
                 </tr>
@@ -133,7 +137,9 @@ export default async function OrchestrationPage(props: PageProps<"/admin/orquest
                   <tr key={step.name} className="border-b border-border last:border-0">
                     <td className="px-4 py-2.5">{sagaStepLabel(step.name)}</td>
                     <td className="px-4 py-2.5 text-right tabular-nums">{step.executions}</td>
-                    <td className={`px-4 py-2.5 text-right tabular-nums ${step.retried > 0 ? "text-foreground-muted" : ""}`}>
+                    <td
+                      className={`px-4 py-2.5 text-right tabular-nums ${step.retried > 0 ? "text-foreground-muted" : ""}`}
+                    >
                       {step.retried}
                     </td>
                     <td className={`px-4 py-2.5 text-right tabular-nums ${step.failed > 0 ? "text-foreground" : ""}`}>
@@ -163,13 +169,21 @@ export default async function OrchestrationPage(props: PageProps<"/admin/orquest
             Broker inacessível: {queueMetrics.broker.status === "down" ? queueMetrics.broker.error : ""}
           </p>
         ) : (
-          <div tabIndex={0} role="region" aria-label="Filas do RabbitMQ" className="mt-4 overflow-x-auto rounded-xl border border-border">
+          <div
+            tabIndex={0}
+            role="region"
+            aria-label="Filas do RabbitMQ"
+            className="mt-4 overflow-x-auto rounded-xl border border-border"
+          >
             <table className="w-full min-w-[560px] text-sm">
               <thead className="border-b border-border bg-background-elevated text-left text-xs text-foreground-muted">
                 <tr>
                   <th className="px-4 py-2.5 font-medium">Fila</th>
                   <th className="px-4 py-2.5 text-right font-medium">Prontas</th>
-                  <th className="px-4 py-2.5 text-right font-medium" title="Nas filas de espera (TTL) até o próximo retry">
+                  <th
+                    className="px-4 py-2.5 text-right font-medium"
+                    title="Nas filas de espera (TTL) até o próximo retry"
+                  >
                     Em espera
                   </th>
                   <th className="px-4 py-2.5 text-right font-medium">DLQ</th>
@@ -199,7 +213,8 @@ export default async function OrchestrationPage(props: PageProps<"/admin/orquest
         )}
 
         <p className="mt-3 text-xs text-foreground-muted">
-          Outbox: {queueMetrics.outbox.pending === 0
+          Outbox:{" "}
+          {queueMetrics.outbox.pending === 0
             ? "tudo publicado"
             : `${queueMetrics.outbox.pending} esperando publicação (mais antiga há ${formatDuration(queueMetrics.outbox.oldestPendingAgeMs)}${queueMetrics.outbox.failing > 0 ? `, ${queueMetrics.outbox.failing} com falha de publicação` : ""})`}
           .
@@ -215,7 +230,12 @@ export default async function OrchestrationPage(props: PageProps<"/admin/orquest
         ) : null}
 
         {deadLetters.length > 0 ? (
-          <div tabIndex={0} role="region" aria-label="Mensagens na DLQ" className="mt-4 overflow-x-auto rounded-xl border border-border">
+          <div
+            tabIndex={0}
+            role="region"
+            aria-label="Mensagens na DLQ"
+            className="mt-4 overflow-x-auto rounded-xl border border-border"
+          >
             <table className="w-full min-w-[720px] text-sm">
               <thead className="border-b border-border bg-background-elevated text-left text-xs text-foreground-muted">
                 <tr>
@@ -317,15 +337,16 @@ export default async function OrchestrationPage(props: PageProps<"/admin/orquest
       </section>
 
       <section>
-        <h2 className="label text-foreground-muted">
-          Notificações
-        </h2>
+        <h2 className="label text-foreground-muted">Notificações</h2>
         {notifications.length === 0 ? (
           <p className="mt-4 text-sm text-foreground-muted">Nada enviado ainda.</p>
         ) : (
           <ul className="mt-4 divide-y divide-border rounded-xl border border-border">
             {notifications.map((notification) => (
-              <li key={notification.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 text-sm">
+              <li
+                key={notification.id}
+                className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 text-sm"
+              >
                 <span className="min-w-0">
                   <span className="line-clamp-1 font-medium">{notification.subject}</span>
                   <span className="block text-xs text-foreground-muted">
@@ -341,7 +362,9 @@ export default async function OrchestrationPage(props: PageProps<"/admin/orquest
                   ) : null}
                 </span>
                 <span className="flex items-center gap-2 text-xs text-foreground-muted">
-                  <span className={`label whitespace-nowrap px-2 py-0.5 ${NOTIFICATION_STATUS[notification.status].className}`}>
+                  <span
+                    className={`label whitespace-nowrap px-2 py-0.5 ${NOTIFICATION_STATUS[notification.status].className}`}
+                  >
                     {NOTIFICATION_STATUS[notification.status].label}
                   </span>
                   {new Date(notification.createdAt).toLocaleString("pt-BR")}

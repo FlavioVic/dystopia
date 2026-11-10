@@ -45,7 +45,12 @@ const common = {
   maxUsage: z
     .string()
     .transform((value) => value.trim())
-    .pipe(z.union([z.literal("").transform(() => null), wholeNumber("Deixe vazio para ilimitado, ou informe 1 ou mais.", 1)])),
+    .pipe(
+      z.union([
+        z.literal("").transform(() => null),
+        wholeNumber("Deixe vazio para ilimitado, ou informe 1 ou mais.", 1),
+      ]),
+    ),
   validFrom: dateInput(() => new Date()),
   validUntil: dateInput(() => null),
   isActive: z.boolean(),
@@ -56,8 +61,16 @@ const couponSchema = z
   .discriminatedUnion(
     "discountType",
     [
-      z.object({ ...common, discountType: z.literal("percentage"), discountValue: wholeNumber("Percentual de 1 a 100.", 1, 100) }),
-      z.object({ ...common, discountType: z.literal("fixed"), discountValue: cents("Informe o valor do desconto.", 1) }),
+      z.object({
+        ...common,
+        discountType: z.literal("percentage"),
+        discountValue: wholeNumber("Percentual de 1 a 100.", 1, 100),
+      }),
+      z.object({
+        ...common,
+        discountType: z.literal("fixed"),
+        discountValue: cents("Informe o valor do desconto.", 1),
+      }),
     ],
     { error: "Escolha o tipo de desconto." },
   )
@@ -77,7 +90,16 @@ const couponSchema = z
 
 export type CouponFormValues = z.output<typeof couponSchema>;
 
-const FIELDS = ["code", "description", "discountType", "discountValue", "minOrder", "maxUsage", "validFrom", "validUntil"] as const;
+const FIELDS = [
+  "code",
+  "description",
+  "discountType",
+  "discountValue",
+  "minOrder",
+  "maxUsage",
+  "validFrom",
+  "validUntil",
+] as const;
 
 export function parseCouponForm(formData: FormData) {
   return parseForm(couponSchema, { ...formStrings(formData, FIELDS), isActive: checked(formData, "isActive") });

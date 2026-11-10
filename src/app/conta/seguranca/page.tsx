@@ -87,9 +87,7 @@ export default async function SecurityPage({ searchParams }: PageProps<"/conta/s
           Sessões
         </h2>
         <p className="mt-3 text-sm leading-relaxed text-foreground">
-          {sessionCount === 1
-            ? "Só este aparelho está conectado."
-            : `${sessionCount} sessões abertas, contando esta.`}{" "}
+          {sessionCount === 1 ? "Só este aparelho está conectado." : `${sessionCount} sessões abertas, contando esta.`}{" "}
           Encerrar a sessão (aqui ou em outro aparelho) vale na hora: o login guardado naquele navegador para de
           funcionar.
         </p>

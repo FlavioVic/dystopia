@@ -47,11 +47,7 @@ export async function toggleWishlist(
   return { inWishlist: true };
 }
 
-export async function isInWishlist(
-  executor: Executor,
-  userId: string,
-  productId: string,
-): Promise<boolean> {
+export async function isInWishlist(executor: Executor, userId: string, productId: string): Promise<boolean> {
   const row = await executor.query.wishlistItems.findFirst({
     where: and(eq(wishlistItems.userId, userId), eq(wishlistItems.productId, productId)),
   });

@@ -66,7 +66,8 @@ export async function handleAssistantMessage(input: {
     loggedIn: input.context.userId !== null,
     categories,
     coupons: coupons.map((coupon) => {
-      const value = coupon.discountType === "percentage" ? `${coupon.discountValue}%` : formatPriceCents(coupon.discountValue);
+      const value =
+        coupon.discountType === "percentage" ? `${coupon.discountValue}%` : formatPriceCents(coupon.discountValue);
       return `${coupon.code}: ${value} acima de ${formatPriceCents(coupon.minOrderCents)}`;
     }),
   });
@@ -83,7 +84,10 @@ export async function handleAssistantMessage(input: {
     return { status: 200, body: { reply } };
   } catch (error) {
     if (error instanceof AssistantBusyError) {
-      return { status: 503, body: { error: `Muitas perguntas ao mesmo tempo. Tente de novo em ${error.retryAfterSeconds} s.` } };
+      return {
+        status: 503,
+        body: { error: `Muitas perguntas ao mesmo tempo. Tente de novo em ${error.retryAfterSeconds} s.` },
+      };
     }
     if (error instanceof AssistantUnavailableError) {
       log.error("provedor indisponível", { error: error.message });

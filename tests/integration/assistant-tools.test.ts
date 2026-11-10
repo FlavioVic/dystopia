@@ -26,11 +26,52 @@ async function seedCatalog() {
   const [cpus] = await db.insert(categories).values({ name: "Processadores", slug: "processadores" }).returning();
   const base = { description: "x", stockQuantity: 5 };
   await db.insert(products).values([
-    { ...base, categoryId: gpus.id, name: "Placa de vídeo RTX 5060", slug: "rtx-5060", sku: "GPU-1", brand: "NVIDIA", priceCents: 249_990 },
-    { ...base, categoryId: gpus.id, name: "Placa de vídeo RTX 5070", slug: "rtx-5070", sku: "GPU-2", brand: "NVIDIA", priceCents: 459_990 },
-    { ...base, categoryId: gpus.id, name: "Placa de vídeo RTX 5050", slug: "rtx-5050", sku: "GPU-3", brand: "NVIDIA", priceCents: 179_990, stockQuantity: 0 },
-    { ...base, categoryId: cpus.id, name: "Processador Ryzen 5 9600X", slug: "ryzen-5", sku: "CPU-1", brand: "AMD", priceCents: 169_990 },
-    { ...base, categoryId: cpus.id, name: "Processador RTX inativo", slug: "inativo", sku: "CPU-2", priceCents: 1_000, isActive: false },
+    {
+      ...base,
+      categoryId: gpus.id,
+      name: "Placa de vídeo RTX 5060",
+      slug: "rtx-5060",
+      sku: "GPU-1",
+      brand: "NVIDIA",
+      priceCents: 249_990,
+    },
+    {
+      ...base,
+      categoryId: gpus.id,
+      name: "Placa de vídeo RTX 5070",
+      slug: "rtx-5070",
+      sku: "GPU-2",
+      brand: "NVIDIA",
+      priceCents: 459_990,
+    },
+    {
+      ...base,
+      categoryId: gpus.id,
+      name: "Placa de vídeo RTX 5050",
+      slug: "rtx-5050",
+      sku: "GPU-3",
+      brand: "NVIDIA",
+      priceCents: 179_990,
+      stockQuantity: 0,
+    },
+    {
+      ...base,
+      categoryId: cpus.id,
+      name: "Processador Ryzen 5 9600X",
+      slug: "ryzen-5",
+      sku: "CPU-1",
+      brand: "AMD",
+      priceCents: 169_990,
+    },
+    {
+      ...base,
+      categoryId: cpus.id,
+      name: "Processador RTX inativo",
+      slug: "inativo",
+      sku: "CPU-2",
+      priceCents: 1_000,
+      isActive: false,
+    },
   ]);
 }
 
@@ -39,19 +80,30 @@ describe("buscar_produtos", () => {
     await seedCatalog();
     const result = await call("buscar_produtos", { termo: "ryzen" });
     assert.deepEqual(result.produtos, [
-      { nome: "Processador Ryzen 5 9600X", marca: "AMD", categoria: "Processadores", preco: formatPriceCents(169_990), em_estoque: true, link: "/produto/ryzen-5" },
+      {
+        nome: "Processador Ryzen 5 9600X",
+        marca: "AMD",
+        categoria: "Processadores",
+        preco: formatPriceCents(169_990),
+        em_estoque: true,
+        link: "/produto/ryzen-5",
+      },
     ]);
   });
 
-  it("\"até R$ 3.000\" vai para o banco: o teto de preço filtra", async () => {
+  it('"até R$ 3.000" vai para o banco: o teto de preço filtra', async () => {
     await seedCatalog();
-    const { produtos } = (await call("buscar_produtos", { termo: "rtx", preco_max_reais: 3000 })) as { produtos: { link: string }[] };
+    const { produtos } = (await call("buscar_produtos", { termo: "rtx", preco_max_reais: 3000 })) as {
+      produtos: { link: string }[];
+    };
     assert.deepEqual(produtos.map((p) => p.link).sort(), ["/produto/rtx-5050", "/produto/rtx-5060"]);
   });
 
   it("com estoque vem antes do esgotado; produto inativo nunca aparece", async () => {
     await seedCatalog();
-    const { produtos } = (await call("buscar_produtos", { termo: "rtx" })) as { produtos: { link: string; em_estoque: boolean }[] };
+    const { produtos } = (await call("buscar_produtos", { termo: "rtx" })) as {
+      produtos: { link: string; em_estoque: boolean }[];
+    };
     assert.equal(produtos.at(-1)?.link, "/produto/rtx-5050");
     assert.equal(produtos.at(-1)?.em_estoque, false);
     assert.ok(!produtos.some((p) => p.link === "/produto/inativo"));
@@ -90,8 +142,13 @@ describe("pedidos", () => {
     const myOrder = await startCheckout(mine);
     await startCheckout(other);
 
-    const { pedidos } = (await call("meus_pedidos", {}, { userId: mine.userId, ip: "x" })) as { pedidos: { numero: string; status: string; link: string }[] };
-    assert.deepEqual(pedidos.map((p) => p.numero), [myOrder.orderNumber]);
+    const { pedidos } = (await call("meus_pedidos", {}, { userId: mine.userId, ip: "x" })) as {
+      pedidos: { numero: string; status: string; link: string }[];
+    };
+    assert.deepEqual(
+      pedidos.map((p) => p.numero),
+      [myOrder.orderNumber],
+    );
     assert.equal(pedidos[0].status, "Pendente");
     assert.equal(pedidos[0].link, `/pedido/${myOrder.orderNumber}`);
   });
@@ -99,13 +156,17 @@ describe("pedidos", () => {
   it("detalha o próprio pedido (aceita número em minúsculas)", async () => {
     const mine = await seedCheckoutFixture({ quantity: 2 });
     const order = await startCheckout(mine);
-    const result = await call("ver_pedido", { numero: order.orderNumber.toLowerCase() }, { userId: mine.userId, ip: "x" });
+    const result = await call(
+      "ver_pedido",
+      { numero: order.orderNumber.toLowerCase() },
+      { userId: mine.userId, ip: "x" },
+    );
     assert.equal(result.numero, order.orderNumber);
     assert.deepEqual(result.itens, ["2× Produto de teste"]);
     assert.ok(String(result.total).startsWith("R$"));
   });
 
-  it("pedido de outra conta é \"não encontrado\" — mesmo com o número certo", async () => {
+  it('pedido de outra conta é "não encontrado" — mesmo com o número certo', async () => {
     const owner = await seedCheckoutFixture();
     const intruder = await seedCheckoutFixture();
     const order = await startCheckout(owner);
@@ -127,7 +188,10 @@ describe("registrar_orcamento", () => {
     const fixture = await seedCheckoutFixture();
     const result = await call("registrar_orcamento", request, { userId: fixture.userId, ip: "x" });
     assert.match(String(result.protocolo), /^DYS-S\d{6}$/);
-    const [row] = await db.select().from(serviceRequests).where(eq(serviceRequests.protocol, String(result.protocolo)));
+    const [row] = await db
+      .select()
+      .from(serviceRequests)
+      .where(eq(serviceRequests.protocol, String(result.protocolo)));
     assert.equal(row.kind, "montagem");
     assert.equal(row.userId, fixture.userId);
   });

@@ -69,7 +69,11 @@ export async function fillCheckoutAddress(page: Page) {
 }
 
 /** Login pela tela. Padrão: o admin do seed (senha por E2E_ADMIN_PASSWORD). */
-export async function logIn(page: Page, email = "admin@dystopia.dev", password = process.env.E2E_ADMIN_PASSWORD ?? "admin123") {
+export async function logIn(
+  page: Page,
+  email = "admin@dystopia.dev",
+  password = process.env.E2E_ADMIN_PASSWORD ?? "admin123",
+) {
   await page.goto("/entrar");
   await page.locator('input[name="email"]').fill(email);
   await page.locator('input[name="password"]').fill(password);
@@ -127,10 +131,19 @@ async function addFromCurrentPage(page: Page, skipLowStock: boolean): Promise<st
   // O card fica preso ao link (estável): o botão muda de nome depois do clique,
   // e um localizador por "i-ésimo botão Adicionar" passaria a apontar para o próximo.
   for (const href of hrefs) {
-    const card = page.locator("article").filter({ has: page.locator(`a[href="${href}"]`) }).first();
+    const card = page
+      .locator("article")
+      .filter({ has: page.locator(`a[href="${href}"]`) })
+      .first();
     await card.getByRole("button", { name: "Adicionar ao carrinho" }).click();
     const added = card.getByRole("button", { name: "Registrado no carrinho" });
-    if (await added.waitFor({ timeout: 5_000 }).then(() => true, () => false)) return href;
+    if (
+      await added.waitFor({ timeout: 5_000 }).then(
+        () => true,
+        () => false,
+      )
+    )
+      return href;
   }
   return null;
 }

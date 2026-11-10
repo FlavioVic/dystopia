@@ -66,7 +66,8 @@ export function computeAlerts(
       id: "halted-sagas",
       level: "critical",
       title: `${plural(sagas.halted, "saga parada", "sagas paradas")} depois do pagamento`,
-      detail: "O pagamento foi aprovado e um passo seguinte não andou. Nada é estornado: corrija a causa e use Retomar.",
+      detail:
+        "O pagamento foi aprovado e um passo seguinte não andou. Nada é estornado: corrija a causa e use Retomar.",
     });
   }
 
@@ -114,7 +115,8 @@ export function computeAlerts(
       id: "dead-letter",
       level: "critical",
       title: `${plural(queue.dead, "mensagem", "mensagens")} na DLQ`,
-      detail: "Esgotaram as tentativas ou falharam de forma permanente. Veja o erro e reprocesse depois de corrigir a causa.",
+      detail:
+        "Esgotaram as tentativas ou falharam de forma permanente. Veja o erro e reprocesse depois de corrigir a causa.",
     });
   }
 

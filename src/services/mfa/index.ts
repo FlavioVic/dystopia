@@ -24,9 +24,7 @@ import { base32Encode, generateTotpSecret, matchTotp } from "./totp";
 
 export const RECOVERY_CODE_COUNT = 10;
 
-export type MfaStatus =
-  | { enabled: false }
-  | { enabled: true; confirmedAt: Date; recoveryCodesLeft: number };
+export type MfaStatus = { enabled: false } | { enabled: true; confirmedAt: Date; recoveryCodesLeft: number };
 
 export async function getMfaStatus(executor: Executor, userId: string): Promise<MfaStatus> {
   const credential = await executor.query.mfaCredentials.findFirst({
@@ -34,7 +32,11 @@ export async function getMfaStatus(executor: Executor, userId: string): Promise<
     columns: { confirmedAt: true },
   });
   if (!credential?.confirmedAt) return { enabled: false };
-  return { enabled: true, confirmedAt: credential.confirmedAt, recoveryCodesLeft: await countRecoveryCodes(executor, userId) };
+  return {
+    enabled: true,
+    confirmedAt: credential.confirmedAt,
+    recoveryCodesLeft: await countRecoveryCodes(executor, userId),
+  };
 }
 
 export async function hasConfirmedMfa(executor: Executor, userId: string): Promise<boolean> {
@@ -86,13 +88,16 @@ export async function confirmEnrollment(
     const [confirmed] = await tx
       .update(mfaCredentials)
       .set({ confirmedAt: now, lastUsedStep: step })
-      .where(and(
-        eq(mfaCredentials.userId, userId),
-        isNull(mfaCredentials.confirmedAt),
-        eq(mfaCredentials.secret, pending.secret),
-      ))
+      .where(
+        and(
+          eq(mfaCredentials.userId, userId),
+          isNull(mfaCredentials.confirmedAt),
+          eq(mfaCredentials.secret, pending.secret),
+        ),
+      )
       .returning({ userId: mfaCredentials.userId });
-    if (!confirmed) throw new PermanentError("mfa_enrollment_changed", "O QR code mudou no meio (outra aba?). Gere de novo.");
+    if (!confirmed)
+      throw new PermanentError("mfa_enrollment_changed", "O QR code mudou no meio (outra aba?). Gere de novo.");
     return replaceRecoveryCodes(tx, userId, now);
   });
 }
@@ -119,11 +124,13 @@ export async function verifySecondFactor(
   const [used] = await executor
     .update(mfaRecoveryCodes)
     .set({ usedAt: now })
-    .where(and(
-      eq(mfaRecoveryCodes.userId, userId),
-      eq(mfaRecoveryCodes.codeHash, hashRecoveryCode(normalized)),
-      isNull(mfaRecoveryCodes.usedAt),
-    ))
+    .where(
+      and(
+        eq(mfaRecoveryCodes.userId, userId),
+        eq(mfaRecoveryCodes.codeHash, hashRecoveryCode(normalized)),
+        isNull(mfaRecoveryCodes.usedAt),
+      ),
+    )
     .returning({ id: mfaRecoveryCodes.id });
   if (!used) return null;
   return { method: "recovery", recoveryCodesLeft: await countRecoveryCodes(executor, userId) };
@@ -175,22 +182,26 @@ async function consumeTotp(executor: Executor, userId: string, code: string, now
   const [accepted] = await executor
     .update(mfaCredentials)
     .set({ lastUsedStep: step })
-    .where(and(
-      eq(mfaCredentials.userId, userId),
-      isNotNull(mfaCredentials.confirmedAt),
-      or(isNull(mfaCredentials.lastUsedStep), lt(mfaCredentials.lastUsedStep, step)),
-    ))
+    .where(
+      and(
+        eq(mfaCredentials.userId, userId),
+        isNotNull(mfaCredentials.confirmedAt),
+        or(isNull(mfaCredentials.lastUsedStep), lt(mfaCredentials.lastUsedStep, step)),
+      ),
+    )
     .returning({ userId: mfaCredentials.userId });
   return Boolean(accepted);
 }
 
 async function replaceRecoveryCodes(executor: Executor, userId: string, now: Date): Promise<string[]> {
   // 80 bits cada (16 caracteres base32): nem com o hash na mão dá para adivinhar.
-  const codes = Array.from({ length: RECOVERY_CODE_COUNT }, () => base32Encode(randomBytes(10)).match(/.{4}/g)!.join("-"));
-  await executor.delete(mfaRecoveryCodes).where(eq(mfaRecoveryCodes.userId, userId));
-  await executor.insert(mfaRecoveryCodes).values(
-    codes.map((code) => ({ userId, codeHash: hashRecoveryCode(normalizeRecoveryCode(code)), createdAt: now })),
+  const codes = Array.from({ length: RECOVERY_CODE_COUNT }, () =>
+    base32Encode(randomBytes(10)).match(/.{4}/g)!.join("-"),
   );
+  await executor.delete(mfaRecoveryCodes).where(eq(mfaRecoveryCodes.userId, userId));
+  await executor
+    .insert(mfaRecoveryCodes)
+    .values(codes.map((code) => ({ userId, codeHash: hashRecoveryCode(normalizeRecoveryCode(code)), createdAt: now })));
   return codes;
 }
 

@@ -24,7 +24,9 @@ export default async function AccountPage() {
         <div>
           <p className="label text-foreground-muted">Ficha / {user.email}</p>
           <h1 className="display-2 mt-3 text-[26px] leading-[34px] sm:text-[32px] sm:leading-[40px]">{user.name}</h1>
-          <p className="mt-2 text-sm text-foreground-muted">Seus dados, endereços e aquisições. Ficam guardados enquanto a conta existir.</p>
+          <p className="mt-2 text-sm text-foreground-muted">
+            Seus dados, endereços e aquisições. Ficam guardados enquanto a conta existir.
+          </p>
         </div>
         <form action={logout}>
           <button
@@ -95,14 +97,12 @@ export default async function AccountPage() {
                   <span className="min-w-0">
                     <span className="block font-mono text-sm font-semibold">{o.orderNumber}</span>
                     <span className="text-xs text-foreground-muted">
-                      {new Date(o.createdAt).toLocaleDateString("pt-BR")} ·{" "}
-                      {o.items.length} {o.items.length === 1 ? "item" : "itens"}
+                      {new Date(o.createdAt).toLocaleDateString("pt-BR")} · {o.items.length}{" "}
+                      {o.items.length === 1 ? "item" : "itens"}
                     </span>
                   </span>
                   <span className="flex items-center gap-3">
-                    <span
-                      className={`label whitespace-nowrap px-2 py-0.5 ${orderStatusClass(o.status)}`}
-                    >
+                    <span className={`label whitespace-nowrap px-2 py-0.5 ${orderStatusClass(o.status)}`}>
                       {ORDER_STATUS_LABELS[o.status as OrderStatus] ?? o.status}
                     </span>
                     <span className="font-mono text-sm font-semibold tabular-nums">
@@ -137,7 +137,11 @@ export default async function AccountPage() {
           .
         </p>
         <div className="mt-4 flex flex-col items-start gap-4">
-          <a href="/conta/dados" download className="label min-h-6 text-foreground underline underline-offset-4 hover:text-foreground-muted">
+          <a
+            href="/conta/dados"
+            download
+            className="label min-h-6 text-foreground underline underline-offset-4 hover:text-foreground-muted"
+          >
             Baixar meus dados (JSON)
           </a>
           {user.role === "admin" ? null : isDemoAccount(user.email) ? (

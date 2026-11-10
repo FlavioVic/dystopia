@@ -240,7 +240,11 @@ export const notifyCustomerStep = {
       customerName: ctx.payload.customerName,
       totalCents: ctx.payload.totalCents,
       paymentMethod: ctx.payload.paymentMethod,
-      items: ctx.payload.lines.map((line) => ({ name: line.name, quantity: line.quantity, unitPriceCents: line.unitPriceCents })),
+      items: ctx.payload.lines.map((line) => ({
+        name: line.name,
+        quantity: line.quantity,
+        unitPriceCents: line.unitPriceCents,
+      })),
     });
     return { notificationId: result.notificationId, duplicate: result.duplicate };
   },

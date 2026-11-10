@@ -22,7 +22,10 @@ describe("log", () => {
         sagaId: "s-1",
       });
     } finally {
-      for (const [name, value] of [["LOG_FORMAT", previous.format], ["LOG_LEVEL", previous.level]] as const) {
+      for (const [name, value] of [
+        ["LOG_FORMAT", previous.format],
+        ["LOG_LEVEL", previous.level],
+      ] as const) {
         if (value === undefined) delete process.env[name];
         else process.env[name] = value;
       }
@@ -33,6 +36,7 @@ describe("log", () => {
       assert.equal(payload[key], "[omitido]", key);
     }
     assert.equal(payload.sagaId, "s-1");
-    for (const secret of ["hunter2", "abc", "Bearer x", "re_123", "session=1"]) assert.ok(!lines[0].includes(secret), secret);
+    for (const secret of ["hunter2", "abc", "Bearer x", "re_123", "session=1"])
+      assert.ok(!lines[0].includes(secret), secret);
   });
 });

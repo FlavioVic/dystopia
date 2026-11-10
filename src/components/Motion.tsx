@@ -30,7 +30,11 @@ export function Reveal({
       </Tag>
     );
   }
-  return <ObservedReveal delay={delay} className={className} as={Tag}>{children}</ObservedReveal>;
+  return (
+    <ObservedReveal delay={delay} className={className} as={Tag}>
+      {children}
+    </ObservedReveal>
+  );
 }
 
 function ObservedReveal({

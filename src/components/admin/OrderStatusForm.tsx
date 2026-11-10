@@ -24,8 +24,8 @@ export function OrderStatusForm({ orderId, current }: { orderId: string; current
   if (options.length === 1) {
     return (
       <p className="text-sm text-foreground-muted">
-        <span className="font-medium text-foreground">{ORDER_STATUS_LABELS[currentStatus]}</span> é um status
-        final — não há próxima transição.
+        <span className="font-medium text-foreground">{ORDER_STATUS_LABELS[currentStatus]}</span> é um status final —
+        não há próxima transição.
       </p>
     );
   }
@@ -52,20 +52,14 @@ export function OrderStatusForm({ orderId, current }: { orderId: string; current
         onClick={() =>
           startTransition(async () => {
             const result = await updateOrderStatus(orderId, status);
-            setMsg(
-              result.ok
-                ? { ok: true, text: "Status atualizado." }
-                : { ok: false, text: result.error ?? "Erro." },
-            );
+            setMsg(result.ok ? { ok: true, text: "Status atualizado." } : { ok: false, text: result.error ?? "Erro." });
           })
         }
         className="rounded-lg bg-primary px-4 py-2 label text-primary-foreground transition-colors disabled:cursor-not-allowed disabled:opacity-40"
       >
         {pending ? "Salvando…" : "Salvar"}
       </button>
-      {msg ? (
-        <span className={`text-xs ${msg.ok ? "text-foreground" : "text-foreground"}`}>{msg.text}</span>
-      ) : null}
+      {msg ? <span className={`text-xs ${msg.ok ? "text-foreground" : "text-foreground"}`}>{msg.text}</span> : null}
     </div>
   );
 }

@@ -21,7 +21,11 @@ const serviceRequestSchema = z.object({
     .trim()
     .refine((value): value is ServiceKind => isServiceKind(value), "Selecione o serviço.")
     .transform((value) => value as ServiceKind),
-  name: z.string().trim().transform((value) => value.replace(/\s+/g, " ")).pipe(z.string().min(2, "Informe seu nome.")),
+  name: z
+    .string()
+    .trim()
+    .transform((value) => value.replace(/\s+/g, " "))
+    .pipe(z.string().min(2, "Informe seu nome.")),
   email: email("E-mail inválido."),
   phone: z.string().transform((value, ctx) => {
     if (!value.trim()) return null;

@@ -58,7 +58,10 @@ export async function waitForRetries(timeoutMs = 3_000): Promise<void> {
   throw new Error("mensagens presas nas filas de espera");
 }
 
-export async function settleSaga(sagaId: string, options: { inline?: boolean; timeoutMs?: number } = {}): Promise<SagaRow> {
+export async function settleSaga(
+  sagaId: string,
+  options: { inline?: boolean; timeoutMs?: number } = {},
+): Promise<SagaRow> {
   if (options.inline !== false) await runSagaInline(sagaId);
 
   const deadline = Date.now() + (options.timeoutMs ?? 15_000);
@@ -86,7 +89,9 @@ export async function pendingWork(): Promise<{ outbox: number; ready: number; re
   // As duas caixas de saída: a da loja e a de pagamentos (banco próprio).
   const unpublished = (
     await Promise.all(
-      [db, paymentsDb].map((database) => database.select({ id: outbox.id }).from(outbox).where(isNull(outbox.publishedAt))),
+      [db, paymentsDb].map((database) =>
+        database.select({ id: outbox.id }).from(outbox).where(isNull(outbox.publishedAt)),
+      ),
     )
   ).flat();
   return { outbox: unpublished.length, ready: sum("ready"), retrying: sum("retrying"), dead: sum("dead") };

@@ -6,7 +6,10 @@ import { blobPublicHostname } from "@/lib/blob-host";
 
 describe("host do Vercel Blob (otimizador de imagem)", () => {
   it("sai do BLOB_STORE_ID, em minúsculas, como o endereço público do store", () => {
-    assert.equal(blobPublicHostname({ BLOB_STORE_ID: "store_Aui98kVMTHsCrERc" }), "aui98kvmthscrerc.public.blob.vercel-storage.com");
+    assert.equal(
+      blobPublicHostname({ BLOB_STORE_ID: "store_Aui98kVMTHsCrERc" }),
+      "aui98kvmthscrerc.public.blob.vercel-storage.com",
+    );
   });
 
   it("sem o id, sai do token de escrita (o segredo não entra no host)", () => {

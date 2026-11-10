@@ -45,14 +45,26 @@ describe("formato da foto enviada", () => {
     assert.deepEqual(checkImageUpload({ size: JPEG.length, bytes: JPEG }), { ok: true, type: "jpeg" });
     assert.match((checkImageUpload({ size: MAX_IMAGE_BYTES + 1, bytes: JPEG }) as { error: string }).error, /3 MB/);
     assert.match((checkImageUpload({ size: 0, bytes: new Uint8Array() }) as { error: string }).error, /Escolha/);
-    assert.match((checkImageUpload({ size: 10, bytes: bytes("<svg/>") }) as { error: string }).error, /JPEG, PNG, WebP ou AVIF/);
+    assert.match(
+      (checkImageUpload({ size: 10, bytes: bytes("<svg/>") }) as { error: string }).error,
+      /JPEG, PNG, WebP ou AVIF/,
+    );
   });
 });
 
 describe("chave do arquivo", () => {
   it("aceita só segmentos simples com extensão de imagem", () => {
     assert.equal(safeMediaKey("produtos/0b1c-2d/a1b2.webp"), "produtos/0b1c-2d/a1b2.webp");
-    for (const bad of ["../segredo.png", "produtos/../../etc/passwd.png", "/abs.png", "produtos/x.svg", "produtos/x.html", "produtos/X.PNG", "produtos//x.png", ""]) {
+    for (const bad of [
+      "../segredo.png",
+      "produtos/../../etc/passwd.png",
+      "/abs.png",
+      "produtos/x.svg",
+      "produtos/x.html",
+      "produtos/X.PNG",
+      "produtos//x.png",
+      "",
+    ]) {
       assert.equal(safeMediaKey(bad), null, bad);
     }
   });

@@ -34,13 +34,20 @@ export default async function AdminDashboard() {
       <section>
         <div className="flex items-center justify-between">
           <h2 className="label text-foreground-muted">Pedidos recentes</h2>
-          <Link href="/admin/pedidos" className="text-sm text-accent hover:underline">ver todos →</Link>
+          <Link href="/admin/pedidos" className="text-sm text-accent hover:underline">
+            ver todos →
+          </Link>
         </div>
 
         {recent.length === 0 ? (
           <p className="mt-4 text-sm text-foreground-muted">Nenhum pedido ainda.</p>
         ) : (
-          <div tabIndex={0} role="region" aria-label="Últimos pedidos" className="mt-4 overflow-x-auto rounded-xl border border-border">
+          <div
+            tabIndex={0}
+            role="region"
+            aria-label="Últimos pedidos"
+            className="mt-4 overflow-x-auto rounded-xl border border-border"
+          >
             <table className="w-full min-w-[560px] text-sm">
               <thead className="border-b border-border bg-background-elevated text-left text-xs text-foreground-muted">
                 <tr>
@@ -54,7 +61,10 @@ export default async function AdminDashboard() {
                 {recent.map((o) => (
                   <tr key={o.id} className="border-b border-border last:border-0 hover:bg-background-elevated">
                     <td className="px-4 py-2.5">
-                      <Link href={`/admin/pedidos/${o.orderNumber}`} className="font-mono text-xs font-semibold text-accent hover:underline">
+                      <Link
+                        href={`/admin/pedidos/${o.orderNumber}`}
+                        className="font-mono text-xs font-semibold text-accent hover:underline"
+                      >
                         {o.orderNumber}
                       </Link>
                     </td>

@@ -13,10 +13,11 @@ export function AddressForm({ hasAddresses }: { hasAddresses: boolean }) {
   const errors = state?.errors ?? {};
 
   return (
-    <form action={formAction} className="flex flex-col gap-4 rounded-xl border border-border bg-background-elevated p-4">
-      <h2 className="label text-foreground-muted">
-        Novo endereço
-      </h2>
+    <form
+      action={formAction}
+      className="flex flex-col gap-4 rounded-xl border border-border bg-background-elevated p-4"
+    >
+      <h2 className="label text-foreground-muted">Novo endereço</h2>
 
       <div className="grid gap-3 sm:grid-cols-2">
         <Field name="label" label="Apelido" placeholder="Casa, Trabalho…" error={errors.label} />
@@ -31,12 +32,7 @@ export function AddressForm({ hasAddresses }: { hasAddresses: boolean }) {
       </div>
 
       <label className="flex items-center gap-2 text-sm">
-        <input
-          type="checkbox"
-          name="isDefault"
-          defaultChecked={!hasAddresses}
-          className="accent-[var(--accent)]"
-        />
+        <input type="checkbox" name="isDefault" defaultChecked={!hasAddresses} className="accent-[var(--accent)]" />
         Usar como endereço padrão
       </label>
 
@@ -49,9 +45,7 @@ export function AddressForm({ hasAddresses }: { hasAddresses: boolean }) {
           {pending ? "Salvando…" : "Salvar endereço"}
         </button>
         {state?.ok ? <span className="text-xs text-foreground">{state.message}</span> : null}
-        {state?.message && !state.ok ? (
-          <span className="text-xs text-foreground">{state.message}</span>
-        ) : null}
+        {state?.message && !state.ok ? <span className="text-xs text-foreground">{state.message}</span> : null}
       </div>
     </form>
   );

@@ -21,7 +21,11 @@ import {
 import { DEMO_ACCOUNT_EMAIL } from "@/lib/site";
 import { registerAccount, verifyCredentials } from "@/services/accounts";
 import type { DirectEmail } from "@/services/notifications/direct";
-import { createPasswordReset, pruneExpiredPasswordResets, PASSWORD_RESET_TTL_SECONDS } from "@/services/password-resets";
+import {
+  createPasswordReset,
+  pruneExpiredPasswordResets,
+  PASSWORD_RESET_TTL_SECONDS,
+} from "@/services/password-resets";
 import { createSession } from "@/services/sessions";
 import { closeDatabase, resetDatabase } from "../helpers/db";
 
@@ -66,7 +70,10 @@ describe("esqueci minha senha: o pedido", () => {
     assert.ok(email.text.startsWith("Ana."));
     const token = tokenFrom(email);
     assert.ok(email.text.includes(`${SITE}/entrar/redefinir?token=`));
-    assert.ok(!email.idempotencyKey.includes(token), "a chave de idempotência vai para o provedor: não pode ser o token");
+    assert.ok(
+      !email.idempotencyKey.includes(token),
+      "a chave de idempotência vai para o provedor: não pode ser o token",
+    );
 
     const [row] = await db.select().from(passwordResets);
     assert.equal(row.id, createHash("sha256").update(token).digest("hex"));
@@ -91,7 +98,8 @@ describe("esqueci minha senha: o pedido", () => {
     await register();
     const box = outbox();
     const outcomes = [];
-    for (let i = 0; i <= PASSWORD_RESET_LIMITS.email.limit; i++) outcomes.push(await sendPasswordResetLink(EMAIL, box.deps));
+    for (let i = 0; i <= PASSWORD_RESET_LIMITS.email.limit; i++)
+      outcomes.push(await sendPasswordResetLink(EMAIL, box.deps));
 
     assert.deepEqual(outcomes, ["sent", "sent", "sent", "limited"]);
     assert.equal(box.sent.length, 3);
@@ -99,7 +107,8 @@ describe("esqueci minha senha: o pedido", () => {
 
   it("limite por IP antes da resposta", async () => {
     const results = [];
-    for (let i = 0; i <= PASSWORD_RESET_LIMITS.ip.limit; i++) results.push(await limitPasswordResetRequests("10.9.9.9"));
+    for (let i = 0; i <= PASSWORD_RESET_LIMITS.ip.limit; i++)
+      results.push(await limitPasswordResetRequests("10.9.9.9"));
 
     assert.equal(results.filter((r) => r.allowed).length, PASSWORD_RESET_LIMITS.ip.limit);
     assert.equal(results.at(-1)?.allowed, false);
@@ -166,7 +175,8 @@ describe("esqueci minha senha: a troca", () => {
 
   it("limite por IP na troca: trava a varredura de tokens, por IP e à parte do pedido", async () => {
     const results = [];
-    for (let i = 0; i <= PASSWORD_RESET_LIMITS.submit.limit; i++) results.push(await limitPasswordResetAttempts("203.0.113.7"));
+    for (let i = 0; i <= PASSWORD_RESET_LIMITS.submit.limit; i++)
+      results.push(await limitPasswordResetAttempts("203.0.113.7"));
 
     assert.equal(results.filter((r) => r.allowed).length, PASSWORD_RESET_LIMITS.submit.limit);
     assert.equal(results.at(-1)?.allowed, false, "depois do teto, barra");

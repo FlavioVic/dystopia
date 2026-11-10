@@ -60,7 +60,9 @@ export function OrderTimeline({ events, pending }: { events: OrderTimelineEvent[
             <span className="flex flex-wrap items-center gap-2">
               <span className="font-medium">{row.label}</span>
               <span className="label text-foreground-muted">
-                {row.when ? row.when.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "Em andamento"}
+                {row.when
+                  ? row.when.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })
+                  : "Em andamento"}
               </span>
             </span>
             {row.detail ? <span className="mt-0.5 block text-foreground-muted">{row.detail}</span> : null}

@@ -30,16 +30,32 @@ export default function CreditsPage() {
         {Object.entries(PRODUCT_PHOTOS).map(([slug, photo]) => (
           <li key={slug} className={`flex flex-col gap-3 p-4 ${gridCell}`}>
             <div className="relative aspect-[4/3] bg-background-elevated">
-              <Image src={photo.file} alt={photo.title} fill sizes="(min-width: 1024px) 22vw, 90vw" className="object-contain p-2" />
+              <Image
+                src={photo.file}
+                alt={photo.title}
+                fill
+                sizes="(min-width: 1024px) 22vw, 90vw"
+                className="object-contain p-2"
+              />
             </div>
             <p className="text-sm text-foreground">{photo.title.replace(/\.(jpe?g|png)$/i, "")}</p>
             <p className="label text-foreground-muted">
               {photo.author} /{" "}
-              <a href={photo.licenseUrl} target="_blank" rel="noreferrer" className="underline underline-offset-4 hover:text-foreground">
+              <a
+                href={photo.licenseUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="underline underline-offset-4 hover:text-foreground"
+              >
                 {photo.license}
               </a>
             </p>
-            <a href={photo.source} target="_blank" rel="noreferrer" className="label mt-auto text-signal-text underline underline-offset-4 hover:text-foreground">
+            <a
+              href={photo.source}
+              target="_blank"
+              rel="noreferrer"
+              className="label mt-auto text-signal-text underline underline-offset-4 hover:text-foreground"
+            >
               Arquivo original
             </a>
           </li>

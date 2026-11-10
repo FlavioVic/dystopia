@@ -63,14 +63,15 @@ export function ReviewForm({
   }
 
   return (
-    <form action={formAction} className="flex flex-col gap-3 rounded-xl border border-border bg-background-elevated p-4">
+    <form
+      action={formAction}
+      className="flex flex-col gap-3 rounded-xl border border-border bg-background-elevated p-4"
+    >
       <input type="hidden" name="productId" value={productId} />
       <input type="hidden" name="rating" value={rating} />
 
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="label text-foreground-muted">
-          {own ? "Sua avaliação" : "Avaliar este produto"}
-        </span>
+        <span className="label text-foreground-muted">{own ? "Sua avaliação" : "Avaliar este produto"}</span>
         <span className="flex items-center gap-3">
           {/* Vermelho (primary) só a partir de 24px, regra do design system: as estrelas têm 24px. */}
           <span className="flex items-center gap-0.5" onMouseLeave={() => setHovered(0)}>
@@ -96,9 +97,7 @@ export function ReviewForm({
         </span>
       </div>
 
-      {state?.errors?.rating ? (
-        <span className="text-[11px] text-foreground">{state.errors.rating}</span>
-      ) : null}
+      {state?.errors?.rating ? <span className="text-[11px] text-foreground">{state.errors.rating}</span> : null}
 
       <input
         name="title"
@@ -117,9 +116,7 @@ export function ReviewForm({
         placeholder="Conta como foi a experiência com o produto (opcional)"
         className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none transition-colors placeholder:text-foreground-muted focus:border-foreground"
       />
-      {state?.errors?.comment ? (
-        <span className="text-[11px] text-foreground">{state.errors.comment}</span>
-      ) : null}
+      {state?.errors?.comment ? <span className="text-[11px] text-foreground">{state.errors.comment}</span> : null}
 
       <div className="flex flex-wrap items-center gap-3">
         <button
@@ -137,7 +134,7 @@ export function ReviewForm({
             onClick={() =>
               startRemoving(async () => {
                 const result = await deleteOwnReview(productId);
-                setRemoveError(result.ok ? null : result.error ?? "Erro.");
+                setRemoveError(result.ok ? null : (result.error ?? "Erro."));
               })
             }
             className="text-xs font-medium text-foreground-muted hover:text-foreground disabled:opacity-50"
@@ -147,9 +144,7 @@ export function ReviewForm({
         ) : null}
 
         {state?.ok ? <span className="text-xs text-foreground">{state.message}</span> : null}
-        {state?.message && !state.ok ? (
-          <span className="text-xs text-foreground">{state.message}</span>
-        ) : null}
+        {state?.message && !state.ok ? <span className="text-xs text-foreground">{state.message}</span> : null}
         {removeError ? <span className="text-xs text-foreground">{removeError}</span> : null}
       </div>
     </form>

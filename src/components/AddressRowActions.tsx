@@ -10,7 +10,7 @@ export function AddressRowActions({ addressId, isDefault }: { addressId: string;
   const run = (action: () => Promise<{ ok: boolean; error?: string }>) =>
     startTransition(async () => {
       const result = await action();
-      setError(result.ok ? null : result.error ?? "Erro.");
+      setError(result.ok ? null : (result.error ?? "Erro."));
     });
 
   return (

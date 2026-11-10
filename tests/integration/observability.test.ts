@@ -91,8 +91,21 @@ describe("métricas da saga", () => {
   it("por passo: execuções, retries, falhas e duração", async () => {
     const a = await insertSaga({ status: "completed", createdAt: ago(60_000), durationMs: 5_000 });
     const b = await insertSaga({ status: "compensated", createdAt: ago(60_000), durationMs: 5_000 });
-    const step = (sagaId: string, name: string, position: number, status: "completed" | "compensated" | "failed", attempts: number, ms: number) => ({
-      sagaId, name, position, status, attempts, startedAt: ago(50_000), finishedAt: new Date(ago(50_000).getTime() + ms),
+    const step = (
+      sagaId: string,
+      name: string,
+      position: number,
+      status: "completed" | "compensated" | "failed",
+      attempts: number,
+      ms: number,
+    ) => ({
+      sagaId,
+      name,
+      position,
+      status,
+      attempts,
+      startedAt: ago(50_000),
+      finishedAt: new Date(ago(50_000).getTime() + ms),
     });
     await db.insert(sagaSteps).values([
       step(a, "reserve-stock", 0, "completed", 1, 100),

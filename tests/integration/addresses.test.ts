@@ -116,10 +116,9 @@ describe("agenda de endereços", () => {
 
   it("remover endereço inexistente não é erro", async () => {
     const fixture = await seedCheckoutFixture();
-    assert.deepEqual(
-      await deleteAddress(db, fixture.userId, "00000000-0000-0000-0000-000000000000"),
-      { deleted: false },
-    );
+    assert.deepEqual(await deleteAddress(db, fixture.userId, "00000000-0000-0000-0000-000000000000"), {
+      deleted: false,
+    });
   });
 
   it("a agenda tem teto: passou dele, recusa (e só para quem chegou nele)", async () => {

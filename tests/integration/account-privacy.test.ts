@@ -31,7 +31,13 @@ async function accountWithHistory() {
   const fixture = await seedCheckoutFixture();
   const checkout = await startCheckout(fixture);
   assert.equal((await settleSaga(checkout.sagaId)).status, "completed");
-  await upsertReview(db, { productId: fixture.product.id, userId: fixture.userId, rating: 5, title: null, comment: null });
+  await upsertReview(db, {
+    productId: fixture.product.id,
+    userId: fixture.userId,
+    rating: 5,
+    title: null,
+    comment: null,
+  });
   const request = await createServiceRequest(db, {
     kind: "manutencao",
     name: fixture.userName,
@@ -59,9 +65,16 @@ describe("dados da conta", () => {
     const data = await exportAccountData(fixture.userId);
 
     assert.equal(data?.conta.email, fixture.userEmail);
-    assert.deepEqual(data?.pedidos.map((o) => o.orderNumber), [checkout.orderNumber]);
+    assert.deepEqual(
+      data?.pedidos.map((o) => o.orderNumber),
+      [checkout.orderNumber],
+    );
     assert.equal(data?.avaliacoes.length, 1);
-    assert.deepEqual(data?.orcamentos.map((r) => r.protocol), [request.protocol], "só o orçamento feito com a conta, não o do mesmo e-mail sem login");
+    assert.deepEqual(
+      data?.orcamentos.map((r) => r.protocol),
+      [request.protocol],
+      "só o orçamento feito com a conta, não o do mesmo e-mail sem login",
+    );
     assert.ok(!JSON.stringify(data).includes("hash-de-teste"));
     assert.equal(data?.sessoes.length, 1);
     assert.deepEqual(Object.keys(data!.sessoes[0]).sort(), ["createdAt", "expiresAt"]);

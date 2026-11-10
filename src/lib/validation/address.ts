@@ -16,7 +16,10 @@ export function normalizeZipCode(raw: string): string {
 }
 
 const addressSchema = z.object({
-  label: z.string().trim().transform((value) => value || "Entrega"),
+  label: z
+    .string()
+    .trim()
+    .transform((value) => value || "Entrega"),
   recipientName: requiredText("Informe o destinatário.", 2),
   street: requiredText("Informe a rua."),
   number: requiredText("Nº"),
@@ -29,7 +32,17 @@ const addressSchema = z.object({
 
 export type AddressFormValues = z.output<typeof addressSchema>;
 
-const FIELDS = ["label", "recipientName", "street", "number", "complement", "neighborhood", "city", "state", "zipCode"] as const;
+const FIELDS = [
+  "label",
+  "recipientName",
+  "street",
+  "number",
+  "complement",
+  "neighborhood",
+  "city",
+  "state",
+  "zipCode",
+] as const;
 
 export function parseAddressForm(formData: FormData) {
   return parseForm(addressSchema, formStrings(formData, FIELDS));
