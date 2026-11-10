@@ -12,6 +12,7 @@ import { db } from "@/db";
 import { passwordResets, sessions } from "@/db/schema";
 import {
   isPasswordResetLinkValid,
+  limitPasswordResetAttempts,
   limitPasswordResetRequests,
   PASSWORD_RESET_LIMITS,
   resetPassword,
@@ -161,6 +162,17 @@ describe("esqueci minha senha: a troca", () => {
 
     assert.equal(await isPasswordResetLinkValid("inventado"), false);
     assert.equal(await resetPassword({ token: "inventado", password: "senha-nova-123" }), null);
+  });
+
+  it("limite por IP na troca: trava a varredura de tokens, por IP e à parte do pedido", async () => {
+    const results = [];
+    for (let i = 0; i <= PASSWORD_RESET_LIMITS.submit.limit; i++) results.push(await limitPasswordResetAttempts("203.0.113.7"));
+
+    assert.equal(results.filter((r) => r.allowed).length, PASSWORD_RESET_LIMITS.submit.limit);
+    assert.equal(results.at(-1)?.allowed, false, "depois do teto, barra");
+    assert.equal((await limitPasswordResetAttempts("203.0.113.8")).allowed, true, "outro IP tem contador próprio");
+    // A troca e o pedido não dividem contador: estourar a troca não bloqueia pedir outro link.
+    assert.equal((await limitPasswordResetRequests("203.0.113.7")).allowed, true);
   });
 
   it("excluir a conta leva o link junto", async () => {

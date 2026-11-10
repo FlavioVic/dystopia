@@ -146,6 +146,76 @@ alertas. Nenhum era falha explorável:
 - **`js/incomplete-url-substring-sanitization` (1):** um `.includes()` num
   array dentro de teste. Descartado como "usado em teste".
 
+## Segunda rodada — pentest de novembro de 2026
+
+Pentest autorizado do dono, em localhost isolado (nada contra produção).
+Partiu desta página para não repetir o já corrigido e procurar o que faltava:
+SAST de toda a borda de novo (as Server Actions, as 3 rotas de API, `proxy.ts`,
+sessão, MFA, limite de tentativas, aparelho conhecido, cripto, SQL, e-mails,
+redirecionamentos, pontos de XSS) e testes ATIVOS contra a stack local
+(cabeçalhos, cron, origem do assistente, travessia de caminho na mídia).
+
+### Achado e correção
+
+| # | Gravidade | Achado | Correção |
+|---|-----------|--------|----------|
+| 11 | Baixa | A **troca** de senha pelo link (`resetPasswordWithLink`) não tinha limite por IP — só o **pedido** do link tinha. A rota é pública e gasta o token: sem teto, ela vira um oráculo de "este token vale?" varrível sem parar. O token tem 256 bits de acaso (adivinhar é inviável na prática), então é defesa em profundidade — mas a OWASP (Forgot Password Cheat Sheet, ASVS 5.0 V2.2.1) pede anti-automação em TODO passo da recuperação, não só no pedido. |
+
+**Repro (antes):** `POST` na Server Action de `/entrar/redefinir` com tokens
+inventados, em sequência, sem nunca ser barrado — cada tentativa é uma consulta
+ao banco e, com token válido, uma consulta ao Pwned Passwords.
+
+**Correção:** limite por IP na troca, com chave e contador próprios
+(`password-reset-attempt:ip:<ip>`, à parte do pedido para um não gastar a cota
+do outro), conferido **antes** de tocar no banco. Padrão de 10/h (um pouco acima
+do pedido: quem erra a senha nova — vazada ou que não confere — tenta de novo no
+mesmo link), ajustável por `PASSWORD_RESET_SUBMIT_LIMIT_PER_HOUR` e inflado na
+stack do compose como os demais. Código em `application/password-reset.ts`
+(`limitPasswordResetAttempts`) e `lib/actions/password-reset.ts`; teste em
+`tests/integration/password-reset.test.ts`.
+
+### O que foi testado ao vivo (e passou)
+
+- **Cabeçalhos** em toda resposta: CSP com nonce por request + `strict-dynamic`,
+  HSTS, `X-Frame-Options: DENY`, `frame-ancestors 'none'`, `nosniff`,
+  `Referrer-Policy`, `Permissions-Policy`, `Cross-Origin-Opener-Policy:
+  same-origin`, `Cache-Control: no-store` (toda página é dinâmica — lê sessão),
+  sem `X-Powered-By`.
+- **Cron** (`/api/cron/fila`): 401 sem o Bearer e com o Bearer errado; fechado
+  quando `CRON_SECRET` não está definido; a comparação é em tempo constante.
+- **Assistente** (`/api/assistente`): chamada de outra origem e sem `Origin`
+  recusada; a identidade sai da sessão, nunca do corpo (ver `assistant/tools.ts`).
+- **Mídia** (`/api/midia/[...key]`): `../`, travessia aninhada, `.svg` e `.php`
+  todos 404 — `safeMediaKey` só aceita `[a-z0-9_-]` com extensão de imagem, e o
+  caminho resolvido tem que ficar dentro da pasta.
+- **Controle de acesso**: toda página de `/admin` chama `requireAdmin()` por
+  conta própria; toda Server Action do painel começa com `ensureAdmin()` (o
+  teste de arquitetura exige); pedido/endereço/favorito/avaliação são sempre
+  filtrados pelo usuário da sessão, e o número do pedido de outra conta dá 404
+  (sem revelar que existe). O assistente respeita a mesma fronteira.
+- **SQL**: todo acesso passa pelo Drizzle com parâmetro; os poucos `sql\`\``
+  interpolam valor (inclusive a busca full-text, que sanitiza o termo antes de
+  virar `to_tsquery`), nunca texto.
+- **Cripto**: TOTP compara em tempo constante e grava o passo usado (sem reúso);
+  o segredo do autenticador é AES-256-GCM com o id do usuário como dado
+  autenticado e `authTagLength` fixo; senha é bcrypt com teto de 72 bytes e
+  checagem de vazamento.
+
+### Hardenings propostos (não aplicados, risco x ganho)
+
+- A **página** `GET /entrar/redefinir?token=` também diz se o token vale, sem
+  limite. Fica aceito pela entropia de 256 bits (igual à sessão): varrer é
+  inviável, e barrar um GET de navegação atrapalharia quem abre o link legítimo.
+- `validateCoupon` confirma se um código existe para quem não está logado
+  (limitado a 30/10 min por IP). Aceito: é o preview do checkout, e cupom não é
+  segredo.
+- `Cross-Origin-Resource-Policy: same-origin` foi descartado: o cliente de
+  e-mail carrega `/email/lockup.png` de outra origem e os buscadores carregam a
+  og:image — o CORP quebraria os dois.
+- O contador por IP do login não é devolvido no acerto (só o da conta). É
+  conservador de propósito; em IP compartilhado (CGNAT) é um trade-off de
+  disponibilidade conhecido, não uma falha.
+
 ## Como manter
 
 - **Dependências:** o "Dependabot security updates" abre PR na hora em que
