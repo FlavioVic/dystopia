@@ -2,7 +2,12 @@
 
 import { redirect } from "next/navigation";
 import { breachedPasswordMessage } from "@/application/password-policy";
-import { isPasswordResetLinkValid, limitPasswordResetRequests, resetPassword } from "@/application/password-reset";
+import {
+  isPasswordResetLinkValid,
+  limitPasswordResetAttempts,
+  limitPasswordResetRequests,
+  resetPassword,
+} from "@/application/password-reset";
 import { sendPasswordResetAfterResponse } from "@/composition/web";
 import { retryMessage } from "@/lib/action-limits";
 import { rememberThisDevice } from "@/lib/known-device";
@@ -41,6 +46,11 @@ export async function resetPasswordWithLink(_prev: ResetPasswordState, formData:
   }
 
   const { token, password } = parsed.values;
+  // Limite por IP antes de tocar no banco: a troca pelo link é pública e gasta
+  // o token, então segura a varredura de tokens (anti-automação da OWASP).
+  const limit = await limitPasswordResetAttempts(await getRequestIp());
+  if (!limit.allowed) return { message: retryMessage(limit.retryAfterSeconds) };
+
   // O link primeiro (uma consulta ao banco): só quem tem um link válido faz o
   // site consultar o Pwned Passwords. Com senha vazada, o link não é gasto e a
   // pessoa escolhe outra nele mesmo.

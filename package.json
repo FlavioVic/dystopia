@@ -7,6 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "test": "tsx tests/run.ts",
     "test:unit": "tsx tests/run.ts --unit",
     "worker": "tsx src/scripts/worker.ts",
@@ -52,6 +54,7 @@
     "drizzle-kit": "^0.31.11",
     "eslint": "^10",
     "eslint-config-next": "^16.4.5",
+    "prettier": "^3.9.10",
     "tailwindcss": "^4",
     "tsx": "^4.23.15",
     "typescript": "^5"

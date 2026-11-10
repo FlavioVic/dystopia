@@ -1,0 +1,15 @@
+# https://editorconfig.org — alinha espaço/LF/charset entre editores, antes
+# mesmo do Prettier rodar. Reflete o que o código já usa hoje.
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 2
+
+# Em Markdown, dois espaços no fim da linha são quebra de linha — não corte.
+[*.md]
+trim_trailing_whitespace = false
