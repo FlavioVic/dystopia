@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { PageHeader, ProductGrid, Sector, counted } from "@/components/Kit";
+import { PageTransition } from "@/components/PageTransition";
 import { Pagination } from "@/components/Pagination";
 import { ProductCard } from "@/components/ProductCard";
 import { getCategoryBySlug, getProductsByCategorySlug } from "@/lib/data/products";
@@ -26,7 +27,7 @@ export default async function CategoryPage(props: PageProps<"/categoria/[slug]">
   if (!category || isPastLastPage(page.page, total, STORE_PAGE_SIZE)) notFound();
 
   return (
-    <>
+    <PageTransition>
       <Sector tone="crimson" compact>
         <PageHeader
           ruled={false}
@@ -49,6 +50,6 @@ export default async function CategoryPage(props: PageProps<"/categoria/[slug]">
         )}
         <Pagination basePath={`/categoria/${category.slug}`} page={page.page} total={total} pageSize={STORE_PAGE_SIZE} />
       </div>
-    </>
+    </PageTransition>
   );
 }

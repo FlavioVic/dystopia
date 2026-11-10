@@ -7,6 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "test": "tsx tests/run.ts",
     "test:unit": "tsx tests/run.ts --unit",
     "worker": "tsx src/scripts/worker.ts",
@@ -25,6 +27,7 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@react-three/fiber": "^9.8.2",
     "@vercel/blob": "^2.8.2",
     "amqplib": "^2.2.1",
     "bcryptjs": "^3.0.3",
@@ -35,6 +38,7 @@
     "qrcode": "^1.5.4",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
+    "three": "^0.182.0",
     "zod": "^4.6.7"
   },
   "devDependencies": {
@@ -46,9 +50,11 @@
     "@types/qrcode": "^1.5.6",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/three": "^0.182.0",
     "drizzle-kit": "^0.31.11",
     "eslint": "^10",
     "eslint-config-next": "^16.4.5",
+    "prettier": "^3.9.10",
     "tailwindcss": "^4",
     "tsx": "^4.23.15",
     "typescript": "^5"

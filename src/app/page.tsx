@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { SectionHeading, Sector, buttonPrimary, buttonSecondary, gridCell, gridFrame } from "@/components/Kit";
-import { EmblemSting } from "@/components/Logo";
+import { HeroEmblem } from "@/components/hero/HeroEmblem";
 import { Marquee } from "@/components/Marquee";
+import { PageTransition } from "@/components/PageTransition";
 import { Reveal } from "@/components/Motion";
 import { PortfolioCard, ProjectImage, StackTags } from "@/components/PortfolioCard";
 import { ProductCard } from "@/components/ProductCard";
@@ -19,7 +20,7 @@ export default async function Home() {
 
 
   return (
-    <div className="flex flex-col">
+    <PageTransition className="flex flex-col">
       {/* ---------------------------------------------------------- abertura */}
       {/* Em monitor grande (3xl, ≥1800px, junto com a largura do site) o hero ocupa a
           primeira tela e cresce, com o emblema sempre ao lado do texto. */}
@@ -59,7 +60,7 @@ export default async function Home() {
 
           <div className="hidden lg:col-span-5 lg:flex lg:justify-end 3xl:col-span-4">
             <div className="dys-frame flex flex-col items-center gap-8 bg-background px-14 py-12">
-              <EmblemSting size={248} className="text-primary 3xl:size-[296px]" title="Emblema DYSTOPIA" />
+              <HeroEmblem />
               <p className="serial text-foreground-muted">
                 EMISSÃO OFICIAL / <span className="text-signal-text">DYS-0001</span>
               </p>
@@ -242,6 +243,6 @@ export default async function Home() {
           </Reveal>
         </div>
       </section>
-    </div>
+    </PageTransition>
   );
 }

@@ -48,14 +48,19 @@ export function ClassLabel({ level = "notice", children }: { level?: ClassLevel;
   return <span className={`dys-label${variant}`}>{children}</span>;
 }
 
-/** Botões: primário em bone (CLASSIFIED), secundário em borda. Cantos retos, troca de estado seca. */
+/**
+ * Botões: primário em bone (CLASSIFIED), secundário em borda. Cantos retos,
+ * troca de estado seca. O `active:translate-y-px` é o "clique" mecânico — o
+ * botão afunda 1px no toque e volta; some com prefers-reduced-motion (o
+ * disabled não afunda).
+ */
 export const buttonPrimary =
-  "label inline-flex items-center justify-center gap-2 bg-primary px-5 py-3 text-primary-foreground transition-colors duration-150 hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50";
+  "label inline-flex items-center justify-center gap-2 bg-primary px-5 py-3 text-primary-foreground transition-[color,background-color,border-color,transform] duration-150 hover:bg-primary-hover active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50 disabled:active:translate-y-0 motion-reduce:active:translate-y-0";
 export const buttonSecondary =
-  "label inline-flex items-center justify-center gap-2 border border-foreground px-5 py-3 text-foreground transition-colors duration-150 hover:bg-foreground hover:text-background disabled:cursor-not-allowed disabled:opacity-50";
+  "label inline-flex items-center justify-center gap-2 border border-foreground px-5 py-3 text-foreground transition-[color,background-color,border-color,transform] duration-150 hover:bg-foreground hover:text-background active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50 disabled:active:translate-y-0 motion-reduce:active:translate-y-0";
 /** Secundário compacto: "voltar", "ver tudo" em menu, ações de painel. Ação nunca é texto solto. */
 export const buttonCompact =
-  "label inline-flex shrink-0 items-center justify-center gap-2 border border-border px-3 py-2 text-foreground transition-colors duration-150 hover:border-foreground hover:bg-foreground hover:text-background disabled:cursor-not-allowed disabled:opacity-50";
+  "label inline-flex shrink-0 items-center justify-center gap-2 border border-border px-3 py-2 text-foreground transition-[color,background-color,border-color,transform] duration-150 hover:border-foreground hover:bg-foreground hover:text-background active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50 disabled:active:translate-y-0 motion-reduce:active:translate-y-0";
 
 /** Abertura de página: rótulo técnico, título display e uma linha de contexto. */
 export function PageHeader({

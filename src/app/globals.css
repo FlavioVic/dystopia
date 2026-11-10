@@ -472,3 +472,55 @@
 .caret {
   animation: blink 1s steps(1) infinite;
 }
+
+/* "Power-on" do emblema 3D: só opacidade, sem deslocar o canvas (ver HeroEmblem). */
+@keyframes emblem-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* ------------------------------------------------- transição entre páginas
+ * View Transitions nativas (React 19.3, componente PageTransition). Corte seco,
+ * mecânico: o antigo sai rápido, o novo assenta. O cabeçalho/rodapé (root) não
+ * se mexem. A regra global de prefers-reduced-motion do topo só cobre elementos,
+ * não os pseudo-elementos ::view-transition-*, então o corte é refeito aqui.
+ */
+@keyframes vt-out {
+  to {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+@keyframes vt-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+::view-transition-group(root) {
+  animation: none;
+}
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+/* O overlay da transição não pode engolir cliques durante a animação. */
+::view-transition {
+  pointer-events: none;
+}
+::view-transition-old(.page-exit) {
+  animation: vt-out 130ms var(--ease-out) both;
+}
+::view-transition-new(.page-enter) {
+  animation: vt-in 220ms var(--ease-out) 90ms both;
+}
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(*),
+  ::view-transition-new(*),
+  ::view-transition-group(*) {
+    animation-duration: 0s !important;
+    animation-delay: 0s !important;
+  }
+}
