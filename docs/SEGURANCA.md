@@ -153,6 +153,9 @@ alertas. Nenhum era falha explorável:
   Node não vem por ele: é uma só em todo lugar (o `engines` do
   `package.json`, que a Vercel e a CI leem, os Dockerfiles e o
   `@types/node`) e muda à mão, nos três juntos, quando a Vercel suportar.
+  A versão principal do TypeScript também não vem: ela espera o
+  typescript-eslint, que roda no lint, aceitar a versão nova (o TS 7 ainda
+  não é aceito).
 - **Segredos:** push protection barra o push com chave conhecida; o secret
   scanning varre o histórico.
 - **Código:** o CodeQL (conjunto `security-extended`) roda em todo PR.
