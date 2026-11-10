@@ -31,14 +31,26 @@ responde (aprovar, recusar, instável, fora do ar) para ver a saga reagir.
 - **Testado de verdade**: unitários, integração contra Postgres e RabbitMQ
   reais (broker fora, reconexão, consumidor que morre sem `ack`, estoque e
   carrinho sob concorrência, migrations com dados antigos) e navegador com
-  Playwright em desktop e celular: compras (aprovada, recusada, instável, com
-  cupom, e pelo Stripe real em modo de teste), conta, carrinho, orçamento, admin, isolamento entre clientes e
-  acessibilidade (axe, WCAG 2.1 AA). Testes de arquitetura impedem serviço de
+  Playwright em desktop e celular: compras (aprovada, recusada, instável, fora
+  do ar com compensação da saga, com cupom, e pelo Stripe real em modo de
+  teste), bordas do checkout (carrinho vazio, endereço inválido, cupom
+  inexistente), conta, carrinho, orçamento, admin, isolamento entre clientes,
+  exportação de dados (LGPD) e acessibilidade (axe, WCAG 2.1 AA). Testes de
+  arquitetura impedem serviço de
   importar serviço, Server Action de escrever no banco ou abrir transação, a
   borda de conhecer a fila e action do admin sem checagem de papel.
 - **Assistente com IA que usa o próprio sistema**: busca no catálogo, consulta
   o pedido de quem está logado e registra orçamento por ferramentas (tool
   calling), com a identidade vinda da sessão — nunca da conversa.
+- **Vitrine com acabamento de produto**: no hero da home, o emblema "The Gate"
+  ganha uma versão em 3D (three.js / `@react-three/fiber`), monocromática e
+  fosca — steel e bone sobre obsidian, sem glow nem neon, fiel à identidade; o
+  portão não abre, o único movimento é um parallax mecânico. É **progressivo e
+  acessível**: só monta no desktop com WebGL e sem `prefers-reduced-motion` —
+  no celular o chunk pesado nem é baixado e fica o emblema SVG de fallback.
+  Transições entre páginas com o `<ViewTransition>` nativo do React 19 (zero
+  biblioteca, sem furar a CSP) e clique mecânico nos botões do kit; tudo some
+  com `prefers-reduced-motion`.
 - **Pronto para ficar exposto**: CSP com nonce por request, limite de
   tentativas no login, login que não revela quais e-mails existem, sessão no
   banco (sair vale na hora, em qualquer aparelho), **MFA obrigatório no
@@ -116,7 +128,8 @@ pagamentos, garantias, observabilidade) e
 ## Stack
 
 Next.js 16 (App Router, Server Actions) · TypeScript · PostgreSQL + Drizzle ·
-RabbitMQ (`amqplib`) · Zod · Tailwind CSS v4 · `node:test` + Playwright.
+RabbitMQ (`amqplib`) · Zod · Tailwind CSS v4 · three.js / `@react-three/fiber`
+(emblema 3D do hero) · `node:test` + Playwright.
 
 Orquestrador, relay da outbox, política de retry e logger são do projeto — é
 onde está o interesse do portfólio. O Stripe é chamado por `fetch`, sem SDK.
@@ -148,6 +161,12 @@ Contas do seed local: `admin@dystopia.dev` / `admin123` e
 app autenticador (QR em `/conta/seguranca`); o painel não abre sem ele. Contra banco remoto o seed se recusa a
 rodar sem confirmação explícita e senha de admin forte.
 
+Antes de commitar, `npm run lint` e `npx tsc --noEmit` precisam ficar limpos.
+A formatação é do Prettier: `npm run format` escreve e `npm run format:check`
+só confere. A config (`.prettierrc.json` + `.editorconfig`) foi calibrada para
+casar com o estilo que o código já usa; a reformatação em massa ficou de
+propósito para um passo isolado, num commit só.
+
 ## Testes
 
 ```bash
@@ -161,6 +180,15 @@ prefixo próprio, com filas de espera de milissegundos — o retry passa de
 verdade pelo broker. Os testes verificam efeito, não chamada: depois de um
 caminho triste, a asserção é "o estoque voltou, a cobrança foi estornada, o
 pedido está cancelado".
+
+Os testes de navegador cobrem também as bordas do storefront público: a
+compensação da saga quando o gateway fica fora do ar (`unavailable` — a fila
+esgota as tentativas, o estoque é devolvido e nada é cobrado), o checkout de
+carrinho vazio, o endereço em branco e o cupom inexistente; a trilha
+produto → categoria com varredura do axe; e o download dos próprios dados
+(`GET /conta/dados`, LGPD) — JSON anexo, sem o hash da senha, e 401 para quem
+não está logado. Mirados em papel/rótulo acessível, para sobreviverem ao
+redesenho visual.
 
 O CI (`.github/workflows/ci.yml`) roda tipos, lint, migrations em banco limpo,
 testes e build, e depois os testes de navegador contra a stack do compose.

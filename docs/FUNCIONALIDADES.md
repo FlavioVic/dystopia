@@ -20,9 +20,23 @@ cidade: contenção, disciplina, permanência. No código, isso vira regra:
   Commons tem o **modelo exato** sob licença livre (com crédito na página do
   produto e em `/creditos`); senão, placa técnica gerada (`npm run art`). Pelo
   painel, o admin envia as fotos que quiser (galeria de até 10).
-- **Movimento** mecânico e curto: blocos revelados ao rolar, o emblema montado
-  na abertura (a vinheta do design system), faixa contínua e linha vermelha no
-  hover — tudo desligado com `prefers-reduced-motion`.
+- **Movimento** mecânico e curto, "entra, para": blocos revelados ao rolar,
+  faixa contínua, linha vermelha no hover e o **clique mecânico** dos botões do
+  kit (afundam 1px no toque e voltam). No hero da home, o emblema "The Gate"
+  ganha uma versão em **3D** (`src/components/hero/`, three.js /
+  `@react-three/fiber`): aro em steel, duas folhas em bone sobre obsidian,
+  monocromático e fosco. A **regra de fidelidade** vale igual no relevo — **sem
+  glow, sem neon, sem reflexo de ambiente** (tone mapping `flat`, só luz
+  branca); o portão nasce fechado e **nunca abre**, o único movimento é um
+  parallax amortecido que acompanha o ponteiro. O 3D é **progressivo**: entra
+  por `next/dynamic` (`ssr: false`, fora do caminho de LCP) e só monta no
+  desktop (lg+) com WebGL e sem `prefers-reduced-motion` — no celular o chunk
+  pesado nem é baixado, e o fallback (de carregamento e de degradação) é o
+  `EmblemSting` em SVG, também em bone, sem troca de cor. A navegação entre
+  páginas da loja usa o `<ViewTransition>` **nativo do React 19** (sem
+  biblioteca, sem furar a CSP): corte seco na saída, o novo conteúdo assenta no
+  lugar, cabeçalho e rodapé fixos. **Tudo desligado com
+  `prefers-reduced-motion`.**
 - **Ação nunca é texto solto**: o que leva a algum lugar é botão (com borda, o
   `buttonSecondary`/`buttonCompact` do kit); link de referência é sublinhado.
 

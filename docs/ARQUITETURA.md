@@ -18,6 +18,7 @@ estoque, pagamento ou fila.
 | `npm test -- <termo>` | Só os arquivos de teste com o termo no nome |
 | `npm run test:unit` | Só os testes que não precisam de banco |
 | `npm run lint` · `npx tsc --noEmit` | Lint e tipos — ambos têm que ficar limpos |
+| `npm run format` · `format:check` | Prettier: `format` escreve, `format:check` confere. Config (`.prettierrc.json` + `.editorconfig`) casa com o estilo atual; a reformatação em massa é um passo isolado, ainda não aplicado |
 | `npm run db:generate` → `db:migrate` | Nova migration a partir de `src/db/schema.ts` (`db:migrate` aplica os dois bancos) |
 | `npm run db:generate:payments` | Nova migration do banco de pagamentos (`src/services/payments/schema.ts` → `drizzle-payments/`) |
 | `npm run db:seed` | Repopula o banco de dev (TRUNCATE + inserts) |
@@ -360,8 +361,14 @@ revise o SQL → `npm run db:migrate`. Nunca edite migration já aplicada.
 - Foto de produto só do modelo exato e com licença livre (`lib/photo-credits.ts`,
   teste em `tests/unit/media-assets.test.ts`). Em produção, mídia do catálogo
   muda com `npm run catalog:media`, não com o seed (que apaga contas).
-- Animação: `Reveal`/`CountUp` (`components/Motion.tsx`) e classes em
-  `globals.css`; respeite `prefers-reduced-motion`.
+- Animação: `Reveal`/`CountUp` (`components/Motion.tsx`), transição entre
+  páginas com o `<ViewTransition>` nativo do React 19 (`components/PageTransition.tsx`,
+  recorte em `::view-transition-*` no `globals.css`) e classes em `globals.css`;
+  respeite `prefers-reduced-motion`. O emblema 3D do hero (three.js /
+  `@react-three/fiber`) mora em `src/components/hero/` e entra por `next/dynamic`
+  (`ssr: false`), só no desktop (lg+) com WebGL e sem `prefers-reduced-motion`,
+  com o SVG `EmblemSting` de fallback — não o carregue fora do hero nem no
+  caminho de LCP.
 - Data layer em `src/lib/data/*` com `cache()` do React; mutação em
   `src/lib/actions/*`. Página e componente (`.tsx`) não importam banco,
   Drizzle nem serviço — o teste de arquitetura cobra.
@@ -405,3 +412,29 @@ revise o SQL → `npm run db:migrate`. Nunca edite migration já aplicada.
 - Server Action não dá para chamar com curl ingenuamente (protocolo RSC): o
   id vem do bundle, os argumentos vão no campo `0` do multipart, e os campos
   de um `FormData` (`_1_<nome>`) têm que vir ANTES do `0`.
+
+## Backlog de refinamento
+
+Da revisão de arquitetura (nota 9/10). São refinamentos, não dívida — e cada um
+é um PR próprio, para não poluir diffs em paralelo. Em ordem de retorno:
+
+- **P1 — separar `src/lib/` por camada.** Hoje a pasta mistura porta de borda
+  (`actions/`, `data/`, `assistant/`, `validation/`, `session`, `request-ip`,
+  `media-storage`) com helper puro de domínio (`money`, `shipping`,
+  `pagination`, `order-status`, `catalog-rules`). Proposta: extrair os puros
+  para `src/lib/domain/`. *Blast radius* grande (`order-status` em 14 arquivos,
+  `shipping` em 10) e dois invariantes citam caminhos literais (`lib/money.ts`,
+  `src/lib/order-status.ts`) — por isso fica isolado.
+- **P2 — quebrar `src/saga/orchestrator.ts`** (881 linhas, 5 papéis: avanço,
+  persistência de passo, reconciliação, respostas remotas, consultas) em
+  `src/saga/orchestrator/*`, mantendo a fronteira e o teste. Maior retorno de
+  legibilidade.
+- **P3 — `exactOptionalPropertyTypes: true`** (29 erros em 22 arquivos,
+  `TS2375`/`TS2379`): correção mecânica, PR de endurecimento isolado.
+- **P4 — escala tipográfica.** O design system tem zero cor ad-hoc, mas ~90
+  tamanhos de fonte arbitrários em pixel (`text-[11px]`, `text-[26px]`…);
+  promover os recorrentes a tokens no `globals.css`. Cosmético.
+- **P5 (opcional) — `noUncheckedIndexedAccess`** (~309 erros): correto, custo
+  alto; só com apetite para mutirão.
+- **P6 (opcional) — dividir `schema.ts`** (789 linhas) por domínio: menor
+  retorno, risco com migrations — por último.
