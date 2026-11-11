@@ -9,7 +9,7 @@
 
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { addresses, coupons, products, reviews, serviceRequests, users } from "@/db/schema";
+import { addresses, coupons, products, productVariants, reviews, serviceRequests, users } from "@/db/schema";
 import { MAX_EMAIL_LENGTH, MAX_NAME_LENGTH, MAX_TEXT_LENGTH } from "@/lib/validation/form";
 import { MAX_DESCRIPTION_LENGTH } from "@/lib/validation/product";
 import { MAX_COMMENT_LENGTH, MAX_TITLE_LENGTH } from "@/lib/validation/review";
@@ -52,6 +52,12 @@ describe("tetos de coluna (varchar) espelham a validação", () => {
     assert.equal(varcharLen(addresses.label), 60);
     assert.equal(varcharLen(addresses.state), 2); // UF
     assert.equal(varcharLen(addresses.zipCode), 9); // 00000-000
+  });
+
+  it("SKUs: índice único btree nos dois, então os dois têm teto", () => {
+    assert.equal(varcharLen(products.sku), MAX_TEXT_LENGTH);
+    assert.equal(varcharLen(productVariants.sku), MAX_TEXT_LENGTH);
+    assert.equal(varcharLen(productVariants.name), MAX_TEXT_LENGTH);
   });
 
   it("o que é hash/segredo continua text (não se limita o tamanho de um hash)", () => {

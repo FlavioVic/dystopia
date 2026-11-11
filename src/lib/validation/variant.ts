@@ -4,7 +4,7 @@
  */
 
 import { z } from "zod";
-import { formStrings, optionalCents, parseForm, requiredText, wholeNumber } from "./form";
+import { MAX_TEXT_LENGTH, formStrings, optionalCents, parseForm, requiredText, wholeNumber } from "./form";
 
 /** "Tamanho: M\nCor: Preto" → { Tamanho: "M", Cor: "Preto" } */
 export function parseAttributes(raw: string): Record<string, string> {
@@ -33,6 +33,7 @@ const variantSchema = z
       .string()
       .trim()
       .toUpperCase()
+      .max(MAX_TEXT_LENGTH, `SKU com no máximo ${MAX_TEXT_LENGTH} caracteres.`)
       .regex(/^[A-Z0-9-]{3,}$/, "SKU com 3+ letras/números/hífen."),
     // Preço vazio = herda o do produto (coluna é nullable de propósito).
     price: optionalCents("Preço inválido.", null),
