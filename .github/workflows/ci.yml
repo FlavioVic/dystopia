@@ -130,7 +130,11 @@ jobs:
         run: docker compose --profile app run --rm migrate npm run db:seed
 
       - name: Navegador
-        run: npx playwright install --with-deps chromium
+        # `--with-deps` instala libs do sistema via apt; quando um mirror do
+        # Ubuntu cai (ex.: security.ubuntu.com sem DNS em 2026-11-11), isso
+        # derruba a CI inteira. O fallback instala só o browser: a imagem
+        # ubuntu-latest já traz as libs que o Chromium headless usa.
+        run: npx playwright install --with-deps chromium || npx playwright install chromium
 
       - name: Testes de navegador
         run: npm run test:e2e
