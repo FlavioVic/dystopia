@@ -289,9 +289,7 @@ export const productVariants = pgTable(
       .notNull()
       .references(() => products.id, { onDelete: "cascade" }),
     name: varchar("name", { length: 200 }).notNull(), // "M / Preto" (requiredText)
-    // `sku` fica text: a validação (variant.ts) só exige regex com mínimo, sem
-    // `.max()` — limitar só no banco rejeitaria fora da validação. Lacuna de app.
-    sku: text("sku").notNull(),
+    sku: varchar("sku", { length: 200 }).notNull(), // regex + MAX_TEXT_LENGTH (variant.ts)
     priceCents: integer("price_cents"), // override; null = usa o do produto
     stockQuantity: integer("stock_quantity").notNull().default(0),
     attributes: jsonb("attributes").notNull().default({}),

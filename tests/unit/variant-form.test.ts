@@ -57,6 +57,11 @@ describe("validação da variante", () => {
     assert.equal(parseVariantForm(form({ sku: "abc" })).errors.sku, undefined);
   });
 
+  it("SKU tem teto (coluna varchar com índice único)", () => {
+    assert.ok(parseVariantForm(form({ sku: "A".repeat(201) })).errors.sku);
+    assert.equal(parseVariantForm(form({ sku: "A".repeat(200) })).errors.sku, undefined);
+  });
+
   it("estoque é inteiro não negativo", () => {
     assert.ok(parseVariantForm(form({ stock: "-1" })).errors.stock);
     assert.ok(parseVariantForm(form({ stock: "2,5" })).errors.stock);
