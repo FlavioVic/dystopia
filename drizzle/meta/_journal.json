@@ -127,6 +127,13 @@
       "when": 1793662450169,
       "tag": "0017_luxuriant_venus",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1794346195478,
+      "tag": "0018_late_pixie",
+      "breakpoints": true
     }
   ]
 }

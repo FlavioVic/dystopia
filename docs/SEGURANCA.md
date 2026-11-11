@@ -80,6 +80,11 @@ Mapa contra o OWASP Top 10 2025, para quem revisa:
   como SHA-256.
 - **A05 — Injeção.** Todo SQL passa pelo Drizzle com parâmetro (os `sql\`\``
   interpolam valor, não texto). JSON-LD escapa `<`; e-mail escapa HTML.
+- **Tamanho de entrada.** Todo texto livre tem teto no Zod (`.max()`) **e** o
+  mesmo teto na coluna (`varchar(n)`). Sem isso, um e-mail gigante passava pela
+  validação e estourava o índice único btree do Postgres (~2704 bytes) no
+  `INSERT` → 500 não tratado num endpoint público (cadastro). Os dois lados
+  ficam presos pelo teste `schema-column-limits`.
 - **A07 — Autenticação.** Sessão no banco (sair derruba na hora), MFA com
   proteção contra reúso do código, limite por IP e por conta com aparelho
   conhecido, hash falso para e-mail inexistente (o tempo não revela a conta),
