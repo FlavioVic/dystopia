@@ -31,7 +31,7 @@ export type NewServiceRequest = {
 /**
  * Protocolo curto e legível para a pessoa citar na conversa. Aleatório (não
  * sequencial) para não expor quantos pedidos existem; o índice único pega a
- * colisão rara e a gente sorteia de novo.
+ * colisão rara e um novo sorteio resolve.
  */
 export function generateProtocol(random: (max: number) => number = randomInt): string {
   return `DYS-S${String(random(1_000_000)).padStart(6, "0")}`;
