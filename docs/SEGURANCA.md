@@ -116,17 +116,20 @@ Ficaram de fora de propósito, com o porquê:
 - **Argumento das actions do painel sem checagem de tipo.** O TypeScript não
   vale em tempo de execução, mas só um admin com autenticador chega lá, e o
   efeito de um valor estranho é inofensivo (o serviço só grava o que conhece).
-- **2 alertas moderados do Dependabot em ferramenta, não no site.** Os dois
-  são dependência de desenvolvimento e não vão para o site.
-  `esbuild` 0.18 (o servidor de desenvolvimento dele responde a pedido de
-  qualquer site) vem do drizzle-kit, por um pacote antigo (`@esbuild-kit`),
-  e o `esbuild serve` não é usado. `minimatch` 10 (DoS com padrão de glob
-  feito para isso) vem do eslint 10 e do typescript-eslint, e os padrões
-  que ele lê são os nossos, da configuração do lint. A correção é a
-  versão 11, que os dois ainda não aceitam (pedem `^10`): forçar arrisca
-  quebrar o lint. Ficam abertos de propósito, para o Dependabot avisar
-  quando o drizzle-kit e o eslint trouxerem a versão corrigida. Na
-  `infra/`, o Pulumi 3.274 (#59) tirou o `glob` e o `minimatch` vulneráveis.
+- **Dependabot zerado também na ferramenta (eram 2 moderados, risco aceito
+  até 2026-11-11).** Os dois eram dependência de desenvolvimento transitiva,
+  sem caminho para o site: `esbuild` 0.18 (o servidor de desenvolvimento
+  dele responde a pedido de qualquer site) preso num pacote antigo
+  (`@esbuild-kit`) dentro do drizzle-kit, e `minimatch` 10 (DoS com padrão
+  de glob feito para isso) no eslint 10 e no typescript-eslint, cuja
+  correção (11.0.1) é uma major que eles ainda não pedem. Como o upstream
+  não tinha previsão, os dois foram fechados por `overrides` no
+  `package.json`: `esbuild ^0.25` dentro do `@esbuild-kit/core-utils` e
+  `minimatch ^11.0.1` só para quem pedia a faixa vulnerável (`>=7 <11.0.1`
+  — os plugins do eslint no 3.x ficam como estão). Validação: lint, tsc,
+  `drizzle-kit generate` e a suíte na CI; `npm audit` com 0 vulnerabilidades.
+  Na `infra/`, o Pulumi 3.274 (#59) já tinha tirado o `glob` e o
+  `minimatch` vulneráveis.
 - **Padrões genéricos e checagem de validade do secret scanning.** São do
   plano pago do GitHub. Os padrões dos provedores (Stripe, Resend, AWS...)
   e a push protection estão ligados.

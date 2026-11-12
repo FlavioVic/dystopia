@@ -59,6 +59,10 @@
   "overrides": {
     "@vercel/cli-config": {
       "zod": "$zod"
+    },
+    "minimatch@>=7.0.0 <11.0.1": "^11.0.1",
+    "@esbuild-kit/core-utils": {
+      "esbuild": "^0.25.0"
     }
   },
   "engines": {
