@@ -6,7 +6,7 @@ projeto de portfólio. O foco técnico é o checkout: uma **SAGA** orquestrada
 sobre **RabbitMQ**, com outbox transacional, retentativa planejada, DLQ e
 compensação — o pedido nunca fica pela metade.
 
-**Demo:** <https://dystopia-wheat.vercel.app> — conta de cliente
+**Demo:** <https://dystopia-fv.vercel.app> — conta de cliente
 `cliente@dystopia.dev` / `cliente123`. Peças reais, preços fictícios, nada é
 cobrado. No checkout, o modo demonstração deixa escolher o que o gateway
 responde (aprovar, recusar, instável, fora do ar) para ver a saga reagir.

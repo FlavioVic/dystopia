@@ -43,7 +43,7 @@ export const PORTFOLIO: PortfolioProject[] = [
     imageAlt: "Página de pedido recusado da DYSTOPIA, com a compensação da saga passo a passo",
     screenshot: true,
     repo: "https://github.com/FlavioVic/dystopia",
-    live: "https://dystopia-wheat.vercel.app",
+    live: "https://dystopia-fv.vercel.app",
   },
   {
     slug: "tracer",
