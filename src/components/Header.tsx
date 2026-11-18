@@ -41,8 +41,12 @@ export function Header({
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur-sm">
       <div className="mx-auto flex h-16 max-w-site items-center gap-3 px-3 min-[360px]:gap-4 min-[360px]:px-4 sm:gap-8 sm:px-6 lg:px-8">
-        {/* No celular o lockup inteiro não cabe com os atalhos: fica o emblema. */}
-        <Link href="/" aria-label="DYSTOPIA — início" className="shrink-0 text-foreground sm:hidden">
+        {/* No celular o lockup inteiro não cabe com os atalhos: fica o emblema.
+            Os dois convivem no DOM (um é `sm:hidden`, o outro `hidden sm:inline-flex`),
+            então sem isto a home — que consulta destaques e portfólio — era
+            pré-renderizada duas vezes em cada página vista. O prefetch fica no
+            lockup, que é o que aparece onde há banda de sobra. */}
+        <Link prefetch={false} href="/" aria-label="DYSTOPIA — início" className="shrink-0 text-foreground sm:hidden">
           <Emblem size={28} className="text-primary" />
         </Link>
         <span className="hidden sm:inline-flex">

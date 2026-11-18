@@ -41,10 +41,13 @@ function StoreSearch() {
  * Navegação principal. Serviços vêm primeiro (é o foco do site); a loja abre
  * um menu com as categorias em vez de uma faixa rolável.
  *
- * As categorias vão sem prefetch: os dois menus ficam no DOM mesmo fechados
- * (só `invisible`), então o prefetch padrão mandava o servidor renderizar as
- * 10 categorias duas vezes em cada página vista. Os links fixos da barra
- * continuam com prefetch — são poucos e é o que o visitante clica.
+ * O conteúdo dos dois menus só entra no DOM quando o menu abre. A caixa fica,
+ * para a transição de abrir continuar valendo; o que sai são os links. Fechados
+ * eles não aparecem para ninguém, mas o `next/link` prefetchava tudo: como as
+ * duas caixas convivem (uma é `lg:hidden`, a outra `hidden lg:flex`), os links
+ * fixos da barra eram pré-renderizados no servidor duas vezes por página vista,
+ * e as 10 categorias também. Elas seguem com `prefetch={false}` por garantia:
+ * com o menu aberto, passar o olho na lista não deve render 10 rotas.
  */
 export function HeaderNav({ categories }: { categories: Category[] }) {
   const path = usePathname();
@@ -117,35 +120,39 @@ export function HeaderNav({ categories }: { categories: Category[] }) {
               storeOpen ? "visible translate-y-0 opacity-100" : "invisible -translate-y-2 opacity-0"
             }`}
           >
-            <div className="h-[2px] w-12 bg-primary" aria-hidden="true" />
-            <p className="label mt-4 text-foreground-muted">
-              Inventário / {String(categories.length).padStart(2, "0")} categorias
-            </p>
-            <ul className="mt-4 grid grid-cols-2 gap-x-6">
-              {categories.map((c) => (
-                <li key={c.slug}>
-                  <Link
-                    prefetch={false}
-                    href={`/categoria/${c.slug}`}
-                    className="group flex items-center justify-between border-b border-border-faint py-2.5 text-sm text-foreground-muted transition-colors hover:text-foreground"
-                  >
-                    {c.name}
-                    <span
-                      aria-hidden="true"
-                      className="text-signal-text opacity-0 transition-all duration-200 group-hover:translate-x-1 group-hover:opacity-100"
-                    >
-                      →
-                    </span>
+            {storeOpen ? (
+              <>
+                <div className="h-[2px] w-12 bg-primary" aria-hidden="true" />
+                <p className="label mt-4 text-foreground-muted">
+                  Inventário / {String(categories.length).padStart(2, "0")} categorias
+                </p>
+                <ul className="mt-4 grid grid-cols-2 gap-x-6">
+                  {categories.map((c) => (
+                    <li key={c.slug}>
+                      <Link
+                        prefetch={false}
+                        href={`/categoria/${c.slug}`}
+                        className="group flex items-center justify-between border-b border-border-faint py-2.5 text-sm text-foreground-muted transition-colors hover:text-foreground"
+                      >
+                        {c.name}
+                        <span
+                          aria-hidden="true"
+                          className="text-signal-text opacity-0 transition-all duration-200 group-hover:translate-x-1 group-hover:opacity-100"
+                        >
+                          →
+                        </span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+                <div className="mt-5 grid grid-cols-[1fr_auto] items-center gap-4">
+                  <StoreSearch />
+                  <Link href="/produtos" className={buttonCompact}>
+                    Inventário completo <span aria-hidden="true">→</span>
                   </Link>
-                </li>
-              ))}
-            </ul>
-            <div className="mt-5 grid grid-cols-[1fr_auto] items-center gap-4">
-              <StoreSearch />
-              <Link href="/produtos" className={buttonCompact}>
-                Inventário completo <span aria-hidden="true">→</span>
-              </Link>
-            </div>
+                </div>
+              </>
+            ) : null}
           </div>
         </div>
 
@@ -181,34 +188,38 @@ export function HeaderNav({ categories }: { categories: Category[] }) {
             mobileOpen ? "visible opacity-100" : "invisible -translate-y-2 opacity-0"
           }`}
         >
-          <nav aria-label="Principal (celular)" className="flex flex-col">
-            {[...LINKS, { href: "/produtos", label: "Loja" }, { href: "/sobre", label: "Sobre" }].map((l) => (
-              <Link
-                key={l.href}
-                href={l.href}
-                className={`display-4 border-b border-border-faint py-4 text-[14px] ${isActive(path, l.href) ? "text-signal-text" : "text-foreground"}`}
-              >
-                {l.label}
-              </Link>
-            ))}
-          </nav>
-          <p className="label mt-6 text-foreground-muted">Categorias</p>
-          <ul className="mt-3 grid grid-cols-2 gap-x-4">
-            {categories.map((c) => (
-              <li key={c.slug}>
-                <Link
-                  prefetch={false}
-                  href={`/categoria/${c.slug}`}
-                  className="block border-b border-border-faint py-2.5 text-sm text-foreground-muted"
-                >
-                  {c.name}
-                </Link>
-              </li>
-            ))}
-          </ul>
-          <div className="mt-6">
-            <StoreSearch />
-          </div>
+          {mobileOpen ? (
+            <>
+              <nav aria-label="Principal (celular)" className="flex flex-col">
+                {[...LINKS, { href: "/produtos", label: "Loja" }, { href: "/sobre", label: "Sobre" }].map((l) => (
+                  <Link
+                    key={l.href}
+                    href={l.href}
+                    className={`display-4 border-b border-border-faint py-4 text-[14px] ${isActive(path, l.href) ? "text-signal-text" : "text-foreground"}`}
+                  >
+                    {l.label}
+                  </Link>
+                ))}
+              </nav>
+              <p className="label mt-6 text-foreground-muted">Categorias</p>
+              <ul className="mt-3 grid grid-cols-2 gap-x-4">
+                {categories.map((c) => (
+                  <li key={c.slug}>
+                    <Link
+                      prefetch={false}
+                      href={`/categoria/${c.slug}`}
+                      className="block border-b border-border-faint py-2.5 text-sm text-foreground-muted"
+                    >
+                      {c.name}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-6">
+                <StoreSearch />
+              </div>
+            </>
+          ) : null}
         </div>
       </div>
     </>

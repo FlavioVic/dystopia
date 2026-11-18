@@ -90,7 +90,11 @@ export default async function Home() {
         <div className={`mt-8 grid-cols-1 md:grid-cols-2 ${gridFrame}`}>
           {SERVICES.map((s, i) => (
             <Reveal key={s.kind} delay={i * 90} className={`min-w-0 ${gridCell}`}>
+              {/* Sem prefetch: o `?servico=` só pré-seleciona o campo do
+                  formulário, e cada variante é um render inteiro de /servicos.
+                  Os dois botões de orçamento da página mantêm o prefetch. */}
               <Link
+                prefetch={false}
                 href={`/servicos?servico=${s.kind}#orcamento`}
                 className="sweep group flex h-full flex-col gap-5 bg-background p-6 transition-colors hover:bg-background-elevated sm:p-8"
               >
