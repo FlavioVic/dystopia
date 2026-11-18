@@ -73,10 +73,13 @@ export default async function AboutPage() {
             <p className="text-sm leading-relaxed text-foreground-muted">
               Peças com ficha técnica do fabricante, separadas por categoria.
             </p>
+            {/* Sem prefetch: são 10 rotas dinâmicas numa seção que o visitante
+                passa o olho, não 10 páginas que ele vai abrir. */}
             <ul className="flex flex-wrap gap-2">
               {categories.map((category) => (
                 <li key={category.slug}>
                   <Link
+                    prefetch={false}
                     href={`/categoria/${category.slug}`}
                     className="dys-label dys-label--notice hover:border-foreground hover:text-foreground"
                   >
@@ -92,9 +95,13 @@ export default async function AboutPage() {
           <div className={`flex min-w-0 flex-col gap-4 bg-background p-6 ${gridCell}`}>
             <h3 className="display-4 text-[13px]">Serviços técnicos</h3>
             <ul className="flex flex-col gap-3">
+              {/* Sem prefetch: o `?servico=` só pré-seleciona o campo do
+                  formulário, e cada variante é um render inteiro de /servicos.
+                  O botão de orçamento abaixo, que é o alvo do clique, mantém. */}
               {SERVICES.map((service) => (
                 <li key={service.kind}>
                   <Link
+                    prefetch={false}
                     href={`/servicos?servico=${service.kind}#orcamento`}
                     className="font-medium text-foreground underline underline-offset-4 hover:text-signal-text"
                   >
