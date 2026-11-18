@@ -24,6 +24,18 @@ export function JsonLd({ data }: { data: Record<string, unknown> }) {
 
 export const absoluteUrl = (path: string) => `${SITE_URL}${path}`;
 
+/**
+ * Capa do site, gerada em app/opengraph-image.tsx. Fica aqui porque página que
+ * declara o próprio `openGraph` substitui o do layout — e perde a capa junto —,
+ * então quem declara precisa poder repô-la.
+ */
+export const SITE_COVER = {
+  url: "/opengraph-image",
+  width: 1200,
+  height: 630,
+  alt: "DYSTOPIA — desenvolvimento de software, montagem, manutenção e formatação de computadores, por Flávio Victor",
+} as const;
+
 /** Organização + autor + site (com a busca do inventário). Vai em toda página. */
 export function siteGraph(): Record<string, unknown> {
   return {

@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { ImageResponse } from "next/og";
 import { GATE_PATH, WORDMARK_PATH, WORDMARK_WIDTH } from "@/lib/brand-geometry";
+import { SITE_COVER } from "@/lib/seo";
 import { SERVICES } from "@/lib/services-catalog";
 
 /**
@@ -12,9 +13,8 @@ import { SERVICES } from "@/lib/services-catalog";
  * paleta de globals.css e as fontes vêm dos TTF ao lado dos WOFF2.
  */
 
-export const alt =
-  "DYSTOPIA — desenvolvimento de software, montagem, manutenção e formatação de computadores, por Flávio Victor";
-export const size = { width: 1200, height: 630 };
+export const alt = SITE_COVER.alt;
+export const size = { width: SITE_COVER.width, height: SITE_COVER.height };
 export const contentType = "image/png";
 
 const OBSIDIAN = "#0b0b0c";

@@ -15,19 +15,36 @@ import { getCurrentUser } from "@/lib/data/auth";
 import { getActiveCoupons, getProductBySlug, getRelatedProducts } from "@/lib/data/products";
 import { publicName } from "@/lib/format";
 import { photoCreditByUrl } from "@/lib/photo-credits";
-import { JsonLd, absoluteUrl, breadcrumb, canonical } from "@/lib/seo";
+import { JsonLd, SITE_COVER, absoluteUrl, breadcrumb, canonical } from "@/lib/seo";
 import { isDemoAccount } from "@/lib/site";
 
 export async function generateMetadata(props: PageProps<"/produto/[slug]">): Promise<Metadata> {
   const { slug } = await props.params;
   const product = await getProductBySlug(slug);
   if (!product) return {};
-  const photo = product.images.find((image) => image.url.endsWith(".webp"));
+  const description = product.description.slice(0, 155);
+  /* Placa técnica é SVG e robô de rede social não lê SVG: só foto serve de
+   * capa. PNG/JPEG na frente do WebP porque o do LinkedIn engasga com WebP. */
+  const photos = product.images.filter((image) => /\.(?:png|jpe?g|webp)(?:\?|$)/i.test(image.url));
+  const photo = photos.find((image) => /\.(?:png|jpe?g)(?:\?|$)/i.test(image.url)) ?? photos[0];
   return {
     title: product.name,
-    description: product.description.slice(0, 155),
+    description,
     alternates: canonical(`/produto/${product.slug}`),
-    openGraph: photo ? { images: [{ url: photo.url, alt: photo.altText ?? product.name }] } : undefined,
+    /* O `openGraph` da página SUBSTITUI o do layout em vez de somar (e a capa
+     * de app/opengraph-image.tsx também sai): sem repetir tudo aqui, link de
+     * produto no LinkedIn ou no WhatsApp ia sem cartão nenhum. Sem foto (a
+     * maioria do catálogo tem só placa técnica, e robô de rede social não lê
+     * SVG) entra a capa do site. */
+    openGraph: {
+      type: "website",
+      locale: "pt_BR",
+      siteName: "DYSTOPIA",
+      title: `${product.name} · DYSTOPIA`,
+      description,
+      url: `/produto/${product.slug}`,
+      images: photo ? [{ url: photo.url, alt: photo.altText ?? product.name }] : [SITE_COVER],
+    },
   };
 }
 

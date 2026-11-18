@@ -39,8 +39,12 @@ export function ProductCard({ product, priority = false }: { product: ProductCar
     <article
       className={`sweep group relative flex flex-col bg-background transition-colors hover:bg-background-elevated ${gridCell}`}
     >
-      {/* Nome no próprio link: produto sem imagem deixaria um link vazio para o leitor de tela. */}
+      {/* Nome no próprio link: produto sem imagem deixaria um link vazio para o leitor de tela.
+          Sem prefetch: uma listagem tem 24 cards, e cada rota de produto é
+          dinâmica (nonce da CSP), então o prefetch padrão renderizava as 24
+          páginas no servidor só por elas aparecerem na grade. */}
       <Link
+        prefetch={false}
         href={`/produto/${product.slug}`}
         aria-label={product.name}
         className="relative block aspect-square overflow-hidden"
@@ -81,7 +85,7 @@ export function ProductCard({ product, priority = false }: { product: ProductCar
           {[product.brand, product.category?.name].filter(Boolean).join(" · ") || "Hardware"}
         </span>
 
-        <Link href={`/produto/${product.slug}`}>
+        <Link prefetch={false} href={`/produto/${product.slug}`}>
           <h3 className="line-clamp-2 min-h-10 text-sm leading-5 text-foreground group-hover:underline group-hover:underline-offset-4">
             {product.name}
           </h3>
