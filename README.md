@@ -78,9 +78,12 @@ responde (aprovar, recusar, instável, fora do ar) para ver a saga reagir.
 | ![Admin](docs/screenshots/admin-dashboard.webp) | ![Celular](docs/screenshots/mobile-home.webp) |
 
 Os prints são gerados contra um banco populado só pelo seed, com pedidos feitos
-pelo próprio fluxo da loja num navegador de verdade (Playwright) — o recusado
-usa o gateway simulado (`ALLOW_CHECKOUT_SIMULATION`). O do assistente é uma
-conversa real com o modelo, no site publicado.
+pelo próprio fluxo da loja num navegador de verdade (Playwright): uma compra
+aprovada com cupom, uma recusada e uma com o gateway instável — por isso o
+painel de orquestração mostra 2 de 3 concluídas e uma retentativa no passo de
+pagamento. Quem escolhe a resposta do gateway é o modo demonstração
+(`ALLOW_CHECKOUT_SIMULATION`). O do assistente é uma conversa real com o
+modelo, no site publicado.
 
 ## Arquitetura
 
