@@ -40,6 +40,11 @@ function StoreSearch() {
 /**
  * Navegação principal. Serviços vêm primeiro (é o foco do site); a loja abre
  * um menu com as categorias em vez de uma faixa rolável.
+ *
+ * As categorias vão sem prefetch: os dois menus ficam no DOM mesmo fechados
+ * (só `invisible`), então o prefetch padrão mandava o servidor renderizar as
+ * 10 categorias duas vezes em cada página vista. Os links fixos da barra
+ * continuam com prefetch — são poucos e é o que o visitante clica.
  */
 export function HeaderNav({ categories }: { categories: Category[] }) {
   const path = usePathname();
@@ -120,6 +125,7 @@ export function HeaderNav({ categories }: { categories: Category[] }) {
               {categories.map((c) => (
                 <li key={c.slug}>
                   <Link
+                    prefetch={false}
                     href={`/categoria/${c.slug}`}
                     className="group flex items-center justify-between border-b border-border-faint py-2.5 text-sm text-foreground-muted transition-colors hover:text-foreground"
                   >
@@ -191,6 +197,7 @@ export function HeaderNav({ categories }: { categories: Category[] }) {
             {categories.map((c) => (
               <li key={c.slug}>
                 <Link
+                  prefetch={false}
                   href={`/categoria/${c.slug}`}
                   className="block border-b border-border-faint py-2.5 text-sm text-foreground-muted"
                 >

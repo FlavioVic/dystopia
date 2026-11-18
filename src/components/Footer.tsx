@@ -5,6 +5,10 @@ import { CONTACT_EMAIL } from "@/lib/site";
 
 type Category = { slug: string; name: string };
 
+/* Sem prefetch: o rodapé aparece em toda página e tem ~20 links. Como toda
+ * rota é dinâmica (nonce da CSP por request) e não há fronteira de `loading`,
+ * o prefetch padrão renderizava no servidor todas essas rotas só por elas
+ * entrarem na tela. Quem desce até o rodapé clica em um link, não em vinte. */
 export function Footer({ categories }: { categories: Category[] }) {
   const heading = "label text-foreground-muted";
   const item = "inline-block py-0.5 text-sm text-foreground-muted hover:text-foreground";
@@ -25,7 +29,7 @@ export function Footer({ categories }: { categories: Category[] }) {
           <ul className="mt-4 flex flex-col gap-2">
             {categories.map((c) => (
               <li key={c.slug}>
-                <Link href={`/categoria/${c.slug}`} className={item}>
+                <Link prefetch={false} href={`/categoria/${c.slug}`} className={item}>
                   {c.name}
                 </Link>
               </li>
@@ -38,13 +42,13 @@ export function Footer({ categories }: { categories: Category[] }) {
           <ul className="mt-4 flex flex-col gap-2">
             {SERVICES.map((s) => (
               <li key={s.kind}>
-                <Link href={`/servicos#${s.kind}`} className={item}>
+                <Link prefetch={false} href={`/servicos#${s.kind}`} className={item}>
                   {s.name}
                 </Link>
               </li>
             ))}
             <li>
-              <Link href="/servicos#orcamento" className={item}>
+              <Link prefetch={false} href="/servicos#orcamento" className={item}>
                 Solicitar orçamento
               </Link>
             </li>
@@ -55,32 +59,32 @@ export function Footer({ categories }: { categories: Category[] }) {
           <h2 className={heading}>Registro</h2>
           <ul className="mt-4 flex flex-col gap-2">
             <li>
-              <Link href="/conta" className={item}>
+              <Link prefetch={false} href="/conta" className={item}>
                 Sua ficha
               </Link>
             </li>
             <li>
-              <Link href="/carrinho" className={item}>
+              <Link prefetch={false} href="/carrinho" className={item}>
                 Carrinho
               </Link>
             </li>
             <li>
-              <Link href="/sobre" className={item}>
+              <Link prefetch={false} href="/sobre" className={item}>
                 Sobre a loja
               </Link>
             </li>
             <li>
-              <Link href="/portfolio" className={item}>
+              <Link prefetch={false} href="/portfolio" className={item}>
                 Portfólio
               </Link>
             </li>
             <li>
-              <Link href="/creditos" className={item}>
+              <Link prefetch={false} href="/creditos" className={item}>
                 Créditos
               </Link>
             </li>
             <li>
-              <Link href="/privacidade" className={item}>
+              <Link prefetch={false} href="/privacidade" className={item}>
                 Privacidade
               </Link>
             </li>
@@ -97,7 +101,11 @@ export function Footer({ categories }: { categories: Category[] }) {
         <div className="mx-auto flex max-w-site flex-col gap-3 px-4 py-6 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
           <p className="text-[13px] text-foreground-muted">
             Projetado e construído por <span className="text-foreground">Flávio Victor</span>.{" "}
-            <Link href="/portfolio#dystopia" className="underline underline-offset-4 hover:text-foreground">
+            <Link
+              prefetch={false}
+              href="/portfolio#dystopia"
+              className="underline underline-offset-4 hover:text-foreground"
+            >
               Projeto de portfólio
             </Link>
             : nenhuma cobrança é real. Marcas pertencem aos fabricantes; preços são fictícios.
