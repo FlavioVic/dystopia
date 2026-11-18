@@ -50,8 +50,8 @@
     "@types/react-dom": "^19",
     "drizzle-kit": "^0.31.11",
     "eslint": "^10",
-    "eslint-config-next": "^16.4.5",
-    "prettier": "^3.9.10",
+    "eslint-config-next": "^16.4.6",
+    "prettier": "^3.10.1",
     "tailwindcss": "^4",
     "tsx": "^4.23.15",
     "typescript": "^5"
